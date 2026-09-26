@@ -47,8 +47,13 @@ export async function activate(context: vscode.ExtensionContext) {
 
     // Register commands
     context.subscriptions.push(
-      vscode.commands.registerCommand('arc1610.openChat', () => {
-        vscode.commands.executeCommand('arc1610.chatView.focus');
+      vscode.commands.registerCommand('arc1610.openChat', async () => {
+        try {
+          await vscode.commands.executeCommand('workbench.view.extension.arc1610-sidebar');
+        } catch {
+          // ignore if already open
+        }
+        await vscode.commands.executeCommand('arc1610.chatView.focus');
       }),
       
       vscode.commands.registerCommand('arc1610.newChat', () => {

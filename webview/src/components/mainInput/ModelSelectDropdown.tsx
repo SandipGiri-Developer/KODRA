@@ -7,6 +7,7 @@ import {
   PhotoIcon,
   LightBulbIcon
 } from "@heroicons/react/24/outline";
+import { Anthropic, OpenAI, Gemini, Ollama } from "@lobehub/icons";
 import React, { useState, useEffect, useContext } from "react";
 import { Listbox, ListboxButton, ListboxOption, ListboxOptions } from "../ui/Listbox";
 import { Divider } from "../ui/Divider";
@@ -17,6 +18,15 @@ import { AddModelForm } from "../../forms/AddModelForm";
 import { TextDialog } from "../dialogs/TextDialog";
 import { useWebviewListener } from "../../hooks/useWebviewListener";
 import { DiscoveredModel } from "../../../../src/providers/types";
+
+function ProviderMiniIcon({ provider, className = "h-3.5 w-3.5 flex-shrink-0" }: { provider?: string; className?: string }) {
+  const p = (provider || "").toLowerCase();
+  if (p.includes("ollama")) return <Ollama size={14} className={className} />;
+  if (p.includes("openai")) return <OpenAI size={14} className={`text-[#10A37F] ${className}`} />;
+  if (p.includes("anthropic") || p.includes("claude")) return <Anthropic size={14} className={`text-[#D4A373] ${className}`} />;
+  if (p.includes("gemini") || p.includes("google")) return <Gemini.Color size={14} className={className} />;
+  return <CubeIcon className={className} />;
+}
 
 interface WorkspaceModel {
   id: string;
@@ -104,8 +114,11 @@ export function ModelSelectDropdown() {
     <Listbox value={currentModel} onChange={handleSelect}>
       <ListboxButton 
         onClick={handleOpenDropdown}
-        className="border-none bg-transparent hover:bg-transparent shadow-none px-1 py-0 hover:brightness-125 flex items-center gap-1 cursor-pointer"
+        className="border-none bg-transparent hover:bg-transparent shadow-none px-1 py-0 hover:brightness-125 flex items-center gap-1.5 cursor-pointer"
       >
+        {selectedWorkspaceModel && (
+          <ProviderMiniIcon provider={selectedWorkspaceModel.provider} />
+        )}
         <span className="text-xs text-vsc-foreground">{displayTitle}</span>
         <ChevronDownIcon className="h-3 w-3 text-vsc-foreground" />
       </ListboxButton>
@@ -135,7 +148,7 @@ export function ModelSelectDropdown() {
             value={model.id}
             className={`cursor-pointer px-3 py-1.5 flex items-center gap-2 hover:bg-list-active hover:text-list-active-foreground ${currentModel === model.id ? "bg-list-active text-list-active-foreground" : ""}`}
           >
-            <CubeIcon className="h-3.5 w-3.5 flex-shrink-0" />
+            <ProviderMiniIcon provider={model.provider} />
             <div className="flex-1 flex flex-col overflow-hidden">
               <span className="truncate text-xs">{model.displayName}</span>
               <div className="flex gap-1 mt-0.5">

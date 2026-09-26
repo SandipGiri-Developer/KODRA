@@ -1,64 +1,140 @@
-const getModelByRole = () => undefined;
-import { ModelSelectDropdown } from "./ModelSelectDropdown";
-import { ChevronDownIcon } from "@heroicons/react/24/outline";
-import { Listbox, ListboxButton, ListboxOption, ListboxOptions } from "@headlessui/react";
-import { useState } from "react";
-
-const ModeSelect = () => {
-  const [selectedMode, setSelectedMode] = useState("Agent");
-  
-  return (
-    <Listbox value={selectedMode} onChange={setSelectedMode}>
-      <ListboxButton className="flex items-center gap-1 bg-vsc-input-background rounded-full px-2 py-0.5 cursor-pointer hover:brightness-125 border border-vsc-commandCenter-inactiveBorder transition-colors outline-none">
-        <span className="text-[11px] font-medium text-vsc-foreground">{selectedMode}</span>
-        <ChevronDownIcon className="h-3 w-3 text-vsc-foreground" />
-      </ListboxButton>
-      <ListboxOptions 
-        anchor="top start" 
-        className="z-50 rounded-md border border-vsc-commandCenter-inactiveBorder bg-vsc-editor-background p-1 shadow-lg outline-none min-w-[120px] mb-1"
-      >
-        <ListboxOption 
-          value="Agent" 
-          className="cursor-pointer select-none rounded px-2 py-1.5 text-xs hover:bg-vsc-list-activeSelectionBackground hover:text-vsc-list-activeSelectionForeground text-vsc-foreground"
-        >
-          Agent
-        </ListboxOption>
-        <ListboxOption 
-          value="Plan Chat" 
-          className="cursor-pointer select-none rounded px-2 py-1.5 text-xs hover:bg-vsc-list-activeSelectionBackground hover:text-vsc-list-activeSelectionForeground text-vsc-foreground"
-        >
-          Plan Chat
-        </ListboxOption>
-      </ListboxOptions>
-    </Listbox>
-  );
-};
-const exitEdit = (a: any) => ({type: "dummy"});
+import React, { memo, useContext, useRef } from "react";
 import {
   AtSymbolIcon,
+  ChevronDownIcon,
   LightBulbIcon as LightBulbIconOutline,
   PhotoIcon,
+  SparklesIcon,
+  DocumentTextIcon,
+  ChatBubbleLeftIcon,
 } from "@heroicons/react/24/outline";
-import { LightBulbIcon as LightBulbIconSolid, ArrowRightIcon, StopIcon } from "@heroicons/react/24/solid";
-import { InputModifiers } from "core";
-const modelSupportsImages = (...args: any) => false;
-const modelSupportsReasoning = (arg: any) => false;
-import { memo, useContext, useRef } from "react";
+import {
+  LightBulbIcon as LightBulbIconSolid,
+  ArrowRightIcon,
+  StopIcon,
+} from "@heroicons/react/24/solid";
+import { InputModifiers, MessageModes } from "core";
 import { IdeMessengerContext } from "../../context/IdeMessenger";
 import { useAppDispatch, useAppSelector } from "../../redux/hooks";
 import { selectUseActiveFile } from "../../redux/selectors";
 import { selectSelectedChatModel } from "../../redux/slices/configSlice";
-import { setHasReasoningEnabled } from "../../redux/slices/sessionSlice";
+import { setHasReasoningEnabled, setMode } from "../../redux/slices/sessionSlice";
 import { setReasoningSetting } from "../../redux/slices/uiSlice";
-
 import { getMetaKeyLabel, isMetaEquivalentKeyPressed } from "../../util";
 import { ToolTip } from "../gui/Tooltip";
-
-
 import { Button } from "../ui";
 import { useFontSize } from "../ui/font";
+import {
+  Listbox,
+  ListboxButton,
+  ListboxOption,
+  ListboxOptions,
+} from "../ui/Listbox";
 import ContextStatus from "./ContextStatus";
 import HoverItem from "./InputToolbar/HoverItem";
+import { ModelSelectDropdown } from "./ModelSelectDropdown";
+
+const getModelByRole = () => undefined;
+const exitEdit = (a: any) => ({ type: "dummy" });
+const modelSupportsImages = (...args: any) => false;
+const modelSupportsReasoning = (arg: any) => false;
+
+interface ModeOption {
+  value: MessageModes;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+}
+
+const MODE_OPTIONS: ModeOption[] = [
+  { value: "agent", label: "Agent", icon: SparklesIcon },
+  { value: "plan", label: "Plan", icon: DocumentTextIcon },
+  { value: "chat", label: "Chat", icon: ChatBubbleLeftIcon },
+];
+
+const ModeSelect = () => {
+  const dispatch = useAppDispatch();
+  const reduxMode = useAppSelector((store) => store.session.mode);
+
+  const currentMode: MessageModes =
+    reduxMode === "chat" || reduxMode === "plan" ? reduxMode : "agent";
+
+  const selectedOption =
+    MODE_OPTIONS.find((m) => m.value === currentMode) ?? MODE_OPTIONS[0];
+
+  const handleSelect = (val: MessageModes) => {
+    dispatch(setMode(val));
+  };
+
+  return (
+    <Listbox value={currentMode} onChange={handleSelect}>
+      {/* Important: wrapper only takes the width of the visible button */}
+      <div className="inline-flex w-fit shrink-0">
+        <ListboxButton
+          className="
+            inline-flex w-fit shrink-0
+            items-center gap-1
+            border-none bg-transparent
+            px-1 py-0
+            shadow-none
+            hover:bg-transparent
+            hover:brightness-125
+            cursor-pointer
+          "
+        >
+          <span className="whitespace-nowrap text-xs text-vsc-foreground">
+            {selectedOption.label}
+          </span>
+
+          <ChevronDownIcon className="h-3 w-3 shrink-0 text-vsc-foreground" />
+        </ListboxButton>
+
+        <ListboxOptions
+          anchor="top start"
+          className="
+            z-50
+            w-44
+            max-h-80
+            overflow-y-auto
+            rounded-md
+            border
+            border-vsc-commandCenter-inactiveBorder
+            bg-vsc-background
+            mb-1
+          "
+        >
+          <div className="flex items-center justify-between border-b border-vsc-commandCenter-inactiveBorder px-3 py-2">
+            <span className="text-xs font-semibold">Mode</span>
+          </div>
+
+          {MODE_OPTIONS.map((opt) => {
+            const Icon = opt.icon;
+            const isSelected = currentMode === opt.value;
+
+            return (
+              <ListboxOption
+                key={opt.value}
+                value={opt.value}
+                className={`flex cursor-pointer items-center gap-2 px-3 py-1.5 hover:bg-list-active hover:text-list-active-foreground ${
+                  isSelected
+                    ? "bg-list-active text-list-active-foreground"
+                    : ""
+                }`}
+              >
+                <Icon className="h-3.5 w-3.5 flex-shrink-0" />
+
+                <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+                  <span className="truncate text-xs">
+                    {opt.label}
+                  </span>
+                </div>
+              </ListboxOption>
+            );
+          })}
+        </ListboxOptions>
+      </div>
+    </Listbox>
+  );
+};
 
 export interface ToolbarOptions {
   hideUseCodebase?: boolean;
@@ -84,14 +160,22 @@ function InputToolbar(props: InputToolbarProps) {
   const dispatch = useAppDispatch();
   const ideMessenger = useContext(IdeMessengerContext);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+
   const defaultModel = useAppSelector(selectSelectedChatModel);
   const useActiveFile = useAppSelector(selectUseActiveFile);
   const isInEdit = useAppSelector((store) => store.session.isInEdit);
-  const codeToEdit = useAppSelector((store) => store.editModeState.codeToEdit);
+  const codeToEdit = useAppSelector(
+    (store) => store.editModeState.codeToEdit,
+  );
+
   const hasReasoningEnabled = useAppSelector(
     (store) => store.session.hasReasoningEnabled,
   );
-  const isStreaming = useAppSelector((state) => state.session.isStreaming);
+
+  const isStreaming = useAppSelector(
+    (state) => state.session.isStreaming,
+  );
+
   const isEnterDisabled =
     props.disabled || (isInEdit && codeToEdit.length === 0);
 
@@ -113,16 +197,21 @@ function InputToolbar(props: InputToolbarProps) {
     <>
       <div
         onClick={props.onClick}
-        className={`find-widget-skip bg-vsc-input-background flex select-none flex-row items-center justify-between gap-1 pt-1 ${props.hidden ? "pointer-events-none h-0 cursor-default opacity-0" : "pointer-events-auto mt-2 cursor-text opacity-100"}`}
+        className={`find-widget-skip bg-vsc-input-background flex select-none flex-row items-center justify-between gap-1 pt-1 ${
+          props.hidden
+            ? "pointer-events-none h-0 cursor-default opacity-0"
+            : "pointer-events-auto mt-2 cursor-text opacity-100"
+        }`}
         style={{
           fontSize: smallFont,
         }}
       >
-        <div className="xs:gap-1.5 flex flex-row items-center gap-2">
-          {!isInEdit && (
-            <ModeSelect />
-          )}
+        {/* Left side */}
+        <div className="xs:gap-1.5 flex flex-row items-center gap-1">
+          {!isInEdit && <ModeSelect />}
+
           <ModelSelectDropdown />
+
           <div className="xs:flex text-description -mb-1 hidden items-center transition-colors duration-200">
             {props.toolbarOptions?.hideImageUpload ||
               (supportsImages && (
@@ -134,20 +223,25 @@ function InputToolbar(props: InputToolbarProps) {
                     accept=".jpg,.jpeg,.png,.gif,.svg,.webp"
                     onChange={(e) => {
                       const files = e.target?.files ?? [];
+
                       for (const file of files) {
                         props.onImageFileSelected?.(file);
                       }
+
                       if (fileInputRef.current) {
                         fileInputRef.current.value = "";
                       }
                     }}
                   />
 
-                  <ToolTip place="top" content="Attach Image">
+                  <ToolTip
+                    place="top"
+                    content="Attach Image"
+                  >
                     <HoverItem className="">
                       <PhotoIcon
                         className="h-3 w-3 hover:brightness-125"
-                        onClick={(e) => {
+                        onClick={() => {
                           fileInputRef.current?.click();
                         }}
                       />
@@ -155,17 +249,29 @@ function InputToolbar(props: InputToolbarProps) {
                   </ToolTip>
                 </>
               ))}
+
             {props.toolbarOptions?.hideAddContext || (
-              <ToolTip place="top" content="Attach Context">
-                <HoverItem onClick={props.onAddContextItem}>
+              <ToolTip
+                place="top"
+                content="Attach Context"
+              >
+                <HoverItem
+                  onClick={props.onAddContextItem}
+                >
                   <AtSymbolIcon className="h-3 w-3 hover:brightness-125" />
                 </HoverItem>
               </ToolTip>
             )}
+
             {supportsReasoning && (
               <HoverItem
                 onClick={() => {
-                  dispatch(setHasReasoningEnabled(!hasReasoningEnabled));
+                  dispatch(
+                    setHasReasoningEnabled(
+                      !hasReasoningEnabled,
+                    ),
+                  );
+
                   if (defaultModel?.title) {
                     dispatch(
                       setReasoningSetting({
@@ -195,6 +301,7 @@ function InputToolbar(props: InputToolbarProps) {
           </div>
         </div>
 
+        {/* Right side */}
         <div
           className="text-description flex items-center gap-2 whitespace-nowrap"
           style={{
@@ -216,23 +323,51 @@ function InputToolbar(props: InputToolbarProps) {
               </span>
             </HoverItem>
           )}
-          <ToolTip place="top" content={isStreaming ? "Stop generating" : "Send (⏎)"}>
+
+          <ToolTip
+            place="top"
+            content={
+              isStreaming
+                ? "Stop generating"
+                : "Send (⏎)"
+            }
+          >
             {isStreaming ? (
               <button
-  data-testid="stop-generation-button"
-  onClick={() => {
-    ideMessenger.post("cancelGeneration", undefined);
-    if ((window as any).vscode) {
-      (window as any).vscode.postMessage({ type: 'cancelGeneration' });
-    }
-  }}
-  className="group flex items-center justify-center w-8 h-8 rounded-full border-none bg-transparent backdrop-blur-md transition-all hover:bg-vsc-foreground/5 cursor-pointer relative"
->
-  {/* Blur outer circle effect */}
-  <div className="absolute inset-0 rounded-full bg-vsc-background/30 shadow-[0_0_10px_rgba(0,0,0,0.1)] pointer-events-none" />
-  {/* Red square inside */}
-  <div className="w-2.5 h-2.5 bg-[#e05252] rounded-[2px] shadow-[0_0_8px_rgba(224,82,82,0.4)] group-hover:bg-[#f15e5e] transition-colors relative z-10" />
-</button>
+                data-testid="stop-generation-button"
+                onClick={() => {
+                  ideMessenger.post(
+                    "cancelGeneration",
+                    undefined,
+                  );
+
+                  if ((window as any).vscode) {
+                    (window as any).vscode.postMessage({
+                      type: "cancelGeneration",
+                    });
+                  }
+                }}
+                className="
+                  group
+                  relative
+                  flex
+                  h-8
+                  w-8
+                  cursor-pointer
+                  items-center
+                  justify-center
+                  rounded-full
+                  border-none
+                  bg-transparent
+                  backdrop-blur-md
+                  transition-all
+                  hover:bg-vsc-foreground/5
+                "
+              >
+                <div className="pointer-events-none absolute inset-0 rounded-full bg-vsc-background/30 shadow-[0_0_10px_rgba(0,0,0,0.1)]" />
+
+                <div className="relative z-10 h-2.5 w-2.5 rounded-[2px] bg-[#e05252] shadow-[0_0_8px_rgba(224,82,82,0.4)] transition-colors group-hover:bg-[#f15e5e]" />
+              </button>
             ) : (
               <button
                 data-testid="submit-input-button"
@@ -241,19 +376,24 @@ function InputToolbar(props: InputToolbarProps) {
                     props.onEnter({
                       useCodebase: false,
                       noContext: useActiveFile
-                        ? isMetaEquivalentKeyPressed(e as any) || e.altKey
-                        : !(isMetaEquivalentKeyPressed(e as any) || e.altKey),
+                        ? isMetaEquivalentKeyPressed(e as any) ||
+                          e.altKey
+                        : !(
+                            isMetaEquivalentKeyPressed(
+                              e as any,
+                            ) || e.altKey
+                          ),
                     });
                   }
                 }}
                 disabled={isEnterDisabled}
-                className={`flex items-center justify-center w-8 h-8 rounded-full border-none transition-colors ${
+                className={`flex h-8 w-8 items-center justify-center rounded-full border-none transition-colors ${
                   isEnterDisabled
-                    ? "bg-gray-500 text-gray-300 cursor-not-allowed opacity-50"
-                    : "bg-blue-500 text-white hover:bg-blue-400 cursor-pointer"
+                    ? "cursor-not-allowed bg-gray-500 text-gray-300 opacity-50"
+                    : "cursor-pointer bg-blue-500 text-white hover:bg-blue-400"
                 }`}
               >
-                <ArrowRightIcon className="w-4 h-4" />
+                <ArrowRightIcon className="h-4 w-4" />
               </button>
             )}
           </ToolTip>
@@ -263,9 +403,13 @@ function InputToolbar(props: InputToolbarProps) {
   );
 }
 
-function shallowToolbarOptionsEqual(a?: ToolbarOptions, b?: ToolbarOptions) {
+function shallowToolbarOptionsEqual(
+  a?: ToolbarOptions,
+  b?: ToolbarOptions,
+) {
   if (a === b) return true;
   if (!a || !b) return false;
+
   return (
     a.hideAddContext === b.hideAddContext &&
     a.hideImageUpload === b.hideImageUpload &&
@@ -281,6 +425,8 @@ export default memo(
     prev.hidden === next.hidden &&
     prev.disabled === next.disabled &&
     prev.isMainInput === next.isMainInput &&
-    prev.activeKey === next.activeKey &&
-    shallowToolbarOptionsEqual(prev.toolbarOptions, next.toolbarOptions),
+    shallowToolbarOptionsEqual(
+      prev.toolbarOptions,
+      next.toolbarOptions,
+    ),
 );

@@ -4,6 +4,11 @@ import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   plugins: [react()],
+  resolve: {
+    alias: {
+      "@lobehub/icons": resolve(__dirname, "src/components/svg/ProviderLogos.tsx"),
+    },
+  },
   build: {
     sourcemap: true,
 

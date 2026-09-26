@@ -13,6 +13,12 @@ import {
   KeyIcon,
 } from "@heroicons/react/24/outline";
 import {
+  Anthropic,
+  OpenAI,
+  Gemini,
+  Ollama,
+} from "@lobehub/icons";
+import {
   DiscoveredModel,
   ProviderSettings,
   WorkspaceModel,
@@ -24,10 +30,10 @@ const PROVIDER_DISPLAY: Record<
   ProviderType,
   { label: string; icon: string }
 > = {
-  ollama: { label: "Ollama", icon: "O" },
-  openai: { label: "OpenAI", icon: "G" },
-  anthropic: { label: "Anthropic", icon: "A" },
-  gemini: { label: "Google Gemini", icon: "G" },
+  ollama: { label: "Ollama", icon: "Ollama" },
+  openai: { label: "OpenAI", icon: "OpenAI" },
+  anthropic: { label: "Anthropic", icon: "Anthropic" },
+  gemini: { label: "Google Gemini", icon: "Gemini" },
 };
 
 const PROVIDER_OPTIONS: {
@@ -51,15 +57,41 @@ const DEFAULT_ENDPOINTS: Record<ProviderType, string> = {
 /* Provider Icon                                                               */
 /* -------------------------------------------------------------------------- */
 
-function ProviderIcon({ provider }: { provider: string }) {
-  const meta =
-    PROVIDER_DISPLAY[provider as ProviderType];
-
+export function ProviderIcon({
+  provider,
+  size = 22,
+  className = "",
+}: {
+  provider: string;
+  size?: number | string;
+  className?: string;
+}) {
   const styles: Record<string, string> = {
     ollama: "bg-[#161A26] text-[#E2E8F0] border-[#262D3E]",
-    openai: "bg-[#141824] text-[#E2E8F0] border-[#262D3E]",
-    anthropic: "bg-[#241C18] text-[#F3D9A6] border-[#3B2C24]",
+    openai: "bg-[#10241E] text-[#10A37F] border-[#18483B]",
+    anthropic: "bg-[#241C18] text-[#D4A373] border-[#3B2C24]",
     gemini: "bg-[#141F33] text-[#93C5FD] border-[#223554]",
+  };
+
+  const renderIcon = () => {
+    const key = (provider || "").toLowerCase();
+    if (key.includes("ollama")) {
+      return <Ollama size={size} className="text-[#E2E8F0]" />;
+    }
+    if (key.includes("openai")) {
+      return <OpenAI size={size} className="text-[#10A37F]" />;
+    }
+    if (key.includes("anthropic") || key.includes("claude")) {
+      return <Anthropic size={size} className="text-[#D4A373]" />;
+    }
+    if (key.includes("gemini") || key.includes("google")) {
+      return <Gemini.Color size={size} />;
+    }
+    return (
+      <span className="text-[15px] font-semibold text-[#E2E8F0]">
+        {provider.charAt(0).toUpperCase()}
+      </span>
+    );
   };
 
   return (
@@ -68,11 +100,11 @@ function ProviderIcon({ provider }: { provider: string }) {
         flex h-11 w-11 flex-shrink-0 items-center justify-center
         rounded-[8px]
         border
-        text-[15px] font-semibold
-        ${styles[provider] ?? "bg-[#161A26] text-[#E2E8F0] border-[#262D3E]"}
+        ${styles[provider.toLowerCase()] ?? "bg-[#161A26] text-[#E2E8F0] border-[#262D3E]"}
+        ${className}
       `}
     >
-      {meta?.icon ?? provider.charAt(0).toUpperCase()}
+      {renderIcon()}
     </div>
   );
 }
@@ -517,49 +549,53 @@ function AddProviderForm({
             Provider Type
           </label>
 
-          <div className="relative w-full max-w-[360px]">
-            <select
-              id="provider-type-select"
-              value={providerType}
-              onChange={(event) =>
-                handleProviderChange(
-                  event.target.value as ProviderType,
-                )
-              }
-              className="
-                h-10 w-full appearance-none
-                rounded-[6px]
-                border border-[#262D3D]
-                bg-[#0C0E14]
-                px-3 pr-9
-                text-[14px] text-[#F1F5F9]
-                outline-none
-                transition-colors
-                hover:border-[#384258]
-                focus:border-[#6366F1]
-                focus:ring-2
-                focus:ring-[#6366F1]/20
-              "
-            >
-              {PROVIDER_OPTIONS.map((option) => (
-                <option
-                  key={option.value}
-                  value={option.value}
-                >
-                  {option.label}
-                </option>
-              ))}
-            </select>
+          <div className="flex items-center gap-3">
+            <ProviderIcon provider={providerType} />
 
-            <ChevronDownIcon
-              className="
-                pointer-events-none
-                absolute right-3 top-1/2
-                h-4 w-4
-                -translate-y-1/2
-                text-[#94A3B8]
-              "
-            />
+            <div className="relative w-full max-w-[360px]">
+              <select
+                id="provider-type-select"
+                value={providerType}
+                onChange={(event) =>
+                  handleProviderChange(
+                    event.target.value as ProviderType,
+                  )
+                }
+                className="
+                  h-10 w-full appearance-none
+                  rounded-[6px]
+                  border border-[#262D3D]
+                  bg-[#0C0E14]
+                  px-3 pr-9
+                  text-[14px] text-[#F1F5F9]
+                  outline-none
+                  transition-colors
+                  hover:border-[#384258]
+                  focus:border-[#6366F1]
+                  focus:ring-2
+                  focus:ring-[#6366F1]/20
+                "
+              >
+                {PROVIDER_OPTIONS.map((option) => (
+                  <option
+                    key={option.value}
+                    value={option.value}
+                  >
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+
+              <ChevronDownIcon
+                className="
+                  pointer-events-none
+                  absolute right-3 top-1/2
+                  h-4 w-4
+                  -translate-y-1/2
+                  text-[#94A3B8]
+                "
+              />
+            </div>
           </div>
         </div>
 
