@@ -272,7 +272,7 @@ function TipTapEditorInner(props: TipTapEditorProps) {
       }}
     >
       <div className="px-2.5 pb-1 pt-2">
-        {props.isMainInput && (<div className="flex items-center justify-between gap-3 mb-2 pb-2 border-b border-gray-600/30"><div className="flex items-center gap-2"><PencilIcon className="text-gray-400 h-3.5 w-3.5 hover:text-white cursor-pointer transition-colors" /><WrenchScrewdriverIcon className="text-gray-400 h-3.5 w-3.5 hover:text-white cursor-pointer transition-colors" /><CubeIcon className="text-gray-400 h-3.5 w-3.5 hover:text-white cursor-pointer transition-colors" /></div><div className="flex items-center gap-1 cursor-pointer hover:text-white text-gray-400 text-xs transition-colors"><span>Main Config</span><ChevronDownIcon className="h-3 w-3" /></div></div>)} <EditorContent
+        <EditorContent
           className={`scroll-container overflow-y-scroll ${props.isMainInput ? "max-h-[70vh]" : ""}`}
           spellCheck={false}
           editor={editor}

@@ -33,6 +33,7 @@ export declare class AgentLoop {
         model?: string;
         maxTokens?: number;
         contextFiles?: string[];
+        toolCalling?: boolean;
     }): AsyncGenerator<AgentEvent>;
     /**
      * Cancel the current agent run.

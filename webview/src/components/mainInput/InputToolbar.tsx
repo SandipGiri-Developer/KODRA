@@ -1,12 +1,38 @@
 const getModelByRole = () => undefined;
 import { ModelSelectDropdown } from "./ModelSelectDropdown";
 import { ChevronDownIcon } from "@heroicons/react/24/outline";
-const ModeSelect = () => (
-  <div className="flex items-center gap-1 bg-vsc-input-background rounded-full px-2 py-0.5 cursor-pointer hover:brightness-125 border border-vsc-commandCenter-inactiveBorder transition-colors">
-    <span className="text-[11px] font-medium text-vsc-foreground">✨ Agent</span>
-    <ChevronDownIcon className="h-3 w-3 text-vsc-foreground" />
-  </div>
-);
+import { Listbox, ListboxButton, ListboxOption, ListboxOptions } from "@headlessui/react";
+import { useState } from "react";
+
+const ModeSelect = () => {
+  const [selectedMode, setSelectedMode] = useState("Agent");
+  
+  return (
+    <Listbox value={selectedMode} onChange={setSelectedMode}>
+      <ListboxButton className="flex items-center gap-1 bg-vsc-input-background rounded-full px-2 py-0.5 cursor-pointer hover:brightness-125 border border-vsc-commandCenter-inactiveBorder transition-colors outline-none">
+        <span className="text-[11px] font-medium text-vsc-foreground">{selectedMode}</span>
+        <ChevronDownIcon className="h-3 w-3 text-vsc-foreground" />
+      </ListboxButton>
+      <ListboxOptions 
+        anchor="top start" 
+        className="z-50 rounded-md border border-vsc-commandCenter-inactiveBorder bg-vsc-editor-background p-1 shadow-lg outline-none min-w-[120px] mb-1"
+      >
+        <ListboxOption 
+          value="Agent" 
+          className="cursor-pointer select-none rounded px-2 py-1.5 text-xs hover:bg-vsc-list-activeSelectionBackground hover:text-vsc-list-activeSelectionForeground text-vsc-foreground"
+        >
+          Agent
+        </ListboxOption>
+        <ListboxOption 
+          value="Plan Chat" 
+          className="cursor-pointer select-none rounded px-2 py-1.5 text-xs hover:bg-vsc-list-activeSelectionBackground hover:text-vsc-list-activeSelectionForeground text-vsc-foreground"
+        >
+          Plan Chat
+        </ListboxOption>
+      </ListboxOptions>
+    </Listbox>
+  );
+};
 const exitEdit = (a: any) => ({type: "dummy"});
 import {
   AtSymbolIcon,

@@ -28,3 +28,4 @@ vsc-extension-quickstart.md
 **/*.ts
 **/.vscode-test.*
 Testing-enviroment/
+continue_rag_architecture.md

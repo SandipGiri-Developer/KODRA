@@ -15,6 +15,7 @@ import {
   StreamChunk,
   ToolCall,
   ToolDefinition,
+  DiscoveredModel,
 } from './types';
 
 interface OllamaMessage {
@@ -111,7 +112,7 @@ export class OllamaProvider implements ILLMProvider {
         );
       }
       throw new Arc1610Error(
-        ErrorReason.ProviderConnectionFailed,
+        ErrorReason.Unknown,
         `Ollama error ${response.status}: ${errorBody}`,
       );
     }
@@ -182,17 +183,75 @@ export class OllamaProvider implements ILLMProvider {
     }
   }
 
-  async testConnection(): Promise<string[]> {
+  async discoverModels(): Promise<DiscoveredModel[]> {
     try {
+      // 1. Get the list of installed models
       const response = await fetch(`${this.endpoint}/api/tags`, {
         signal: AbortSignal.timeout(10_000),
       });
       if (!response.ok) {
         throw new Error(`Ollama responded with ${response.status}`);
       }
-      const data = await response.json() as { models?: Array<{ name: string }> };
-      return (data.models || []).map(m => m.name);
+      const data = await response.json() as { models?: Array<{ name: string; details?: any, capabilities?: string[] }> };
+      const models = data.models || [];
+      
+      const discovered: DiscoveredModel[] = [];
+
+      // 2. Map them to our format.
+      for (const m of models) {
+        const id = m.name;
+        
+        let hasToolCalling = false;
+        let hasVision = false;
+        let hasReasoning = false;
+        let isEmbedding = false;
+
+        // If the Ollama version provides capabilities natively
+        if (m.capabilities && Array.isArray(m.capabilities)) {
+          hasToolCalling = m.capabilities.includes('tools');
+          hasVision = m.capabilities.includes('vision');
+          hasReasoning = m.capabilities.includes('thinking') || m.capabilities.includes('reasoning');
+          isEmbedding = m.capabilities.includes('embedding');
+        } else {
+          // Fallback heuristic if capabilities array is not provided
+          const lowerId = id.toLowerCase();
+          hasToolCalling = lowerId.includes('llama3.1') || 
+                           lowerId.includes('llama3.2') || 
+                           lowerId.includes('llama3.3') ||
+                           lowerId.includes('qwen') || 
+                           lowerId.includes('mistral') || 
+                           lowerId.includes('mixtral');
+          hasVision = lowerId.includes('llava') || lowerId.includes('vision');
+          hasReasoning = lowerId.includes('deepseek-r1') || lowerId.includes('reasoning');
+          isEmbedding = lowerId.includes('embed');
+        }
+        
+        // If we know it's an embedding-only model (via name heuristic or explicit capability), skip it
+        if (isEmbedding) {
+          continue;
+        }
+
+        // If native capabilities are provided and it explicitly lacks 'completion', it's not a chat model
+        if (m.capabilities && Array.isArray(m.capabilities) && !m.capabilities.includes('completion')) {
+          continue;
+        }
+
+        discovered.push({
+          id,
+          displayName: id,
+          provider: this.id,
+          capabilities: {
+            streaming: true,
+            toolCalling: hasToolCalling,
+            vision: hasVision,
+            reasoning: hasReasoning,
+          }
+        });
+      }
+
+      return discovered;
     } catch (error: unknown) {
+      if (error instanceof Arc1610Error) throw error;
       throw new Arc1610Error(
         ErrorReason.ProviderConnectionFailed,
         `Cannot reach Ollama at ${this.endpoint}. Is Ollama running?`,
@@ -201,8 +260,13 @@ export class OllamaProvider implements ILLMProvider {
     }
   }
 
+  async testConnection(): Promise<string[]> {
+    const models = await this.discoverModels();
+    return models.map(m => m.id);
+  }
+
   getDefaultModel(): string {
-    return 'llama3.2';
+    return '';
   }
 
   dispose(): void {

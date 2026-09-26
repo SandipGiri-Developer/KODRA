@@ -2,7 +2,10 @@ import {
   Cog6ToothIcon,
   CubeIcon,
   PlusIcon,
-  ChevronDownIcon
+  ChevronDownIcon,
+  WrenchScrewdriverIcon,
+  PhotoIcon,
+  LightBulbIcon
 } from "@heroicons/react/24/outline";
 import React, { useState, useEffect, useContext } from "react";
 import { Listbox, ListboxButton, ListboxOption, ListboxOptions } from "../ui/Listbox";
@@ -11,55 +14,99 @@ import { useAppSelector, useAppDispatch } from "../../redux/hooks";
 import { IdeMessengerContext } from "../../context/IdeMessenger";
 import { setShowDialog, setDialogMessage } from "../../redux/slices/uiSlice";
 import { AddModelForm } from "../../forms/AddModelForm";
+import { TextDialog } from "../dialogs/TextDialog";
+import { useWebviewListener } from "../../hooks/useWebviewListener";
+import { DiscoveredModel } from "../../../../src/providers/types";
 
-function modelSelectTitle(model: any): string {
-  if (model?.title) return model?.title;
-  if (model?.model !== undefined && model?.model.trim() !== "") {
-    if (model?.class_name) {
-      return `${model?.class_name} - ${model?.model}`;
-    }
-    return model?.model;
-  }
-  return model?.class_name;
+interface WorkspaceModel {
+  id: string;
+  displayName: string;
+  providerConfigId: string;
+  provider: string;
+  capabilities: {
+    streaming: boolean;
+    toolCalling: boolean;
+    vision: boolean;
+    reasoning?: boolean;
+  };
 }
 
 export function ModelSelectDropdown() {
   const ideMessenger = useContext(IdeMessengerContext);
   const dispatch = useAppDispatch();
-  const config = useAppSelector((state) => state.config.config);
-  const allModels = config.modelsByRole.chat || [];
-  const defaultSelectedModel = config.selectedModelByRole.chat;
   
-  const [selectedModelValue, setSelectedModelValue] = useState(
-    modelSelectTitle(defaultSelectedModel) || "Select model"
-  );
+  // In the real system, config would be fetched, but we're mimicking it or reading from backend
+  const [currentProvider, setCurrentProvider] = useState<string>("ollama");
+  const [currentModel, setCurrentModel] = useState<string>("Select model");
+  
+  const [models, setModels] = useState<DiscoveredModel[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [showAddModelDialog, setShowAddModelDialog] = useState(false);
 
+  // Listen for models discovered and config updates directly since IdeMessenger wraps them differently
   useEffect(() => {
-    if (defaultSelectedModel) {
-      setSelectedModelValue(modelSelectTitle(defaultSelectedModel));
+    // Request initial settings and config immediately on mount
+    if ((window as any).vscode) {
+      (window as any).vscode.postMessage({ type: "getSettings" });
+      (window as any).vscode.postMessage({ type: "getConfig" });
     }
-  }, [defaultSelectedModel]);
 
-  // Combine actual models from state with the mockup's visual elements
-  const options = allModels.length > 0 ? allModels.map(m => ({
-    title: modelSelectTitle(m),
-    value: modelSelectTitle(m),
-    autodetected: m.isFromAutoDetect || false
-  })) : [
-    { title: "qwen3:8b", value: "qwen3:8b", autodetected: true },
-  ];
+    const handleMessage = (event: MessageEvent) => {
+      const data = event.data;
+      if (!data || typeof data !== 'object') return;
 
-  const handleSelect = (val: string) => {
-    setSelectedModelValue(val);
-    // Ideally we would dispatch updateSelectedModelByRole here, 
-    // but since it's not present in Release 1, we just post to IDE or keep local state.
-    ideMessenger.post("config/updateSelectedModel", { role: "chat", modelTitle: val });
+      if (data.type === 'config') {
+        if (data.provider) setCurrentProvider(data.provider);
+        if (data.model) setCurrentModel(data.model);
+      } else if (data.type === 'settingsData') {
+        if (Array.isArray(data.workspaceModels)) {
+          setModels(data.workspaceModels);
+        }
+      }
+    };
+    
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, []);
+
+  const handleOpenDropdown = () => {
+    // Fetch latest settings whenever dropdown is opened
+    if ((window as any).vscode) {
+      (window as any).vscode.postMessage({ type: "getSettings" });
+    }
   };
 
+  const handleSelect = (val: string) => {
+    if (val === "CONFIGURE_MODELS") {
+      if ((window as any).vscode) {
+        (window as any).vscode.postMessage({
+          type: "executeCommand",
+          command: "arc1610.openSettings",
+        });
+      }
+      return;
+    }
+    setCurrentModel(val);
+    const selected = models.find((m) => m.id === val);
+    if ((window as any).vscode) {
+      if (selected) {
+        (window as any).vscode.postMessage({ type: "setProvider", provider: selected.provider });
+      }
+      (window as any).vscode.postMessage({ type: "setModel", model: val });
+    }
+  };
+
+  const selectedWorkspaceModel = models.find(m => m.id === currentModel);
+  const displayTitle = selectedWorkspaceModel ? selectedWorkspaceModel.displayName : currentModel;
+
   return (
-    <Listbox value={selectedModelValue} onChange={handleSelect}>
-      <ListboxButton className="border-none bg-transparent hover:bg-transparent shadow-none px-1 py-0 hover:brightness-125 flex items-center gap-1 cursor-pointer">
-        <span className="text-xs text-vsc-foreground">{selectedModelValue}</span>
+    <Listbox value={currentModel} onChange={handleSelect}>
+      <ListboxButton 
+        onClick={handleOpenDropdown}
+        className="border-none bg-transparent hover:bg-transparent shadow-none px-1 py-0 hover:brightness-125 flex items-center gap-1 cursor-pointer"
+      >
+        <span className="text-xs text-vsc-foreground">{displayTitle}</span>
         <ChevronDownIcon className="h-3 w-3 text-vsc-foreground" />
       </ListboxButton>
       <ListboxOptions
@@ -67,36 +114,52 @@ export function ModelSelectDropdown() {
         className="w-64 max-h-80 bg-vsc-background border border-vsc-commandCenter-inactiveBorder rounded-md overflow-y-auto mb-1"
       >
         <div className="flex justify-between items-center px-3 py-2 border-b border-vsc-commandCenter-inactiveBorder">
-          <span className="text-xs font-semibold">Models</span>
-          <Cog6ToothIcon className="h-3.5 w-3.5 cursor-pointer hover:brightness-125" />
+          <span className="text-xs font-semibold">Workspace Models</span>
         </div>
-        {options.map((model, idx) => (
+        
+        {isLoading && (
+          <div className="px-3 py-2 text-xs text-gray-500 italic">Discovering models...</div>
+        )}
+        
+        {!isLoading && error && (
+          <div className="px-3 py-2 text-xs text-red-500">{error}</div>
+        )}
+        
+        {!isLoading && !error && models.length === 0 && (
+          <div className="px-3 py-2 text-xs text-gray-500 italic">No models found.</div>
+        )}
+
+        {!isLoading && models.map((model, idx) => (
           <ListboxOption
             key={idx}
-            value={model.value}
-            className={`cursor-pointer px-3 py-1.5 flex items-center gap-2 hover:bg-list-active hover:text-list-active-foreground ${selectedModelValue === model.value ? "bg-list-active text-list-active-foreground" : ""}`}
+            value={model.id}
+            className={`cursor-pointer px-3 py-1.5 flex items-center gap-2 hover:bg-list-active hover:text-list-active-foreground ${currentModel === model.id ? "bg-list-active text-list-active-foreground" : ""}`}
           >
             <CubeIcon className="h-3.5 w-3.5 flex-shrink-0" />
-            <div className="flex-1 truncate text-xs">
-              {model.title}
-              {model.autodetected && (
-                <span className="text-[10px] text-gray-500 italic ml-1">(autodetected)</span>
-              )}
+            <div className="flex-1 flex flex-col overflow-hidden">
+              <span className="truncate text-xs">{model.displayName}</span>
+              <div className="flex gap-1 mt-0.5">
+                {model.capabilities?.toolCalling && (
+                  <WrenchScrewdriverIcon className="h-3 w-3 text-blue-400" title="Supports tool calling" />
+                )}
+                {model.capabilities?.vision && (
+                  <PhotoIcon className="h-3 w-3 text-green-400" title="Supports vision" />
+                )}
+                {model.capabilities?.reasoning && (
+                  <LightBulbIcon className="h-3 w-3 text-yellow-400" title="Advanced reasoning" />
+                )}
+              </div>
             </div>
           </ListboxOption>
         ))}
+        
         <Divider className="my-1" />
-        <div 
-          onClick={(e) => {
-            e.stopPropagation();
-            dispatch(setShowDialog(true));
-            dispatch(setDialogMessage(<AddModelForm onDone={() => dispatch(setShowDialog(false))} />));
-          }}
+        <ListboxOption 
+          value="CONFIGURE_MODELS"
           className="px-3 py-2 flex items-center gap-2 cursor-pointer hover:bg-list-active hover:text-list-active-foreground"
         >
-          <PlusIcon className="h-3.5 w-3.5" />
-          <span className="text-xs">Add Chat model</span>
-        </div>
+          <span className="text-xs text-vsc-foreground">Configure Models...</span>
+        </ListboxOption>
       </ListboxOptions>
     </Listbox>
   );

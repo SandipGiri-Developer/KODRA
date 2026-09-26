@@ -7,6 +7,7 @@
  */
 
 import { IndexingProgress } from '../indexing/types';
+import { DiscoveredModel, ProviderSettings, WorkspaceModel } from '../providers/types';
 
 // ─── Messages from Webview to Extension ────────────────────────────────────
 
@@ -20,11 +21,18 @@ export type WebviewToExtensionMessage =
   | { type: 'setModel'; model: string }
   | { type: 'setApiKey'; provider: string; key: string }
   | { type: 'testConnection' }
+  | { type: 'discoverModels'; provider: string; apiKey?: string; endpoint?: string }
   | { type: 'startIndexing'; fullReindex?: boolean }
   | { type: 'cancelIndexing' }
   | { type: 'getIndexStatus' }
   | { type: 'executeCommand'; command: string; args?: unknown[] }
-  | { type: 'webviewReady' };
+  | { type: 'webviewReady' }
+  | { type: 'getSettings' }
+  | { type: 'saveProviderSetting'; setting: ProviderSettings; apiKey?: string }
+  | { type: 'deleteProviderSetting'; id: string }
+  | { type: 'saveWorkspaceModels'; models: WorkspaceModel[] }
+  | { type: 'returnToChat' }
+  | { type: 'closeSettings' };
 
 // ─── Messages from Extension to Webview ────────────────────────────────────
 
@@ -38,9 +46,11 @@ export type ExtensionToWebviewMessage =
   | { type: 'approvalRequest'; toolName: string; description: string; diff?: string; filepath?: string }
   | { type: 'config'; provider: string; model: string; hasApiKey: boolean; availableProviders: string[] }
   | { type: 'connectionResult'; success: boolean; models?: string[]; error?: string }
+  | { type: 'modelsDiscovered'; provider: string; models?: DiscoveredModel[]; error?: string }
   | { type: 'indexingProgress'; progress: IndexingProgress }
   | { type: 'indexStatus'; indexed: boolean; entryCount: number; fileCount: number; inProgress: boolean }
-  | { type: 'addContext'; filepath: string; content?: string; selection?: string };
+  | { type: 'addContext'; filepath: string; content?: string; selection?: string }
+  | { type: 'settingsData'; providers: ProviderSettings[]; workspaceModels: WorkspaceModel[] };
 
 /**
  * Validate that a message from the webview is well-formed.
@@ -59,8 +69,10 @@ export function validateWebviewMessage(data: unknown): WebviewToExtensionMessage
   const validTypes: Set<string> = new Set([
     'sendMessage', 'cancelGeneration', 'newChat', 'approveAction',
     'getConfig', 'setProvider', 'setModel', 'setApiKey',
-    'testConnection', 'startIndexing', 'cancelIndexing',
+    'testConnection', 'discoverModels', 'startIndexing', 'cancelIndexing',
     'getIndexStatus', 'executeCommand', 'webviewReady',
+    'getSettings', 'saveProviderSetting', 'deleteProviderSetting', 'saveWorkspaceModels',
+    'returnToChat', 'closeSettings'
   ]);
 
   if (!validTypes.has(msg.type)) {
@@ -96,6 +108,11 @@ export function validateWebviewMessage(data: unknown): WebviewToExtensionMessage
       break;
     case 'executeCommand':
       if (typeof msg.command !== 'string') {
+        return null;
+      }
+      break;
+    case 'discoverModels':
+      if (typeof msg.provider !== 'string') {
         return null;
       }
       break;
