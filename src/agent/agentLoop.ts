@@ -75,6 +75,7 @@ export class AgentLoop {
       model?: string;
       maxTokens?: number;
       contextFiles?: string[];
+      toolCalling?: boolean;
     } = {},
   ): AsyncGenerator<AgentEvent> {
     const maxIterations = options.maxIterations ?? 15;
@@ -119,8 +120,12 @@ export class AgentLoop {
       // Add the user message
       messages.push({ role: 'user', content: userMessage });
 
+      // Determine if tools should be enabled based on model-specific capabilities
+      // falling back to provider defaults
+      const allowTools = options.toolCalling ?? provider.capabilities.toolCalling;
+
       // Get tool definitions
-      const toolDefinitions = this.getToolDefinitions(provider);
+      const toolDefinitions = this.getToolDefinitions(allowTools);
 
       // Agent loop
       for (let iteration = 0; iteration < maxIterations; iteration++) {
@@ -370,8 +375,8 @@ export class AgentLoop {
     return chunks.join('\n\n');
   }
 
-  private getToolDefinitions(provider: ILLMProvider): ToolDefinition[] {
-    if (!provider.capabilities.toolCalling) {
+  private getToolDefinitions(allowTools: boolean): ToolDefinition[] {
+    if (!allowTools) {
       return [];
     }
 

@@ -12,39 +12,50 @@ import Stats from "./pages/stats";
 import ThemePage from "./styles/ThemePage";
 import { ROUTES } from "./util/navigation";
 
-const router = createMemoryRouter([
+const initialRoute =
+  typeof window !== "undefined" && (window as any).initialRoute
+    ? (window as any).initialRoute
+    : ROUTES.HOME;
+
+const router = createMemoryRouter(
+  [
+    {
+      path: ROUTES.HOME,
+      element: <Layout />,
+      errorElement: <ErrorPage />,
+      children: [
+        {
+          path: "/index.html",
+          element: <Chat />,
+        },
+        {
+          path: ROUTES.HOME,
+          element: <Chat />,
+        },
+        {
+          path: "/history",
+          element: <History />,
+        },
+        {
+          path: ROUTES.STATS,
+          element: <Stats />,
+        },
+        {
+          path: ROUTES.CONFIG,
+          element: <ConfigPage />,
+        },
+        {
+          path: ROUTES.THEME,
+          element: <ThemePage />,
+        },
+      ],
+    },
+  ],
   {
-    path: ROUTES.HOME,
-    element: <Layout />,
-    errorElement: <ErrorPage />,
-    children: [
-      {
-        path: "/index.html",
-        element: <Chat />,
-      },
-      {
-        path: ROUTES.HOME,
-        element: <Chat />,
-      },
-      {
-        path: "/history",
-        element: <History />,
-      },
-      {
-        path: ROUTES.STATS,
-        element: <Stats />,
-      },
-      {
-        path: ROUTES.CONFIG,
-        element: <ConfigPage />,
-      },
-      {
-        path: ROUTES.THEME,
-        element: <ThemePage />,
-      },
-    ],
-  },
-]);
+    initialEntries: [initialRoute],
+    initialIndex: 0,
+  }
+);
 
 /*
   ParallelListeners prevents entire app from rerendering on any change in the listeners,

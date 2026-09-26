@@ -21,4 +21,9 @@ import { persistor, store } from "./redux/store";
       </Provider>
     </React.StrictMode>,
   );
+
+  // Notify extension host that webview is mounted and ready to receive initial state
+  if ((window as any).vscode) {
+    (window as any).vscode.postMessage({ type: "webviewReady" });
+  }
 })();

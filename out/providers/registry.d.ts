@@ -5,11 +5,12 @@
  * instantiates the appropriate provider, and caches it for reuse.
  */
 import * as vscode from 'vscode';
-import { ILLMProvider, ProviderConfig } from './types';
+import { DiscoveredModel, ILLMProvider, ProviderConfig, ModelCapabilities } from './types';
 export declare class ProviderRegistry {
     private readonly secretStorage;
     private currentProvider;
     private currentConfig;
+    private discoveredModelsCache;
     constructor(secretStorage: vscode.SecretStorage);
     /**
      * Get the current provider, creating it if necessary.
@@ -17,9 +18,18 @@ export declare class ProviderRegistry {
      */
     getProvider(): Promise<ILLMProvider>;
     /**
-     * Read provider configuration from VS Code settings and SecretStorage.
+     * Read provider configuration from SettingsManager or legacy VS Code settings.
      */
     readConfig(): Promise<ProviderConfig>;
+    /**
+     * Dynamically discover available models for a given provider.
+     * Creates a temporary provider instance to perform the discovery.
+     */
+    discoverModels(providerName: string, apiKey?: string, endpoint?: string): Promise<DiscoveredModel[]>;
+    /**
+     * Get the capabilities of a specific model, using cache if available.
+     */
+    getModelCapabilities(providerName: string, modelId: string): Promise<ModelCapabilities | undefined>;
     /**
      * Store an API key securely in SecretStorage.
      */

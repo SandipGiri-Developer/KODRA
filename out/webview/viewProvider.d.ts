@@ -31,6 +31,10 @@ export declare class Arc1610ViewProvider implements vscode.WebviewViewProvider {
      */
     addContext(filepath: string, content?: string, selection?: string): void;
     /**
+     * Send all settings to the webview.
+     */
+    sendSettingsData(): Promise<void>;
+    /**
      * Send configuration to the webview.
      */
     sendConfig(): Promise<void>;

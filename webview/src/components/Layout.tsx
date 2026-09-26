@@ -16,7 +16,7 @@ import { saveCurrentSession } from "../redux/thunks/session";
 import { fontSize, isMetaEquivalentKeyPressed } from "../util";
 import { ROUTES } from "../util/navigation";
 import { FatalErrorIndicator } from "./config/FatalErrorNotice";
-const TextDialog = ({}: any) => <></>;
+import { TextDialog } from "./dialogs/TextDialog";
 import { useMainEditor } from "./mainInput/TipTapEditor";
 const isNewUserOnboarding = () => false;
 const OnboardingCard = () => <></>;

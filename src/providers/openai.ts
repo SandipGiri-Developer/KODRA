@@ -14,6 +14,7 @@ import {
   ProviderCapabilities,
   StreamChunk,
   ToolCall,
+  DiscoveredModel,
 } from './types';
 
 interface OpenAIChatMessage {
@@ -187,7 +188,7 @@ export class OpenAIProvider implements ILLMProvider {
     }
   }
 
-  async testConnection(): Promise<string[]> {
+  async discoverModels(): Promise<DiscoveredModel[]> {
     try {
       const response = await fetch(`${this.baseUrl}/models`, {
         headers: { 'Authorization': `Bearer ${this.apiKey}` },
@@ -199,8 +200,40 @@ export class OpenAIProvider implements ILLMProvider {
         }
         throw new Error(`OpenAI responded with ${response.status}`);
       }
+      
       const data = await response.json() as { data?: Array<{ id: string }> };
-      return (data.data || []).map(m => m.id).filter(id => id.startsWith('gpt'));
+      const models = data.data || [];
+      
+      const discovered: DiscoveredModel[] = [];
+
+      for (const m of models) {
+        const id = m.id;
+        
+        // Filter to mostly chat models, ignore embeddings/whisper/etc
+        if (!id.startsWith('gpt-') && !id.startsWith('o1') && !id.startsWith('o3') && !id.startsWith('o4') && !id.startsWith('chatgpt-')) {
+          continue;
+        }
+
+        const isReasoning = id.startsWith('o1') || id.startsWith('o3') || id.startsWith('o4');
+        const isVision = id.includes('vision') || id.includes('gpt-4o') || id === 'gpt-4-turbo';
+
+        discovered.push({
+          id,
+          displayName: id,
+          provider: this.id,
+          capabilities: {
+            streaming: true, // Most do, o1-mini supports it now
+            toolCalling: true, // Nearly all GPT models support tools
+            vision: isVision,
+            reasoning: isReasoning,
+          }
+        });
+      }
+
+      // Sort models to put newer ones first (e.g. gpt-4o, o1, etc)
+      discovered.sort((a, b) => b.id.localeCompare(a.id));
+
+      return discovered;
     } catch (error: unknown) {
       if (error instanceof Arc1610Error) { throw error; }
       throw new Arc1610Error(
@@ -211,8 +244,13 @@ export class OpenAIProvider implements ILLMProvider {
     }
   }
 
+  async testConnection(): Promise<string[]> {
+    const models = await this.discoverModels();
+    return models.map(m => m.id);
+  }
+
   getDefaultModel(): string {
-    return 'gpt-4o-mini';
+    return '';
   }
 
   dispose(): void {

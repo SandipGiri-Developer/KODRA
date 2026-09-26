@@ -2,7 +2,7 @@
   "name": "kodra",
   "displayName": "KODRA",
   "description": "An AI coding assistant that understands your entire codebase. Supports local models via Ollama and cloud providers like OpenAI and Anthropic.",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "publisher": "SandipGiri",
   "engines": {
     "vscode": "^1.85.0"
@@ -158,6 +158,11 @@
     "keybindings": [
       {
         "command": "arc1610.openChat",
+        "mac": "cmd+k",
+        "key": "ctrl+k"
+      },
+      {
+        "command": "arc1610.openChat",
         "mac": "cmd+l",
         "key": "ctrl+l"
       },
@@ -171,20 +176,32 @@
     "configuration": {
       "title": "KODRA",
       "properties": {
+        "arc1610.providers": {
+          "type": "array",
+          "default": [],
+          "description": "Configured AI providers and their settings."
+        },
+        "arc1610.workspaceModels": {
+          "type": "array",
+          "default": [],
+          "description": "Selected AI models for the workspace."
+        },
         "arc1610.provider": {
           "type": "string",
           "default": "ollama",
           "enum": [
             "ollama",
             "openai",
-            "anthropic"
+            "anthropic",
+            "gemini"
           ],
           "enumDescriptions": [
             "Local Ollama instance (free, private)",
             "OpenAI API (requires API key)",
-            "Anthropic Claude API (requires API key)"
+            "Anthropic Claude API (requires API key)",
+            "Google Gemini API (requires API key)"
           ],
-          "description": "The AI provider to use for chat and code generation."
+          "description": "Legacy fallback provider setting."
         },
         "arc1610.modelName": {
           "type": "string",
@@ -200,6 +217,11 @@
           "type": "string",
           "default": "https://api.openai.com/v1",
           "description": "OpenAI-compatible API base URL."
+        },
+        "arc1610.gemini.endpoint": {
+          "type": "string",
+          "default": "https://generativelanguage.googleapis.com/v1beta",
+          "description": "Google Gemini API endpoint URL."
         },
         "arc1610.maxTokens": {
           "type": "number",

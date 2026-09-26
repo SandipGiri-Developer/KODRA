@@ -9,11 +9,13 @@ import * as vscode from 'vscode';
 import { AgentLoop } from '../agent/agentLoop';
 import { CodebaseIndexer } from '../indexing/indexer';
 import { ProviderRegistry } from '../providers/registry';
-import { ChatMessage } from '../providers/types';
 import { Logger } from '../utils/logger';
+import { SettingsManager } from '../utils/settingsManager';
 import { ExtensionToWebviewMessage, validateWebviewMessage, WebviewToExtensionMessage } from './messageTypes';
 import { getCsp } from './securityPolicy';
+import { getWebviewContent } from './htmlHelper';
 import { OllamaManager } from '../utils/ollamaManager';
+import { ChatMessage } from '../providers/types';
 
 export class Arc1610ViewProvider implements vscode.WebviewViewProvider {
   public static readonly viewType = 'arc1610.chatView';
@@ -52,9 +54,18 @@ export class Arc1610ViewProvider implements vscode.WebviewViewProvider {
       [], // disposables
     );
     
-    // Send initial configuration and index status
+    // Send initial configuration, index status, and settings data
     this.sendConfig();
     this.sendIndexStatus();
+    this.sendSettingsData();
+
+    // Re-send settings when sidebar becomes visible again
+    webviewView.onDidChangeVisibility?.(() => {
+      if (webviewView.visible) {
+        this.sendConfig();
+        this.sendSettingsData();
+      }
+    });
     
     // Subscribe to indexer progress events
     this.indexer.onProgress((progress) => {
@@ -63,6 +74,16 @@ export class Arc1610ViewProvider implements vscode.WebviewViewProvider {
         this.sendIndexStatus();
       }
     });
+
+    // Subscribe to settings changes from SettingsManager (e.g. from dedicated Settings panel)
+    try {
+      SettingsManager.getInstance().onDidChangeSettings(() => {
+        this.sendSettingsData();
+        this.sendConfig();
+      });
+    } catch {
+      // Ignore if not initialized yet
+    }
   }
 
   /**
@@ -100,6 +121,25 @@ export class Arc1610ViewProvider implements vscode.WebviewViewProvider {
         content,
         selection,
       });
+    }
+  }
+
+  /**
+   * Send all settings to the webview.
+   */
+  public async sendSettingsData() {
+    try {
+      const manager = SettingsManager.getInstance();
+      const providers = await manager.getProviders();
+      const workspaceModels = await manager.getWorkspaceModels();
+      
+      this.postMessage({
+        type: 'settingsData',
+        providers,
+        workspaceModels,
+      });
+    } catch (e) {
+      this.logger.error('Failed to send settings data', e);
     }
   }
 
@@ -153,6 +193,7 @@ export class Arc1610ViewProvider implements vscode.WebviewViewProvider {
         case 'webviewReady':
           this.sendConfig();
           this.sendIndexStatus();
+          this.sendSettingsData();
           break;
           
         case 'sendMessage':
@@ -214,6 +255,19 @@ export class Arc1610ViewProvider implements vscode.WebviewViewProvider {
             });
           }
           break;
+
+        case 'discoverModels':
+          try {
+            const models = await this.providerRegistry.discoverModels(msg.provider, msg.apiKey, msg.endpoint);
+            this.postMessage({ type: 'modelsDiscovered', provider: msg.provider, models });
+          } catch (e) {
+            this.postMessage({
+              type: 'modelsDiscovered',
+              provider: msg.provider,
+              error: e instanceof Error ? e.message : String(e)
+            });
+          }
+          break;
           
         case 'startIndexing':
           this.indexer.indexWorkspace(msg.fullReindex);
@@ -226,6 +280,52 @@ export class Arc1610ViewProvider implements vscode.WebviewViewProvider {
         case 'getIndexStatus':
           this.sendIndexStatus();
           break;
+          
+        case 'getSettings':
+          await this.sendSettingsData();
+          break;
+          
+        case 'saveProviderSetting': {
+          const manager = SettingsManager.getInstance();
+          const providers = await manager.getProviders();
+          const idx = providers.findIndex(p => p.id === msg.setting.id);
+          
+          if (msg.apiKey !== undefined) {
+            if (msg.apiKey.trim().length > 0) {
+              await manager.saveApiKey(msg.setting.id, msg.apiKey);
+              msg.setting.apiKeySecret = true;
+            } else {
+              await manager.deleteApiKey(msg.setting.id);
+              msg.setting.apiKeySecret = false;
+            }
+          }
+
+          if (idx >= 0) {
+            providers[idx] = msg.setting;
+          } else {
+            providers.push(msg.setting);
+          }
+          await manager.saveProviders(providers);
+          await this.sendSettingsData();
+          break;
+        }
+
+        case 'deleteProviderSetting': {
+          const manager = SettingsManager.getInstance();
+          const providers = await manager.getProviders();
+          const updated = providers.filter(p => p.id !== msg.id);
+          await manager.deleteApiKey(msg.id);
+          await manager.saveProviders(updated);
+          await this.sendSettingsData();
+          break;
+        }
+
+        case 'saveWorkspaceModels': {
+          const manager = SettingsManager.getInstance();
+          await manager.saveWorkspaceModels(msg.models);
+          await this.sendSettingsData();
+          break;
+        }
       }
     } catch (error) {
       this.logger.error(`Error handling webview message: ${msg.type}`, error);
@@ -262,6 +362,11 @@ export class Arc1610ViewProvider implements vscode.WebviewViewProvider {
       }
       this.agent = new AgentLoop(this.indexer, requireApproval);
       
+      // Retrieve dynamic capabilities for the specific model
+      const modelName = config.modelName || provider.getDefaultModel();
+      const capabilities = await this.providerRegistry.getModelCapabilities(config.provider, modelName);
+      const toolCalling = capabilities?.toolCalling ?? provider.capabilities.toolCalling;
+      
       // Note: In a robust implementation, we would append the full agent history (including tools).
       // Here, we simplify by passing the accumulated user/assistant history.
       const historyToPass = [...this.chatHistory];
@@ -269,10 +374,11 @@ export class Arc1610ViewProvider implements vscode.WebviewViewProvider {
       historyToPass.pop();
       
       const generator = this.agent.run(text, historyToPass, provider, {
-        model: config.modelName || undefined,
+        model: modelName,
         maxTokens: config.maxTokens,
         maxIterations: maxIterations,
         contextFiles,
+        toolCalling: toolCalling, // Pass the resolved model-specific tool capability
       });
 
       let accumulatedContent = '';
@@ -335,67 +441,10 @@ export class Arc1610ViewProvider implements vscode.WebviewViewProvider {
   }
 
   private getHtmlForWebview(webview: vscode.Webview): string {
-    // Determine paths to the compiled React webview assets
-    const scriptUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(this.extensionUri, 'webview', 'dist', 'assets', 'index.js')
-    );
-    const styleUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(this.extensionUri, 'webview', 'dist', 'assets', 'index.css')
-    );
-    
-    // In development mode, we could point this to localhost for Vite HMR,
-    // but for simplicity and stability in this first release, we'll assume a built bundle.
-    // If the bundle doesn't exist, provide a helpful message.
-
-    const nonce = getNonce();
-    const csp = getCsp(webview, nonce);
-
-    return `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy" content="${csp}">
-  <title>Arc1610</title>
-  <link rel="stylesheet" href="${styleUri}">
-  <style>
-    body { padding: 0; margin: 0; height: 100vh; overflow: hidden; }
-    #root { height: 100%; display: flex; flex-direction: column; }
-    .fallback-message { padding: 20px; font-family: sans-serif; }
-  </style>
-</head>
-<body>
-  <div id="root">
-    <div class="fallback-message">
-      Loading Arc1610 interface...
-      <br><br>
-      <small>If this stays here, run <code>npm run build:webview</code> to compile the React frontend.</small>
-    </div>
-  </div>
-  <script nonce="${nonce}">
-    // Pass VS Code API to the React app
-    window.vscode = acquireVsCodeApi();
-    window.vscMediaUrl = "${webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'ARC.png'))}";
-    
-    // Global error handler to catch script loading/syntax errors
-    window.addEventListener('error', function(event) {
-      document.body.innerHTML += '<div style="color: red; padding: 20px;">' + 
-        '<h3>Critical Webview Error</h3>' +
-        '<pre style="white-space: pre-wrap;">' + event.message + '\\n' + event.filename + ':' + event.lineno + '</pre>' +
-        '</div>';
+    return getWebviewContent(webview, this.extensionUri, {
+      title: 'Arc1610',
+      initialRoute: '/',
+      isSettingsWindow: false,
     });
-  </script>
-  <script type="module" nonce="${nonce}" src="${scriptUri}"></script>
-</body>
-</html>`;
   }
-}
-
-function getNonce() {
-  let text = '';
-  const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-  for (let i = 0; i < 32; i++) {
-    text += possible.charAt(Math.floor(Math.random() * possible.length));
-  }
-  return text;
 }

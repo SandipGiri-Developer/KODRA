@@ -68,16 +68,42 @@ export interface ProviderCapabilities {
   vision: boolean;
 }
 
+/** Model capability flags for a specific model (not just the provider). */
+export interface ModelCapabilities {
+  /** Whether this model supports streaming */
+  streaming: boolean;
+  /** Whether this model supports tool/function calling */
+  toolCalling: boolean;
+  /** Whether this model supports vision/image input */
+  vision: boolean;
+  /** Whether this model is known to have advanced reasoning capabilities */
+  reasoning: boolean;
+}
+
+/** Information about a model discovered from the provider. */
+export interface DiscoveredModel {
+  /** Unique model identifier for API calls (e.g., 'gpt-4o', 'gemini-1.5-pro') */
+  id: string;
+  /** Human-readable display name */
+  displayName: string;
+  /** Provider identifier (e.g., 'openai', 'ollama') */
+  provider: string;
+  /** Detected capabilities for this specific model */
+  capabilities: ModelCapabilities;
+  /** Context window length in tokens, if known */
+  contextLength?: number;
+}
+
 /**
  * The core LLM provider interface.
  * All providers must implement this to work with ARC1610's agent loop.
  */
 export interface ILLMProvider {
-  /** Unique provider identifier (e.g., 'ollama', 'openai', 'anthropic') */
+  /** Unique provider identifier (e.g., 'ollama', 'openai', 'anthropic', 'gemini') */
   readonly id: string;
   /** Human-readable provider name */
   readonly displayName: string;
-  /** Provider capabilities */
+  /** General provider capabilities (defaults) */
   readonly capabilities: ProviderCapabilities;
 
   /**
@@ -91,6 +117,12 @@ export interface ILLMProvider {
   ): AsyncGenerator<StreamChunk>;
 
   /**
+   * Discover available models from this provider.
+   * Returns a detailed list of models and their capabilities.
+   */
+  discoverModels(): Promise<DiscoveredModel[]>;
+
+  /**
    * Verify the provider is reachable and properly configured.
    * Returns a list of available models or throws on failure.
    */
@@ -98,6 +130,7 @@ export interface ILLMProvider {
 
   /**
    * Get the default model for this provider.
+   * @deprecated Use dynamic discovery instead.
    */
   getDefaultModel(): string;
 
@@ -107,8 +140,10 @@ export interface ILLMProvider {
   dispose(): void;
 }
 
+
 /**
  * Provider configuration, read from VS Code settings and SecretStorage.
+ * @deprecated Use ProviderSettings instead.
  */
 export interface ProviderConfig {
   provider: string;
@@ -116,4 +151,27 @@ export interface ProviderConfig {
   endpoint?: string;
   apiKey?: string;
   maxTokens: number;
+}
+
+/**
+ * Modern provider settings to support multiple stored configurations.
+ */
+export interface ProviderSettings {
+  id: string; // unique ID for this configuration (e.g. 'gemini-1')
+  name: string; // user-friendly name (e.g. 'My Gemini Key')
+  provider: string; // 'ollama', 'gemini', 'openai', 'anthropic'
+  endpoint?: string;
+  apiKeySecret?: boolean; // Indicates if an API key is stored in SecretStorage for this config
+}
+
+/**
+ * Models explicitly added to the workspace.
+ */
+export interface WorkspaceModel {
+  id: string; // Matches DiscoveredModel.id
+  displayName: string;
+  providerConfigId: string; // Matches ProviderSettings.id
+  provider: string; // Base provider string (e.g. 'ollama')
+  capabilities: ModelCapabilities;
+  contextLength?: number;
 }

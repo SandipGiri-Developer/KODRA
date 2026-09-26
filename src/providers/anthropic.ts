@@ -14,6 +14,7 @@ import {
   ProviderCapabilities,
   StreamChunk,
   ToolCall,
+  DiscoveredModel,
 } from './types';
 
 interface AnthropicMessage {
@@ -202,30 +203,50 @@ export class AnthropicProvider implements ILLMProvider {
     }
   }
 
-  async testConnection(): Promise<string[]> {
-    // Anthropic doesn't have a models list endpoint, so we verify with a minimal request
+  async discoverModels(): Promise<DiscoveredModel[]> {
     try {
-      const response = await fetch(`${this.baseUrl}/messages`, {
-        method: 'POST',
+      const response = await fetch(`${this.baseUrl}/models`, {
         headers: {
-          'Content-Type': 'application/json',
           'x-api-key': this.apiKey,
           'anthropic-version': '2023-06-01',
         },
-        body: JSON.stringify({
-          model: 'claude-3-5-sonnet-20241022',
-          max_tokens: 1,
-          messages: [{ role: 'user', content: 'hi' }],
-        }),
-        signal: AbortSignal.timeout(15_000),
+        signal: AbortSignal.timeout(10_000),
       });
 
-      if (response.status === 401) {
-        throw new Arc1610Error(ErrorReason.ProviderAuthFailed, 'Invalid Anthropic API key.');
+      if (!response.ok) {
+        if (response.status === 401 || response.status === 403) {
+          throw new Arc1610Error(ErrorReason.ProviderAuthFailed, 'Invalid Anthropic API key.');
+        }
+        throw new Error(`Anthropic responded with ${response.status}`);
       }
 
-      // Even a 400 means we can reach the API
-      return ['claude-3-5-sonnet-20241022', 'claude-3-5-haiku-20241022', 'claude-3-opus-20240229'];
+      const data = await response.json() as { data?: Array<{ id: string; display_name?: string }> };
+      const models = data.data || [];
+      const discovered: DiscoveredModel[] = [];
+
+      for (const m of models) {
+        const id = m.id;
+        
+        const isSonnet = id.includes('sonnet');
+        const isOpus = id.includes('opus');
+        const isHaiku = id.includes('haiku');
+        
+        const isClaude3 = id.includes('claude-3');
+        
+        discovered.push({
+          id,
+          displayName: m.display_name || id,
+          provider: this.id,
+          capabilities: {
+            streaming: true,
+            toolCalling: isClaude3, // All Claude 3 models support tool calling
+            vision: isClaude3, // All Claude 3 models support vision
+            reasoning: isSonnet || isOpus, // Simple heuristic
+          }
+        });
+      }
+
+      return discovered;
     } catch (error: unknown) {
       if (error instanceof Arc1610Error) { throw error; }
       throw new Arc1610Error(
@@ -236,8 +257,13 @@ export class AnthropicProvider implements ILLMProvider {
     }
   }
 
+  async testConnection(): Promise<string[]> {
+    const models = await this.discoverModels();
+    return models.map(m => m.id);
+  }
+
   getDefaultModel(): string {
-    return 'claude-3-5-sonnet-20241022';
+    return '';
   }
 
   dispose(): void {
@@ -247,7 +273,8 @@ export class AnthropicProvider implements ILLMProvider {
   private convertMessages(messages: ChatMessage[]): AnthropicMessage[] {
     const result: AnthropicMessage[] = [];
 
-    for (const msg of messages) {
+    for (let i = 0; i < messages.length; i++) {
+      const msg = messages[i];
       if (msg.role === 'assistant' && msg.toolCalls && msg.toolCalls.length > 0) {
         // Assistant message with tool calls
         const content: Array<{ type: string; text?: string; id?: string; name?: string; input?: unknown }> = [];
@@ -265,21 +292,47 @@ export class AnthropicProvider implements ILLMProvider {
         result.push({ role: 'assistant', content });
       } else if (msg.role === 'tool') {
         // Tool result — Anthropic expects this as a user message with tool_result content
+        // Must combine consecutive tool results into a single user message to satisfy alternating roles
+        const toolResultContent: Array<{ type: string; tool_use_id?: string; content?: string }> = [
+          {
+            type: 'tool_result',
+            tool_use_id: msg.toolCallId,
+            content: msg.content,
+          }
+        ];
+        
+        // Peek ahead for consecutive tool results
+        while (i + 1 < messages.length && messages[i + 1].role === 'tool') {
+          i++;
+          toolResultContent.push({
+            type: 'tool_result',
+            tool_use_id: messages[i].toolCallId,
+            content: messages[i].content,
+          });
+        }
+
         result.push({
           role: 'user',
-          content: [
-            {
-              type: 'tool_result',
-              tool_use_id: msg.toolCallId,
-              content: msg.content,
-            },
-          ],
+          content: toolResultContent,
         });
       } else {
-        result.push({
-          role: msg.role === 'user' ? 'user' : 'assistant',
-          content: msg.content,
-        });
+        // Merge consecutive user messages (which can happen if a tool result user message is followed by a real user message)
+        const lastMsg = result.length > 0 ? result[result.length - 1] : null;
+        if (lastMsg && lastMsg.role === 'user' && msg.role === 'user') {
+            if (Array.isArray(lastMsg.content)) {
+                lastMsg.content.push({ type: 'text', text: msg.content });
+            } else {
+                lastMsg.content = [
+                    { type: 'text', text: lastMsg.content as string },
+                    { type: 'text', text: msg.content }
+                ];
+            }
+        } else {
+            result.push({
+              role: msg.role === 'user' ? 'user' : 'assistant',
+              content: msg.content,
+            });
+        }
       }
     }
 

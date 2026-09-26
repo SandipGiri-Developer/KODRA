@@ -6,6 +6,7 @@
  * or network access.
  */
 import { IndexingProgress } from '../indexing/types';
+import { DiscoveredModel, ProviderSettings, WorkspaceModel } from '../providers/types';
 export type WebviewToExtensionMessage = {
     type: 'sendMessage';
     text: string;
@@ -32,6 +33,11 @@ export type WebviewToExtensionMessage = {
 } | {
     type: 'testConnection';
 } | {
+    type: 'discoverModels';
+    provider: string;
+    apiKey?: string;
+    endpoint?: string;
+} | {
     type: 'startIndexing';
     fullReindex?: boolean;
 } | {
@@ -44,6 +50,22 @@ export type WebviewToExtensionMessage = {
     args?: unknown[];
 } | {
     type: 'webviewReady';
+} | {
+    type: 'getSettings';
+} | {
+    type: 'saveProviderSetting';
+    setting: ProviderSettings;
+    apiKey?: string;
+} | {
+    type: 'deleteProviderSetting';
+    id: string;
+} | {
+    type: 'saveWorkspaceModels';
+    models: WorkspaceModel[];
+} | {
+    type: 'returnToChat';
+} | {
+    type: 'closeSettings';
 };
 export type ExtensionToWebviewMessage = {
     type: 'streamContent';
@@ -82,6 +104,11 @@ export type ExtensionToWebviewMessage = {
     models?: string[];
     error?: string;
 } | {
+    type: 'modelsDiscovered';
+    provider: string;
+    models?: DiscoveredModel[];
+    error?: string;
+} | {
     type: 'indexingProgress';
     progress: IndexingProgress;
 } | {
@@ -95,6 +122,10 @@ export type ExtensionToWebviewMessage = {
     filepath: string;
     content?: string;
     selection?: string;
+} | {
+    type: 'settingsData';
+    providers: ProviderSettings[];
+    workspaceModels: WorkspaceModel[];
 };
 /**
  * Validate that a message from the webview is well-formed.

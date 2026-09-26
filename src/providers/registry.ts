@@ -9,13 +9,16 @@ import * as vscode from 'vscode';
 import { Arc1610Error, ErrorReason } from '../utils/errors';
 import { Logger } from '../utils/logger';
 import { AnthropicProvider } from './anthropic';
+import { GeminiProvider } from './gemini';
 import { OllamaProvider } from './ollama';
 import { OpenAIProvider } from './openai';
-import { ILLMProvider, ProviderConfig } from './types';
+import { DiscoveredModel, ILLMProvider, ProviderConfig, ModelCapabilities } from './types';
+import { SettingsManager } from '../utils/settingsManager';
 
 export class ProviderRegistry {
   private currentProvider: ILLMProvider | null = null;
   private currentConfig: ProviderConfig | null = null;
+  private discoveredModelsCache: Map<string, DiscoveredModel[]> = new Map();
 
   constructor(private readonly secretStorage: vscode.SecretStorage) {}
 
@@ -45,17 +48,41 @@ export class ProviderRegistry {
   }
 
   /**
-   * Read provider configuration from VS Code settings and SecretStorage.
+   * Read provider configuration from SettingsManager or legacy VS Code settings.
    */
   async readConfig(): Promise<ProviderConfig> {
     const settings = vscode.workspace.getConfiguration('arc1610');
-    const provider = settings.get<string>('provider', 'ollama');
     const modelName = settings.get<string>('modelName', '');
     const maxTokens = settings.get<number>('maxTokens', 4096);
+    let provider = settings.get<string>('provider', 'ollama');
 
     let endpoint: string | undefined;
     let apiKey: string | undefined;
 
+    // Try to load from new modular settings architecture first
+    try {
+      const manager = SettingsManager.getInstance();
+      const workspaceModels = await manager.getWorkspaceModels();
+      const activeModel = workspaceModels.find(m => m.id === modelName);
+
+      if (activeModel) {
+        const providers = await manager.getProviders();
+        const activeProviderConfig = providers.find(p => p.id === activeModel.providerConfigId);
+
+        if (activeProviderConfig) {
+          provider = activeProviderConfig.provider;
+          endpoint = activeProviderConfig.endpoint;
+          if (activeProviderConfig.apiKeySecret) {
+            apiKey = await manager.getApiKey(activeProviderConfig.id);
+          }
+          return { provider, modelName, endpoint, apiKey, maxTokens };
+        }
+      }
+    } catch (e) {
+      Logger.getInstance().warn('Failed to load from modular settings, falling back to legacy', e);
+    }
+
+    // Fallback to legacy settings
     switch (provider) {
       case 'ollama':
         endpoint = settings.get<string>('ollama.endpoint', 'http://127.0.0.1:11434');
@@ -67,9 +94,76 @@ export class ProviderRegistry {
       case 'anthropic':
         apiKey = await this.secretStorage.get('arc1610.anthropic.apiKey');
         break;
+      case 'gemini':
+        endpoint = settings.get<string>('gemini.endpoint', 'https://generativelanguage.googleapis.com/v1beta');
+        apiKey = await this.secretStorage.get('arc1610.gemini.apiKey');
+        break;
     }
 
     return { provider, modelName, endpoint, apiKey, maxTokens };
+  }
+
+  /**
+   * Dynamically discover available models for a given provider.
+   * Creates a temporary provider instance to perform the discovery.
+   */
+  async discoverModels(
+    providerName: string,
+    apiKey?: string,
+    endpoint?: string
+  ): Promise<DiscoveredModel[]> {
+    // If key/endpoint not provided in the request, fall back to stored config
+    if (!apiKey || !endpoint) {
+      const config = await this.readConfig();
+      // Only use stored config if it matches the requested provider
+      if (config.provider === providerName) {
+        if (!apiKey) apiKey = config.apiKey;
+        if (!endpoint) endpoint = config.endpoint;
+      } else {
+        // We're querying a different provider, get its specific settings
+        if (!apiKey) apiKey = await this.secretStorage.get(`arc1610.${providerName}.apiKey`);
+        if (!endpoint) {
+          const settings = vscode.workspace.getConfiguration('arc1610');
+          if (providerName === 'ollama') endpoint = settings.get<string>('ollama.endpoint', 'http://127.0.0.1:11434');
+          if (providerName === 'openai') endpoint = settings.get<string>('openai.baseUrl', 'https://api.openai.com/v1');
+          if (providerName === 'gemini') endpoint = settings.get<string>('gemini.endpoint', 'https://generativelanguage.googleapis.com/v1beta');
+        }
+      }
+    }
+
+    // Create a temporary configuration for discovery
+    const tempConfig: ProviderConfig = {
+      provider: providerName,
+      modelName: '', // not needed for discovery
+      apiKey,
+      endpoint,
+      maxTokens: 10,
+    };
+
+    const provider = await this.createProvider(tempConfig);
+    try {
+      const models = await provider.discoverModels();
+      this.discoveredModelsCache.set(providerName, models);
+      return models;
+    } finally {
+      provider.dispose();
+    }
+  }
+
+  /**
+   * Get the capabilities of a specific model, using cache if available.
+   */
+  async getModelCapabilities(providerName: string, modelId: string): Promise<ModelCapabilities | undefined> {
+    let models = this.discoveredModelsCache.get(providerName);
+    if (!models || models.length === 0) {
+      try {
+        models = await this.discoverModels(providerName);
+      } catch (e) {
+        // Fallback if discovery fails
+        return undefined;
+      }
+    }
+    return models?.find(m => m.id === modelId)?.capabilities;
   }
 
   /**
@@ -101,6 +195,7 @@ export class ProviderRegistry {
     const providerNames: Record<string, string> = {
       openai: 'OpenAI',
       anthropic: 'Anthropic',
+      gemini: 'Google Gemini',
     };
 
     const key = await vscode.window.showInputBox({
@@ -127,7 +222,7 @@ export class ProviderRegistry {
    * Get the list of supported provider IDs.
    */
   getSupportedProviders(): string[] {
-    return ['ollama', 'openai', 'anthropic'];
+    return ['ollama', 'openai', 'anthropic', 'gemini'];
   }
 
   dispose(): void {
@@ -160,10 +255,20 @@ export class ProviderRegistry {
         return new AnthropicProvider(config.apiKey);
       }
 
+      case 'gemini': {
+        if (!config.apiKey) {
+          throw new Arc1610Error(
+            ErrorReason.ProviderNotConfigured,
+            'Google Gemini API key not configured. Use "Arc1610: Configure AI Provider" to set it up.',
+          );
+        }
+        return new GeminiProvider(config.apiKey, config.endpoint);
+      }
+
       default:
         throw new Arc1610Error(
           ErrorReason.ConfigInvalid,
-          `Unknown provider: "${config.provider}". Supported providers: ollama, openai, anthropic.`,
+          `Unknown provider: "${config.provider}". Supported providers: ollama, openai, anthropic, gemini.`,
         );
     }
   }

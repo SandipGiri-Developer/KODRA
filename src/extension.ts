@@ -2,7 +2,9 @@ import * as vscode from 'vscode';
 import { CodebaseIndexer } from './indexing/indexer';
 import { ProviderRegistry } from './providers/registry';
 import { Logger } from './utils/logger';
+import { SettingsManager } from './utils/settingsManager';
 import { Arc1610ViewProvider } from './webview/viewProvider';
+import { SettingsPanel, SettingsPanelSerializer } from './webview/settingsPanel';
 
 let indexer: CodebaseIndexer;
 let providerRegistry: ProviderRegistry;
@@ -16,6 +18,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
   try {
     // Initialize core services
+    SettingsManager.initialize(context);
     providerRegistry = new ProviderRegistry(context.secrets);
     
     const indexerConfig = CodebaseIndexer.readConfig();
@@ -34,10 +37,23 @@ export async function activate(context: vscode.ExtensionContext) {
       )
     );
 
+    // Register webview panel serializer for restoring SettingsPanel
+    context.subscriptions.push(
+      vscode.window.registerWebviewPanelSerializer(
+        SettingsPanel.viewType,
+        new SettingsPanelSerializer(context.extensionUri, providerRegistry)
+      )
+    );
+
     // Register commands
     context.subscriptions.push(
-      vscode.commands.registerCommand('arc1610.openChat', () => {
-        vscode.commands.executeCommand('arc1610.chatView.focus');
+      vscode.commands.registerCommand('arc1610.openChat', async () => {
+        try {
+          await vscode.commands.executeCommand('workbench.view.extension.arc1610-sidebar');
+        } catch {
+          // ignore if already open
+        }
+        await vscode.commands.executeCommand('arc1610.chatView.focus');
       }),
       
       vscode.commands.registerCommand('arc1610.newChat', () => {
@@ -49,7 +65,12 @@ export async function activate(context: vscode.ExtensionContext) {
       }),
       
       vscode.commands.registerCommand('arc1610.openSettings', () => {
-        viewProvider.navigateTo('/config');
+        SettingsPanel.createOrShow(context.extensionUri, providerRegistry);
+      }),
+
+      vscode.commands.registerCommand('arc1610.closeSettings', () => {
+        SettingsPanel.currentPanel?.dispose();
+        vscode.commands.executeCommand('arc1610.chatView.focus');
       }),
       
       vscode.commands.registerCommand('arc1610.indexWorkspace', () => {
