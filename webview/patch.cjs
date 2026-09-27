@@ -43,7 +43,7 @@ replaceFileContent('src/components/mainInput/ContextStatus.tsx', [
     { prepend: 'const saveCurrentSession = (a: any) => ({type: \"dummy\"});' }
 ]);
 
-replaceFileContent('src/components/mainInput/ARCInputBox.tsx', [
+replaceFileContent('src/components/mainInput/KODRAInputBox.tsx', [
     { find: /<Lump[^>]*>/g, replace: '<></>' },
     { find: /applyState=\{\s*state\.editModeState\.applyState\s*\}/g, replace: 'applyState={undefined as any}' }
 ]);

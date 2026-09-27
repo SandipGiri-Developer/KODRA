@@ -6,7 +6,7 @@
  */
 
 import * as vscode from 'vscode';
-import { Arc1610Error, ErrorReason } from '../utils/errors';
+import { KodraError, ErrorReason } from '../utils/errors';
 import { Logger } from '../utils/logger';
 import { AnthropicProvider } from './anthropic';
 import { GeminiProvider } from './gemini';
@@ -51,7 +51,7 @@ export class ProviderRegistry {
    * Read provider configuration from SettingsManager or legacy VS Code settings.
    */
   async readConfig(): Promise<ProviderConfig> {
-    const settings = vscode.workspace.getConfiguration('arc1610');
+    const settings = vscode.workspace.getConfiguration('KODRA');
     const modelName = settings.get<string>('modelName', '');
     const maxTokens = settings.get<number>('maxTokens', 4096);
     let provider = settings.get<string>('provider', 'ollama');
@@ -89,14 +89,14 @@ export class ProviderRegistry {
         break;
       case 'openai':
         endpoint = settings.get<string>('openai.baseUrl', 'https://api.openai.com/v1');
-        apiKey = await this.secretStorage.get('arc1610.openai.apiKey');
+        apiKey = await this.secretStorage.get('KODRA.openai.apiKey');
         break;
       case 'anthropic':
-        apiKey = await this.secretStorage.get('arc1610.anthropic.apiKey');
+        apiKey = await this.secretStorage.get('KODRA.anthropic.apiKey');
         break;
       case 'gemini':
         endpoint = settings.get<string>('gemini.endpoint', 'https://generativelanguage.googleapis.com/v1beta');
-        apiKey = await this.secretStorage.get('arc1610.gemini.apiKey');
+        apiKey = await this.secretStorage.get('KODRA.gemini.apiKey');
         break;
     }
 
@@ -121,9 +121,9 @@ export class ProviderRegistry {
         if (!endpoint) endpoint = config.endpoint;
       } else {
         // We're querying a different provider, get its specific settings
-        if (!apiKey) apiKey = await this.secretStorage.get(`arc1610.${providerName}.apiKey`);
+        if (!apiKey) apiKey = await this.secretStorage.get(`KODRA.${providerName}.apiKey`);
         if (!endpoint) {
-          const settings = vscode.workspace.getConfiguration('arc1610');
+          const settings = vscode.workspace.getConfiguration('KODRA');
           if (providerName === 'ollama') endpoint = settings.get<string>('ollama.endpoint', 'http://127.0.0.1:11434');
           if (providerName === 'openai') endpoint = settings.get<string>('openai.baseUrl', 'https://api.openai.com/v1');
           if (providerName === 'gemini') endpoint = settings.get<string>('gemini.endpoint', 'https://generativelanguage.googleapis.com/v1beta');
@@ -170,7 +170,7 @@ export class ProviderRegistry {
    * Store an API key securely in SecretStorage.
    */
   async setApiKey(provider: string, key: string): Promise<void> {
-    await this.secretStorage.store(`arc1610.${provider}.apiKey`, key);
+    await this.secretStorage.store(`KODRA.${provider}.apiKey`, key);
     // Force provider recreation on next use
     this.currentProvider?.dispose();
     this.currentProvider = null;
@@ -182,7 +182,7 @@ export class ProviderRegistry {
    * Delete a stored API key.
    */
   async deleteApiKey(provider: string): Promise<void> {
-    await this.secretStorage.delete(`arc1610.${provider}.apiKey`);
+    await this.secretStorage.delete(`KODRA.${provider}.apiKey`);
     this.currentProvider?.dispose();
     this.currentProvider = null;
     this.currentConfig = null;
@@ -237,9 +237,9 @@ export class ProviderRegistry {
 
       case 'openai': {
         if (!config.apiKey) {
-          throw new Arc1610Error(
+          throw new KodraError(
             ErrorReason.ProviderNotConfigured,
-            'OpenAI API key not configured. Use "Arc1610: Configure AI Provider" to set it up.',
+            'OpenAI API key not configured. Use "Kodra: Configure AI Provider" to set it up.',
           );
         }
         return new OpenAIProvider(config.apiKey, config.endpoint);
@@ -247,9 +247,9 @@ export class ProviderRegistry {
 
       case 'anthropic': {
         if (!config.apiKey) {
-          throw new Arc1610Error(
+          throw new KodraError(
             ErrorReason.ProviderNotConfigured,
-            'Anthropic API key not configured. Use "Arc1610: Configure AI Provider" to set it up.',
+            'Anthropic API key not configured. Use "Kodra: Configure AI Provider" to set it up.',
           );
         }
         return new AnthropicProvider(config.apiKey);
@@ -257,16 +257,16 @@ export class ProviderRegistry {
 
       case 'gemini': {
         if (!config.apiKey) {
-          throw new Arc1610Error(
+          throw new KodraError(
             ErrorReason.ProviderNotConfigured,
-            'Google Gemini API key not configured. Use "Arc1610: Configure AI Provider" to set it up.',
+            'Google Gemini API key not configured. Use "Kodra: Configure AI Provider" to set it up.',
           );
         }
         return new GeminiProvider(config.apiKey, config.endpoint);
       }
 
       default:
-        throw new Arc1610Error(
+        throw new KodraError(
           ErrorReason.ConfigInvalid,
           `Unknown provider: "${config.provider}". Supported providers: ollama, openai, anthropic, gemini.`,
         );

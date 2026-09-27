@@ -1,11 +1,11 @@
 /**
- * Vector store for ARC1610 codebase indexing.
+ * Vector store for KODRA codebase indexing.
  * 
  * Uses a simple JSON-based vector storage with cosine similarity search.
- * Inspired by ARC's LanceDbIndex.ts pattern but uses a pure-TypeScript
+ * Inspired by KODRA's LanceDbIndex.ts pattern but uses a pure-TypeScript
  * approach for cross-platform compatibility (no native dependencies).
  * 
- * Storage format: JSON files in the .arc1610/ directory within the workspace.
+ * Storage format: JSON files in the .KODRA/ directory within the workspace.
  * Each entry stores: id, filepath, content, startLine, endLine, digest, vector.
  * 
  * For v1.0 this is intentionally simple. Can migrate to LanceDB, SQLite+vectors,
@@ -36,7 +36,7 @@ interface IndexMetadata {
 }
 
 const INDEX_VERSION = 1;
-const INDEX_DIR_NAME = '.arc1610';
+const INDEX_DIR_NAME = '.KODRA';
 const VECTORS_FILE = 'vectors.json';
 const METADATA_FILE = 'metadata.json';
 

@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { SettingsPanel, SettingsPanelSerializer } from '../../webview/settingsPanel';
-import { Arc1610ViewProvider } from '../../webview/viewProvider';
+import { KodraViewProvider } from '../../webview/viewProvider';
 import { ProviderRegistry } from '../../providers/registry';
 import { SettingsManager } from '../../utils/settingsManager';
 
@@ -84,7 +84,7 @@ describe('SettingsPanel and Dedicated Settings Surface Architecture', () => {
       getStatus: jest.fn().mockReturnValue({ indexed: true, entryCount: 10, fileCount: 5, inProgress: false }),
       onProgress: jest.fn(),
     };
-    const chatProvider = new Arc1610ViewProvider(mockExtensionUri, mockRegistry as any, mockIndexer);
+    const chatProvider = new KodraViewProvider(mockExtensionUri, mockRegistry as any, mockIndexer);
     const mockWebviewView: any = {
       webview: {
         options: {},
@@ -138,7 +138,7 @@ describe('SettingsPanel and Dedicated Settings Surface Architecture', () => {
     await createdPanel.webview._triggerMessage({ type: 'returnToChat' });
 
     // Focuses chat view
-    expect(vscode.commands.executeCommand).toHaveBeenCalledWith('arc1610.chatView.focus');
+    expect(vscode.commands.executeCommand).toHaveBeenCalledWith('KODRA.chatView.focus');
     // Disposes settings panel
     expect(panelDisposeSpy).toHaveBeenCalled();
     // Clears currentPanel
@@ -151,7 +151,7 @@ describe('SettingsPanel and Dedicated Settings Surface Architecture', () => {
 
     await createdPanel.webview._triggerMessage({ type: 'closeSettings' });
 
-    expect(vscode.commands.executeCommand).toHaveBeenCalledWith('arc1610.chatView.focus');
+    expect(vscode.commands.executeCommand).toHaveBeenCalledWith('KODRA.chatView.focus');
     expect(SettingsPanel.currentPanel).toBeUndefined();
   });
 

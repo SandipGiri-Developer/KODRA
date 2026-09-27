@@ -71,7 +71,7 @@ const Layout = () => {
   );
 
   useWebviewListener(
-    "isARCInputFocused",
+    "isKODRAInputFocused",
     async () => {
       return false;
     },
@@ -80,7 +80,7 @@ const Layout = () => {
   );
 
   useWebviewListener(
-    "focusARCInputWithNewSession",
+    "focusKODRAInputWithNewSession",
     async () => {
       navigate(ROUTES.HOME);
       if (isInEdit) {

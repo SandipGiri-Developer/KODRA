@@ -6,7 +6,7 @@
  * Users must provide their own API key.
  */
 
-import { Arc1610Error, ErrorReason, isCancellationError } from '../utils/errors';
+import { KodraError, ErrorReason, isCancellationError } from '../utils/errors';
 import {
   ChatMessage,
   CompletionOptions,
@@ -87,9 +87,9 @@ export class AnthropicProvider implements ILLMProvider {
       });
     } catch (error: unknown) {
       if (isCancellationError(error)) {
-        throw new Arc1610Error(ErrorReason.Cancelled, 'Request cancelled');
+        throw new KodraError(ErrorReason.Cancelled, 'Request cancelled');
       }
-      throw new Arc1610Error(
+      throw new KodraError(
         ErrorReason.ProviderConnectionFailed,
         'Failed to connect to Anthropic API.',
         error instanceof Error ? error : undefined,
@@ -102,7 +102,7 @@ export class AnthropicProvider implements ILLMProvider {
     }
 
     if (!response.body) {
-      throw new Arc1610Error(ErrorReason.ProviderConnectionFailed, 'Empty response from Anthropic');
+      throw new KodraError(ErrorReason.ProviderConnectionFailed, 'Empty response from Anthropic');
     }
 
     const reader = response.body.getReader();
@@ -187,13 +187,13 @@ export class AnthropicProvider implements ILLMProvider {
                 break;
 
               case 'error':
-                throw new Arc1610Error(
+                throw new KodraError(
                   ErrorReason.ProviderConnectionFailed,
                   `Anthropic stream error: ${event.error?.message || 'Unknown'}`,
                 );
             }
           } catch (e) {
-            if (e instanceof Arc1610Error) { throw e; }
+            if (e instanceof KodraError) { throw e; }
             // Skip malformed events
           }
         }
@@ -215,7 +215,7 @@ export class AnthropicProvider implements ILLMProvider {
 
       if (!response.ok) {
         if (response.status === 401 || response.status === 403) {
-          throw new Arc1610Error(ErrorReason.ProviderAuthFailed, 'Invalid Anthropic API key.');
+          throw new KodraError(ErrorReason.ProviderAuthFailed, 'Invalid Anthropic API key.');
         }
         throw new Error(`Anthropic responded with ${response.status}`);
       }
@@ -248,8 +248,8 @@ export class AnthropicProvider implements ILLMProvider {
 
       return discovered;
     } catch (error: unknown) {
-      if (error instanceof Arc1610Error) { throw error; }
-      throw new Arc1610Error(
+      if (error instanceof KodraError) { throw error; }
+      throw new KodraError(
         ErrorReason.ProviderConnectionFailed,
         'Cannot reach Anthropic API.',
         error instanceof Error ? error : undefined,
@@ -341,22 +341,22 @@ export class AnthropicProvider implements ILLMProvider {
 
   private handleHttpError(status: number, body: string, model: string): never {
     if (status === 401) {
-      throw new Arc1610Error(ErrorReason.ProviderAuthFailed, 'Invalid Anthropic API key.');
+      throw new KodraError(ErrorReason.ProviderAuthFailed, 'Invalid Anthropic API key.');
     }
     if (status === 429) {
-      throw new Arc1610Error(ErrorReason.ProviderRateLimit, 'Anthropic rate limit exceeded.');
+      throw new KodraError(ErrorReason.ProviderRateLimit, 'Anthropic rate limit exceeded.');
     }
     if (status === 404) {
-      throw new Arc1610Error(ErrorReason.ProviderModelNotFound, `Model "${model}" not found.`);
+      throw new KodraError(ErrorReason.ProviderModelNotFound, `Model "${model}" not found.`);
     }
     try {
       const parsed = JSON.parse(body);
       if (parsed.error?.message) {
-        throw new Arc1610Error(ErrorReason.ProviderConnectionFailed, parsed.error.message);
+        throw new KodraError(ErrorReason.ProviderConnectionFailed, parsed.error.message);
       }
     } catch (e) {
-      if (e instanceof Arc1610Error) { throw e; }
+      if (e instanceof KodraError) { throw e; }
     }
-    throw new Arc1610Error(ErrorReason.ProviderConnectionFailed, `Anthropic error ${status}: ${body.slice(0, 200)}`);
+    throw new KodraError(ErrorReason.ProviderConnectionFailed, `Anthropic error ${status}: ${body.slice(0, 200)}`);
   }
 }

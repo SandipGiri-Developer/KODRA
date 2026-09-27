@@ -6,8 +6,8 @@ import { varWithFallback } from "../styles/theme";
 import { getLocalStorage, setLocalStorage } from "../util/localStorage";
 
 const EXPIRATION_DATE = new Date("2026-09-09");
-const EXPORT_URL = "https://arc.dev/export";
-const REPO_URL = "https://github.com/SandipGiri-Developer/Arc1610-extension/blob/main/README.md";
+const EXPORT_URL = "https://kodra.dev/export";
+const REPO_URL = "https://github.com/SandipGiri-Developer/Kodra-extension/blob/main/README.md";
 
 interface DeprecationBannerProps {
   dismissable?: boolean;

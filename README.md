@@ -1,6 +1,6 @@
-# Arc1610
+# Kodra
 
-Arc1610 is an open-source VS Code coding assistant built natively in TypeScript. It provides a chat interface, semantic codebase indexing, and agentic file editing, running entirely within the VS Code Extension Host.
+Kodra is an open-source VS Code coding assistant built natively in TypeScript. It provides a chat interface, semantic codebase indexing, and agentic file editing, running entirely within the VS Code Extension Host.
 
 It supports fully offline workflows using local models via Ollama, as well as cloud providers like OpenAI and Anthropic.
 
@@ -17,30 +17,30 @@ It supports fully offline workflows using local models via Ollama, as well as cl
 ## Installation
 
 ### From Source
-1. Clone the repository: `git clone https://github.com/SandipGiri-Developer/Arc1610-VSextension.git`
+1. Clone the repository: `git clone https://github.com/SandipGiri-Developer/Kodra-VSextension.git`
 2. Open the project in VS Code.
 3. Install dependencies: `npm install`
 4. Build the webview: `npm run build:webview`
 5. Press `F5` to launch the Extension Development Host.
 
 ### VSIX Release (Coming Soon)
-Pre-packaged `.vsix` releases will be available in the GitHub Releases tab. You can install them by running `code --install-extension arc1610-0.1.0.vsix` or using the "Install from VSIX..." option in the VS Code Extensions pane.
+Pre-packaged `.vsix` releases will be available in the GitHub Releases tab. You can install them by running `code --install-extension KODRA-0.1.0.vsix` or using the "Install from VSIX..." option in the VS Code Extensions pane.
 
 ## Configuration
 
-Access settings via **File > Preferences > Settings** and search for `Arc1610`:
+Access settings via **File > Preferences > Settings** and search for `Kodra`:
 
-- `arc1610.provider`: Choose between `ollama`, `openai`, or `anthropic`.
-- `arc1610.modelName`: Specify the model (e.g., `llama3.2`, `gpt-4o`, `claude-3-5-sonnet-20240620`).
-- `arc1610.ollama.endpoint`: Your local Ollama server address (default: `http://127.0.0.1:11434`).
-- `arc1610.indexing.enabled`: Toggle automatic workspace indexing.
-- `arc1610.agent.requireApproval`: Toggle the approval requirement for file modifications.
+- `KODRA.provider`: Choose between `ollama`, `openai`, or `anthropic`.
+- `KODRA.modelName`: Specify the model (e.g., `llama3.2`, `gpt-4o`, `claude-3-5-sonnet-20240620`).
+- `KODRA.ollama.endpoint`: Your local Ollama server address (default: `http://127.0.0.1:11434`).
+- `KODRA.indexing.enabled`: Toggle automatic workspace indexing.
+- `KODRA.agent.requireApproval`: Toggle the approval requirement for file modifications.
 
-To configure API keys, open the command palette (`Ctrl+Shift+P`) and run **"Arc1610: Configure AI Provider"**.
+To configure API keys, open the command palette (`Ctrl+Shift+P`) and run **"Kodra: Configure AI Provider"**.
 
 ## Architecture
 
-Arc1610 is a monolithic VS Code extension. It does not rely on external backend servers or Python binaries.
+Kodra is a monolithic VS Code extension. It does not rely on external backend servers or Python binaries.
 
 - **`src/agent/`**: Contains the main Agent Loop and tools (`read_file`, `edit_file`, etc.).
 - **`src/indexing/`**: Implements the DFS workspace traversal, document chunking, and the local JSON-based vector store.
@@ -62,4 +62,4 @@ npm run lint
 npm run compile
 ```
 
-# ARC1610
+# KODRA

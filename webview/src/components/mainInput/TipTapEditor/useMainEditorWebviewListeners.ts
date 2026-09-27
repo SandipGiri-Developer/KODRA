@@ -37,7 +37,7 @@ export function useMainEditorWebviewListeners({
   const isInEdit = useAppSelector((state) => state.session.isInEdit);
 
   useWebviewListener(
-    "isARCInputFocused",
+    "isKODRAInputFocused",
     async () => {
       return !!editorFocusedRef.current;
     },
@@ -59,7 +59,7 @@ export function useMainEditorWebviewListeners({
   });
 
   useWebviewListener(
-    "focusARCInput",
+    "focusKODRAInput",
     async () => {
       dispatch(clearCodeToEdit());
 
@@ -81,7 +81,7 @@ export function useMainEditorWebviewListeners({
   );
 
   useWebviewListener(
-    "focusARCInputWithoutClear",
+    "focusKODRAInputWithoutClear",
     async () => {
       setTimeout(() => {
         editor?.commands.focus("end");
@@ -91,7 +91,7 @@ export function useMainEditorWebviewListeners({
   );
 
   useWebviewListener(
-    "focusARCInputWithNewSession",
+    "focusKODRAInputWithNewSession",
     async () => {
       await dispatch(
         saveCurrentSession({
@@ -164,7 +164,7 @@ export function useMainEditorWebviewListeners({
   );
 
   useWebviewListener(
-    "isARCInputFocused",
+    "isKODRAInputFocused",
     async () => {
       return !!editorFocusedRef.current;
     },
@@ -172,7 +172,7 @@ export function useMainEditorWebviewListeners({
   );
 
   useWebviewListener(
-    "focusARCSessionId",
+    "focusKODRASessionId",
     async (data: any) => {
       if (!data.sessionId) return;
 

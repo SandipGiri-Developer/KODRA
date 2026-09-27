@@ -92,7 +92,7 @@ export function ModelSelectDropdown() {
       if ((window as any).vscode) {
         (window as any).vscode.postMessage({
           type: "executeCommand",
-          command: "arc1610.openSettings",
+          command: "KODRA.openSettings",
         });
       }
       return;

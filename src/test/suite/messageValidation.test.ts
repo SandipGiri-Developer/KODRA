@@ -3,7 +3,7 @@ import { validateWebviewMessage } from '../../webview/messageTypes';
 
 describe('Message Validation Test Suite', () => {
   it('Validates executeCommand message correctly', () => {
-    const validMessage = { type: 'executeCommand', command: 'arc1610.indexWorkspace' };
+    const validMessage = { type: 'executeCommand', command: 'KODRA.indexWorkspace' };
     const validated = validateWebviewMessage(validMessage);
     assert.deepStrictEqual(validated, validMessage);
   });

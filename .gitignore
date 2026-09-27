@@ -1,5 +1,5 @@
 # Backend executable
-backend/arc1610_api.exe
+backend/KODRA_api.exe
 
 # VS Code packaged extension
 *.vsix
@@ -26,10 +26,10 @@ yarn-error.log*
 .DS_Store
 Thumbs.db
 .env
-ARC.png
-Arc1610_Final_Draft\ARC.png
+KODRA.png
+Kodra_Final_Draft\KODRA.png
 # Extension specific working directories
-.arc1610
+.KODRA
 .continue
 Testing-enviroment/
 continue_rag_architecture.md

@@ -1,5 +1,5 @@
 /**
- * Webview Provider for the ARC1610 sidebar chat interface.
+ * Webview Provider for the KODRA sidebar chat interface.
  *
  * Handles the lifecycle of the webview, message routing to the agent loop,
  * configuration updates, and indexing status reporting.
@@ -7,11 +7,11 @@
 import * as vscode from 'vscode';
 import { CodebaseIndexer } from '../indexing/indexer';
 import { ProviderRegistry } from '../providers/registry';
-export declare class Arc1610ViewProvider implements vscode.WebviewViewProvider {
+export declare class KodraViewProvider implements vscode.WebviewViewProvider {
     private readonly extensionUri;
     private readonly providerRegistry;
     private readonly indexer;
-    static readonly viewType = "arc1610.chatView";
+    static readonly viewType = "KODRA.chatView";
     private view?;
     private chatHistory;
     private agent;

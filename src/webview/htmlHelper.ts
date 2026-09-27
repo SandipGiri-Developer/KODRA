@@ -55,7 +55,7 @@ export function getWebviewContent(
   <script nonce="${nonce}">
     // Pass VS Code API to the React app
     window.vscode = acquireVsCodeApi();
-    window.vscMediaUrl = "${webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, 'ARC.png'))}";
+    window.vscMediaUrl = "${webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, 'KODRA.png'))}";
     window.initialRoute = "${initialRoute}";
     window.isSettingsWindow = ${isSettingsWindow};
     

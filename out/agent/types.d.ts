@@ -1,5 +1,5 @@
 /**
- * Agent and Tool type definitions for ARC1610.
+ * Agent and Tool type definitions for KODRA.
  */
 import { ChatMessage, ToolDefinition } from '../providers/types';
 /** Result of executing a tool. */

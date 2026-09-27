@@ -3,10 +3,10 @@
  * Connects to OpenAI's API (or any OpenAI-compatible endpoint).
  * 
  * Uses the Chat Completions API with streaming and tool/function calling.
- * Users must provide their own API key — ARC1610 does not include one.
+ * Users must provide their own API key — KODRA does not include one.
  */
 
-import { Arc1610Error, ErrorReason, isCancellationError } from '../utils/errors';
+import { KodraError, ErrorReason, isCancellationError } from '../utils/errors';
 import {
   ChatMessage,
   CompletionOptions,
@@ -77,9 +77,9 @@ export class OpenAIProvider implements ILLMProvider {
       });
     } catch (error: unknown) {
       if (isCancellationError(error)) {
-        throw new Arc1610Error(ErrorReason.Cancelled, 'Request cancelled');
+        throw new KodraError(ErrorReason.Cancelled, 'Request cancelled');
       }
-      throw new Arc1610Error(
+      throw new KodraError(
         ErrorReason.ProviderConnectionFailed,
         'Failed to connect to OpenAI API.',
         error instanceof Error ? error : undefined,
@@ -92,7 +92,7 @@ export class OpenAIProvider implements ILLMProvider {
     }
 
     if (!response.body) {
-      throw new Arc1610Error(ErrorReason.ProviderConnectionFailed, 'Empty response from OpenAI');
+      throw new KodraError(ErrorReason.ProviderConnectionFailed, 'Empty response from OpenAI');
     }
 
     // Accumulate tool calls across chunks (OpenAI streams them in pieces)
@@ -196,7 +196,7 @@ export class OpenAIProvider implements ILLMProvider {
       });
       if (!response.ok) {
         if (response.status === 401) {
-          throw new Arc1610Error(ErrorReason.ProviderAuthFailed, 'Invalid OpenAI API key.');
+          throw new KodraError(ErrorReason.ProviderAuthFailed, 'Invalid OpenAI API key.');
         }
         throw new Error(`OpenAI responded with ${response.status}`);
       }
@@ -235,8 +235,8 @@ export class OpenAIProvider implements ILLMProvider {
 
       return discovered;
     } catch (error: unknown) {
-      if (error instanceof Arc1610Error) { throw error; }
-      throw new Arc1610Error(
+      if (error instanceof KodraError) { throw error; }
+      throw new KodraError(
         ErrorReason.ProviderConnectionFailed,
         'Cannot reach OpenAI API.',
         error instanceof Error ? error : undefined,
@@ -280,26 +280,26 @@ export class OpenAIProvider implements ILLMProvider {
 
   private handleHttpError(status: number, body: string, model: string): never {
     if (status === 401) {
-      throw new Arc1610Error(ErrorReason.ProviderAuthFailed, 'Invalid OpenAI API key.');
+      throw new KodraError(ErrorReason.ProviderAuthFailed, 'Invalid OpenAI API key.');
     }
     if (status === 429) {
-      throw new Arc1610Error(ErrorReason.ProviderRateLimit, 'OpenAI rate limit exceeded.');
+      throw new KodraError(ErrorReason.ProviderRateLimit, 'OpenAI rate limit exceeded.');
     }
     if (status === 404) {
-      throw new Arc1610Error(ErrorReason.ProviderModelNotFound, `Model "${model}" not found.`);
+      throw new KodraError(ErrorReason.ProviderModelNotFound, `Model "${model}" not found.`);
     }
     // Try to extract error message from body
     try {
       const parsed = JSON.parse(body);
       if (parsed.error?.message) {
         if (parsed.error.message.includes('context_length_exceeded')) {
-          throw new Arc1610Error(ErrorReason.ProviderContextLength, parsed.error.message);
+          throw new KodraError(ErrorReason.ProviderContextLength, parsed.error.message);
         }
-        throw new Arc1610Error(ErrorReason.ProviderConnectionFailed, parsed.error.message);
+        throw new KodraError(ErrorReason.ProviderConnectionFailed, parsed.error.message);
       }
     } catch (e) {
-      if (e instanceof Arc1610Error) { throw e; }
+      if (e instanceof KodraError) { throw e; }
     }
-    throw new Arc1610Error(ErrorReason.ProviderConnectionFailed, `OpenAI error ${status}: ${body.slice(0, 200)}`);
+    throw new KodraError(ErrorReason.ProviderConnectionFailed, `OpenAI error ${status}: ${body.slice(0, 200)}`);
   }
 }

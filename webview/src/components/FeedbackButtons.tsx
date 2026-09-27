@@ -26,7 +26,7 @@ export function FeedbackButtons({ item }: FeedbackButtonsProps) {
           name: "chatFeedback",
           data: {
             ...logData,
-            completionOptions: {}, // TODO delete completionOptions from @arc1610/config-yaml
+            completionOptions: {}, // TODO delete completionOptions from @KODRA/config-yaml
             modelProvider: modelProvider || "unknown",
             modelName: modelTitle,
             modelTitle: modelTitle,

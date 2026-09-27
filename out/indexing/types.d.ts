@@ -1,6 +1,6 @@
 /**
- * Indexing type definitions for ARC1610.
- * Adapted from ARC's indexing/types.ts architecture.
+ * Indexing type definitions for KODRA.
+ * Adapted from KODRA's indexing/types.ts architecture.
  */
 /** Metadata for a chunk of indexed content. */
 export interface Chunk {

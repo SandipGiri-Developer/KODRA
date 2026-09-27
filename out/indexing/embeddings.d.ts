@@ -1,8 +1,8 @@
 /**
  * Embedding provider interface and simple local implementation.
  *
- * ARC uses BaseLLM for embeddings with multiple providers.
- * For ARC1610 v1.0, we provide:
+ * KODRA uses BaseLLM for embeddings with multiple providers.
+ * For KODRA v1.0, we provide:
  * 1. A simple local embeddings approach using the provider's embed endpoint
  * 2. An interface for future expansion (TransformersJS, OpenAI embeddings, etc.)
  *

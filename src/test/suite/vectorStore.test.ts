@@ -9,7 +9,7 @@ describe('VectorStore', () => {
   let vectorStore: VectorStore;
 
   beforeEach(async () => {
-    tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'arc1610-test-'));
+    tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'KODRA-test-'));
     vectorStore = new VectorStore(tempDir);
   });
 

@@ -1,7 +1,7 @@
 /**
- * LLM Provider abstraction for ARC1610.
+ * LLM Provider abstraction for KODRA.
  *
- * Inspired by ARC's BaseLLM interface but simplified for the first release.
+ * Inspired by KODRA's BaseLLM interface but simplified for the first release.
  * Each provider implements streaming chat completion with tool support where available.
  */
 /** A single message in a conversation. */
@@ -91,7 +91,7 @@ export interface DiscoveredModel {
 }
 /**
  * The core LLM provider interface.
- * All providers must implement this to work with ARC1610's agent loop.
+ * All providers must implement this to work with KODRA's agent loop.
  */
 export interface ILLMProvider {
     /** Unique provider identifier (e.g., 'ollama', 'openai', 'anthropic', 'gemini') */

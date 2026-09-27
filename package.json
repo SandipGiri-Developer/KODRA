@@ -35,56 +35,56 @@
   "contributes": {
     "commands": [
       {
-        "command": "arc1610.openChat",
+        "command": "KODRA.openChat",
         "category": "Kodra",
         "title": "Open Chat",
         "icon": "$(comment-discussion)"
       },
       {
-        "command": "arc1610.newChat",
+        "command": "KODRA.newChat",
         "category": "Kodra",
         "title": "New Chat Session",
         "icon": "$(add)"
       },
       {
-        "command": "arc1610.viewHistory",
+        "command": "KODRA.viewHistory",
         "category": "Kodra",
         "title": "History",
         "icon": "$(history)"
       },
       {
-        "command": "arc1610.openSettings",
+        "command": "KODRA.openSettings",
         "category": "Kodra",
         "title": "Settings",
         "icon": "$(settings-gear)"
       },
       {
-        "command": "arc1610.indexWorkspace",
+        "command": "KODRA.indexWorkspace",
         "category": "Kodra",
         "title": "Index Workspace"
       },
       {
-        "command": "arc1610.reindexWorkspace",
+        "command": "KODRA.reindexWorkspace",
         "category": "Kodra",
         "title": "Re-index Workspace (Full)"
       },
       {
-        "command": "arc1610.cancelIndexing",
+        "command": "KODRA.cancelIndexing",
         "category": "Kodra",
         "title": "Cancel Indexing"
       },
       {
-        "command": "arc1610.addFileContext",
+        "command": "KODRA.addFileContext",
         "category": "Kodra",
         "title": "Add File to Chat Context"
       },
       {
-        "command": "arc1610.addSelectionContext",
+        "command": "KODRA.addSelectionContext",
         "category": "Kodra",
         "title": "Add Selection to Chat Context"
       },
       {
-        "command": "arc1610.configureProvider",
+        "command": "KODRA.configureProvider",
         "category": "Kodra",
         "title": "Configure AI Provider"
       }
@@ -92,16 +92,16 @@
     "viewsContainers": {
       "activitybar": [
         {
-          "id": "arc1610-sidebar",
+          "id": "KODRA-sidebar",
           "title": "KODRA",
           "icon": "media/icon.png"
         }
       ]
     },
     "views": {
-      "arc1610-sidebar": [
+      "KODRA-sidebar": [
         {
-          "id": "arc1610.chatView",
+          "id": "KODRA.chatView",
           "name": "KODRA Assistant",
           "type": "webview",
           "icon": "$(symbol-function)"
@@ -110,65 +110,65 @@
     },
     "submenus": [
       {
-        "id": "arc1610.kodraSubMenu",
+        "id": "KODRA.kodraSubMenu",
         "label": "Kodra"
       }
     ],
     "menus": {
       "editor/context": [
         {
-          "submenu": "arc1610.kodraSubMenu",
+          "submenu": "KODRA.kodraSubMenu",
           "group": "0_akodra"
         }
       ],
-      "arc1610.kodraSubMenu": [
+      "KODRA.kodraSubMenu": [
         {
-          "command": "arc1610.addSelectionContext",
+          "command": "KODRA.addSelectionContext",
           "when": "editorHasSelection",
           "group": "Kodra"
         },
         {
-          "command": "arc1610.addFileContext",
+          "command": "KODRA.addFileContext",
           "group": "Kodra"
         }
       ],
       "explorer/context": [
         {
-          "command": "arc1610.addFileContext",
+          "command": "KODRA.addFileContext",
           "group": "Kodra"
         }
       ],
       "view/title": [
         {
-          "command": "arc1610.newChat",
-          "when": "view == arc1610.chatView",
+          "command": "KODRA.newChat",
+          "when": "view == KODRA.chatView",
           "group": "navigation@1"
         },
         {
-          "command": "arc1610.viewHistory",
-          "when": "view == arc1610.chatView",
+          "command": "KODRA.viewHistory",
+          "when": "view == KODRA.chatView",
           "group": "navigation@2"
         },
         {
-          "command": "arc1610.openSettings",
-          "when": "view == arc1610.chatView",
+          "command": "KODRA.openSettings",
+          "when": "view == KODRA.chatView",
           "group": "navigation@3"
         }
       ]
     },
     "keybindings": [
       {
-        "command": "arc1610.openChat",
+        "command": "KODRA.openChat",
         "mac": "cmd+k",
         "key": "ctrl+k"
       },
       {
-        "command": "arc1610.openChat",
+        "command": "KODRA.openChat",
         "mac": "cmd+l",
         "key": "ctrl+l"
       },
       {
-        "command": "arc1610.addSelectionContext",
+        "command": "KODRA.addSelectionContext",
         "key": "ctrl+shift+l",
         "mac": "cmd+shift+l",
         "when": "editorHasSelection"
@@ -177,17 +177,17 @@
     "configuration": {
       "title": "KODRA",
       "properties": {
-        "arc1610.providers": {
+        "KODRA.providers": {
           "type": "array",
           "default": [],
           "description": "Configured AI providers and their settings."
         },
-        "arc1610.workspaceModels": {
+        "KODRA.workspaceModels": {
           "type": "array",
           "default": [],
           "description": "Selected AI models for the workspace."
         },
-        "arc1610.provider": {
+        "KODRA.provider": {
           "type": "string",
           "default": "ollama",
           "enum": [
@@ -204,42 +204,42 @@
           ],
           "description": "Legacy fallback provider setting."
         },
-        "arc1610.modelName": {
+        "KODRA.modelName": {
           "type": "string",
           "default": "",
           "description": "The model name to use. Leave empty for provider default (e.g., llama3.2 for Ollama, gpt-4o-mini for OpenAI, claude-3-5-sonnet-20241022 for Anthropic)."
         },
-        "arc1610.ollama.endpoint": {
+        "KODRA.ollama.endpoint": {
           "type": "string",
           "default": "http://127.0.0.1:11434",
           "description": "Ollama API endpoint URL."
         },
-        "arc1610.openai.baseUrl": {
+        "KODRA.openai.baseUrl": {
           "type": "string",
           "default": "https://api.openai.com/v1",
           "description": "OpenAI-compatible API base URL."
         },
-        "arc1610.gemini.endpoint": {
+        "KODRA.gemini.endpoint": {
           "type": "string",
           "default": "https://generativelanguage.googleapis.com/v1beta",
           "description": "Google Gemini API endpoint URL."
         },
-        "arc1610.maxTokens": {
+        "KODRA.maxTokens": {
           "type": "number",
           "default": 4096,
           "description": "Maximum tokens for model responses."
         },
-        "arc1610.indexing.enabled": {
+        "KODRA.indexing.enabled": {
           "type": "boolean",
           "default": true,
           "description": "Enable automatic workspace indexing for context-aware responses."
         },
-        "arc1610.indexing.maxFileSize": {
+        "KODRA.indexing.maxFileSize": {
           "type": "number",
           "default": 1048576,
           "description": "Maximum file size in bytes to index (default: 1MB)."
         },
-        "arc1610.indexing.additionalIgnorePatterns": {
+        "KODRA.indexing.additionalIgnorePatterns": {
           "type": "array",
           "default": [],
           "items": {
@@ -247,14 +247,14 @@
           },
           "description": "Additional glob patterns to exclude from indexing (gitignore syntax)."
         },
-        "arc1610.agent.maxIterations": {
+        "KODRA.agent.maxIterations": {
           "type": "number",
           "default": 15,
           "minimum": 1,
           "maximum": 50,
           "description": "Maximum number of agent tool-use iterations per request."
         },
-        "arc1610.agent.requireApproval": {
+        "KODRA.agent.requireApproval": {
           "type": "boolean",
           "default": true,
           "description": "Require explicit user approval before applying file modifications."

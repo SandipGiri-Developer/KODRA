@@ -1,1 +1,1 @@
-- Whenever adding links in the `gui` that direct to `arc.dev`, you should use the IDE's `openUrl` command to open the URL in the user's default browser.
+- Whenever adding links in the `gui` that direct to `kodra.dev`, you should use the IDE's `openUrl` command to open the URL in the user's default browser.

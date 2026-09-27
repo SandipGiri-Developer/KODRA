@@ -9,7 +9,7 @@ export class Logger {
   private outputChannel: vscode.OutputChannel;
 
   private constructor() {
-    this.outputChannel = vscode.window.createOutputChannel('Arc1610');
+    this.outputChannel = vscode.window.createOutputChannel('Kodra');
   }
 
   static getInstance(): Logger {
@@ -43,7 +43,7 @@ export class Logger {
     this.outputChannel.appendLine(formatted);
 
     if (level === 'ERROR') {
-      console.error(`[Arc1610] ${message}`, ...args);
+      console.error(`[Kodra] ${message}`, ...args);
     }
   }
 

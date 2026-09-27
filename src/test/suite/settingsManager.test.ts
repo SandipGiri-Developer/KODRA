@@ -78,18 +78,18 @@ describe('SettingsManager', () => {
 
   it('should store API key', async () => {
     await manager.saveApiKey('prov-1', 'secret-key');
-    expect(mockSecretStorage.store).toHaveBeenCalledWith('arc1610.provider.prov-1.apiKey', 'secret-key');
+    expect(mockSecretStorage.store).toHaveBeenCalledWith('KODRA.provider.prov-1.apiKey', 'secret-key');
   });
 
   it('should get API key', async () => {
     mockSecretStorage.get.mockResolvedValue('secret-key');
     const key = await manager.getApiKey('prov-1');
     expect(key).toBe('secret-key');
-    expect(mockSecretStorage.get).toHaveBeenCalledWith('arc1610.provider.prov-1.apiKey');
+    expect(mockSecretStorage.get).toHaveBeenCalledWith('KODRA.provider.prov-1.apiKey');
   });
 
   it('should delete API key', async () => {
     await manager.deleteApiKey('prov-1');
-    expect(mockSecretStorage.delete).toHaveBeenCalledWith('arc1610.provider.prov-1.apiKey');
+    expect(mockSecretStorage.delete).toHaveBeenCalledWith('KODRA.provider.prov-1.apiKey');
   });
 });

@@ -1,11 +1,11 @@
 /**
- * Agent Loop for ARC1610.
+ * Agent Loop for KODRA.
  *
  * Implements a controlled agent loop:
  *  User request → gather context → call model → parse response/tool request
  *  → validate tool → execute → return result → continue until done/cancelled/limit
  *
- * Inspired by ARC's core.ts handleToolCall pattern but simplified for v1.0.
+ * Inspired by KODRA's core.ts handleToolCall pattern but simplified for v1.0.
  */
 import { CodebaseIndexer } from '../indexing/indexer';
 import { ChatMessage, ILLMProvider } from '../providers/types';

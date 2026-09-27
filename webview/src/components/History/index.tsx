@@ -221,8 +221,8 @@ export function History() {
           Chat history is saved to{" "}
           <span className="italic">
             {platform === "windows"
-              ? "%USERPROFILE%/.arc1610"
-              : "~/.arc1610/sessions"}
+              ? "%USERPROFILE%/.KODRA"
+              : "~/.KODRA/sessions"}
           </span>
         </span>
       </div>

@@ -1,14 +1,14 @@
 import { vscForeground } from "..";
 
-interface ARCLogoProps {
+interface KODRALogoProps {
   height?: number;
   width?: number;
 }
 
-export default function ARCLogo({
+export default function KODRALogo({
   height = 987,
   width = 299,
-}: ARCLogoProps) {
+}: KODRALogoProps) {
   return (
     <svg
       width={width}

@@ -3,8 +3,8 @@ import {
   ModelRole,
   PromptTemplates,
   ToolOverrideConfig,
-} from "@arc1610/config-yaml";
-import { ToolPolicy } from "@arc1610/terminal-security";
+} from "@KODRA/config-yaml";
+import { ToolPolicy } from "@KODRA/terminal-security";
 import { McpUiResourceMeta } from "@modelcontextprotocol/ext-apps";
 import { TextResourceContents } from "@modelcontextprotocol/sdk/types.js";
 import Parser from "web-tree-sitter";
@@ -197,7 +197,7 @@ export interface ContextProviderDescription {
 export type FetchFunction = (url: string | URL, init?: any) => Promise<any>;
 
 export interface ContextProviderExtras {
-  config: ARCConfig;
+  config: KODRAConfig;
   fullInput: string;
   embeddingsProvider: ILLM | null;
   reranker: ILLM | null;
@@ -209,7 +209,7 @@ export interface ContextProviderExtras {
 }
 
 export interface LoadSubmenuItemsArgs {
-  config: ARCConfig;
+  config: KODRAConfig;
   ide: IDE;
   fetch: FetchFunction;
 }
@@ -663,7 +663,7 @@ export interface LLMOptions {
   llmRequestHook?: (model: string, prompt: string) => any;
   apiKey?: string;
 
-  // arcProperties
+  // kodraProperties
   apiKeyLocation?: string;
   envSecretLocations?: Record<string, string>;
   apiBase?: string;
@@ -814,7 +814,7 @@ export interface IdeSettings {
   remoteConfigServerUrl: string | undefined;
   remoteConfigSyncPeriod: number;
   userToken: string;
-  arcTestEnvironment: "none" | "production" | "staging" | "local";
+  kodraTestEnvironment: "none" | "production" | "staging" | "local";
   pauseCodebaseIndexOnStart: boolean;
 }
 
@@ -946,7 +946,7 @@ export interface ARCSDK {
   params?: { [key: string]: any } | undefined;
   contextItems: ContextItemWithId[];
   selectedCode: RangeInFile[];
-  config: ARCConfig;
+  config: KODRAConfig;
   fetch: FetchFunction;
   completionOptions?: LLMFullCompletionOptions;
   abortController: AbortController;
@@ -1118,7 +1118,7 @@ export interface ToolExtras {
     toolCallId: string;
     contextItems: ContextItem[];
   }) => void;
-  config: ARCConfig;
+  config: KODRAConfig;
   codeBaseIndexer?: CodebaseIndexer;
 }
 
@@ -1452,7 +1452,7 @@ export interface ARCUIConfig {
   showChatScrollbar?: boolean;
   codeWrap?: boolean;
   showSessionTabs?: boolean;
-  arcAfterToolRejection?: boolean;
+  kodraAfterToolRejection?: boolean;
 }
 
 export interface ContextMenuConfig {
@@ -1738,7 +1738,7 @@ export interface JSONModelDescription {
 }
 
 // config.json
-export interface SerializedARCConfig {
+export interface SerializedKODRAConfig {
   env?: string[];
   allowAnonymousTelemetry?: boolean;
   models: JSONModelDescription[];
@@ -1764,17 +1764,17 @@ export interface SerializedARCConfig {
 
 export type ConfigMergeType = "merge" | "overwrite";
 
-export type ARCRcJson = Partial<SerializedARCConfig> & {
+export type KODRARcJson = Partial<SerializedKODRAConfig> & {
   mergeBehavior: ConfigMergeType;
 };
 
 // config.ts - give users simplified interfaces
 export interface Config {
-  /** If set to true, ARC will collect anonymous usage data to improve the product. If set to false, we will collect nothing. Read here to learn more: https://docs.arc.dev/telemetry */
+  /** If set to true, KODRA will collect anonymous usage data to improve the product. If set to false, we will collect nothing. Read here to learn more: https://docs.kodra.dev/telemetry */
   allowAnonymousTelemetry?: boolean;
   /** Each entry in this array will originally be a JSONModelDescription, the same object from your config.json, but you may add CustomLLMs.
    * A CustomLLM requires you only to define an AsyncGenerator that calls the LLM and yields string updates. You can choose to define either `streamCompletion` or `streamChat` (or both).
-   * ARC will do the rest of the work to construct prompt templates, handle context items, prune context, etc.
+   * KODRA will do the rest of the work to construct prompt templates, handle context items, prune context, etc.
    */
   models: (CustomLLM | JSONModelDescription)[];
   /** A system message to be followed by all of your models */
@@ -1786,18 +1786,18 @@ export interface Config {
   /** The list of slash commands that will be available in the sidebar */
   slashCommands?: (SlashCommand | SlashCommandWithSource)[];
   /** Each entry in this array will originally be a ContextProviderWithParams, the same object from your config.json, but you may add CustomContextProviders.
-   * A CustomContextProvider requires you only to define a title and getContextItems function. When you type '@title <query>', ARC will call `getContextItems(query)`.
+   * A CustomContextProvider requires you only to define a title and getContextItems function. When you type '@title <query>', KODRA will call `getContextItems(query)`.
    */
   contextProviders?: (CustomContextProvider | ContextProviderWithParams)[];
-  /** If set to true, ARC will not index your codebase for retrieval */
+  /** If set to true, KODRA will not index your codebase for retrieval */
   disableIndexing?: boolean;
-  /** If set to true, ARC will not make extra requests to the LLM to generate a summary title of each session. */
+  /** If set to true, KODRA will not make extra requests to the LLM to generate a summary title of each session. */
   disableSessionTitles?: boolean;
-  /** An optional token to identify a user. Not used by ARC unless you write custom coniguration that requires such a token */
+  /** An optional token to identify a user. Not used by KODRA unless you write custom coniguration that requires such a token */
   userToken?: string;
-  /** The provider used to calculate embeddings. If left empty, ARC will use transformers.js to calculate the embeddings with all-MiniLM-L6-v2 */
+  /** The provider used to calculate embeddings. If left empty, KODRA will use transformers.js to calculate the embeddings with all-MiniLM-L6-v2 */
   embeddingsProvider?: EmbeddingsProviderDescription | ILLM;
-  /** The model that ARC will use for tab autocompletions. */
+  /** The model that KODRA will use for tab autocompletions. */
   tabAutocompleteModel?:
     | CustomLLM
     | JSONModelDescription
@@ -1816,8 +1816,8 @@ export interface Config {
   data?: DataDestination[];
 }
 
-// in the actual ARC source code
-export interface ARCConfig {
+// in the actual KODRA source code
+export interface KODRAConfig {
   allowAnonymousTelemetry?: boolean;
   // systemMessage?: string;
   completionOptions?: BaseCompletionOptions;
@@ -1840,7 +1840,7 @@ export interface ARCConfig {
   data?: DataDestination[];
 }
 
-export interface BrowserSerializedARCConfig {
+export interface BrowserSerializedKODRAConfig {
   allowAnonymousTelemetry?: boolean;
   // systemMessage?: string;
   completionOptions?: BaseCompletionOptions;

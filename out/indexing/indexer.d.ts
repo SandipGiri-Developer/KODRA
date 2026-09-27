@@ -1,10 +1,10 @@
 /**
  * Codebase Indexer — Orchestrates the full indexing pipeline.
  *
- * Adapted from ARC's CodebaseIndexer.ts pattern:
+ * Adapted from KODRA's CodebaseIndexer.ts pattern:
  *  walkDir → filter → readFile → chunk → embed → store
  *
- * Key behaviors preserved from ARC:
+ * Key behaviors preserved from KODRA:
  * - Batched processing (configurable batch size)
  * - Incremental indexing via content hashing (add/remove/update detection)
  * - Progress reporting
@@ -44,7 +44,7 @@ export declare class CodebaseIndexer {
     /**
      * Index the workspace — incremental if an index exists, full otherwise.
      *
-     * Algorithm (adapted from ARC's refreshIndex.ts):
+     * Algorithm (adapted from KODRA's refreshIndex.ts):
      * 1. Walk workspace to discover all eligible files + stats
      * 2. Compare against existing index state (by file path + content hash)
      * 3. Classify files as: new (add), changed (update), deleted (remove), unchanged (skip)

@@ -6,7 +6,7 @@
  * via the standard REST interactions API.
  */
 
-import { Arc1610Error, ErrorReason, isCancellationError } from '../utils/errors';
+import { KodraError, ErrorReason, isCancellationError } from '../utils/errors';
 import {
   ChatMessage,
   CompletionOptions,
@@ -81,9 +81,9 @@ export class GeminiProvider implements ILLMProvider {
       });
     } catch (error: unknown) {
       if (isCancellationError(error)) {
-        throw new Arc1610Error(ErrorReason.Cancelled, 'Request cancelled');
+        throw new KodraError(ErrorReason.Cancelled, 'Request cancelled');
       }
-      throw new Arc1610Error(
+      throw new KodraError(
         ErrorReason.ProviderConnectionFailed,
         'Failed to connect to Google Gemini API.',
         error instanceof Error ? error : undefined,
@@ -96,7 +96,7 @@ export class GeminiProvider implements ILLMProvider {
     }
 
     if (!response.body) {
-      throw new Arc1610Error(ErrorReason.ProviderConnectionFailed, 'Empty response from Gemini');
+      throw new KodraError(ErrorReason.ProviderConnectionFailed, 'Empty response from Gemini');
     }
 
     const reader = response.body.getReader();
@@ -175,7 +175,7 @@ export class GeminiProvider implements ILLMProvider {
 
       if (!response.ok) {
         if (response.status === 400 || response.status === 403) {
-          throw new Arc1610Error(ErrorReason.ProviderAuthFailed, 'Invalid Google Gemini API key.');
+          throw new KodraError(ErrorReason.ProviderAuthFailed, 'Invalid Google Gemini API key.');
         }
         throw new Error(`Gemini API responded with ${response.status}`);
       }
@@ -208,8 +208,8 @@ export class GeminiProvider implements ILLMProvider {
 
       return discovered;
     } catch (error: unknown) {
-      if (error instanceof Arc1610Error) throw error;
-      throw new Arc1610Error(
+      if (error instanceof KodraError) throw error;
+      throw new KodraError(
         ErrorReason.ProviderConnectionFailed,
         'Cannot reach Google Gemini API.',
         error instanceof Error ? error : undefined,
@@ -288,22 +288,22 @@ export class GeminiProvider implements ILLMProvider {
 
   private handleHttpError(status: number, body: string, model: string): never {
     if (status === 400 || status === 403) {
-      throw new Arc1610Error(ErrorReason.ProviderAuthFailed, 'Invalid Google Gemini API key.');
+      throw new KodraError(ErrorReason.ProviderAuthFailed, 'Invalid Google Gemini API key.');
     }
     if (status === 429) {
-      throw new Arc1610Error(ErrorReason.ProviderRateLimit, 'Gemini rate limit exceeded.');
+      throw new KodraError(ErrorReason.ProviderRateLimit, 'Gemini rate limit exceeded.');
     }
     if (status === 404) {
-      throw new Arc1610Error(ErrorReason.ProviderModelNotFound, `Model "${model}" not found.`);
+      throw new KodraError(ErrorReason.ProviderModelNotFound, `Model "${model}" not found.`);
     }
     try {
       const parsed = JSON.parse(body);
       if (parsed.error?.message) {
-        throw new Arc1610Error(ErrorReason.ProviderConnectionFailed, parsed.error.message);
+        throw new KodraError(ErrorReason.ProviderConnectionFailed, parsed.error.message);
       }
     } catch {
       // Ignore parse errors
     }
-    throw new Arc1610Error(ErrorReason.ProviderConnectionFailed, `Gemini error ${status}: ${body.slice(0, 200)}`);
+    throw new KodraError(ErrorReason.ProviderConnectionFailed, `Gemini error ${status}: ${body.slice(0, 200)}`);
   }
 }

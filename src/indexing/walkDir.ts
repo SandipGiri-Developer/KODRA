@@ -1,10 +1,10 @@
 /**
- * Workspace file traversal for ARC1610 indexing.
+ * Workspace file traversal for KODRA indexing.
  * 
- * Adapted from ARC's core/indexing/walkDir.ts DFS walker.
- * Key behaviors preserved from ARC:
+ * Adapted from KODRA's core/indexing/walkDir.ts DFS walker.
+ * Key behaviors preserved from KODRA:
  *  - DFS traversal with an explicit stack (not recursive)
- *  - Per-directory ignore context stacking (.gitignore + .arc1610ignore)
+ *  - Per-directory ignore context stacking (.gitignore + .KODRAignore)
  *  - Symlink skipping
  *  - Maximum file size filtering
  *  - Workspace boundary enforcement
@@ -39,9 +39,9 @@ export interface WalkResult {
 /**
  * Walk a workspace directory, respecting ignore rules.
  * 
- * Design notes (adapted from ARC's DFSWalker):
+ * Design notes (adapted from KODRA's DFSWalker):
  * - Uses an explicit stack to avoid call-stack overflow on deep trees
- * - Builds ignore contexts per-directory by reading .gitignore and .arc1610ignore files
+ * - Builds ignore contexts per-directory by reading .gitignore and .KODRAignore files
  * - Applies default security ignores + user-configured patterns globally
  * - Skips symlinks, binary files, oversized files
  * - Returns absolute paths
@@ -95,11 +95,11 @@ export async function walkWorkspace(
     // Check for local ignore files in this directory
     let localIgnore = current.ignoreCtx;
     const hasGitIgnore = entries.includes('.gitignore');
-    const hasArc1610Ignore = entries.includes('.arc1610ignore');
+    const hasKodraIgnore = entries.includes('.KODRAignore');
 
-    if (hasGitIgnore || hasArc1610Ignore) {
+    if (hasGitIgnore || hasKodraIgnore) {
       // Build a new ignore context layered on top of parent
-      // Precedence: .gitignore → defaults → .arc1610ignore (highest)
+      // Precedence: .gitignore → defaults → .KODRAignore (highest)
       localIgnore = ignore();
 
       // Read .gitignore
@@ -118,13 +118,13 @@ export async function walkWorkspace(
       // Add default patterns
       localIgnore.add(current.ignoreCtx);
 
-      // Read .arc1610ignore (highest precedence, can un-ignore things)
-      if (hasArc1610Ignore) {
+      // Read .KODRAignore (highest precedence, can un-ignore things)
+      if (hasKodraIgnore) {
         try {
-          const arc1610IgnoreContent = await fs.readFile(
-            path.join(current.absPath, '.arc1610ignore'), 'utf-8',
+          const KODRAIgnoreContent = await fs.readFile(
+            path.join(current.absPath, '.KODRAignore'), 'utf-8',
           );
-          const patterns = parseIgnoreFile(arc1610IgnoreContent);
+          const patterns = parseIgnoreFile(KODRAIgnoreContent);
           if (patterns.length > 0) {
             localIgnore.add(patterns);
           }
@@ -147,7 +147,7 @@ export async function walkWorkspace(
         return; // Skip entries we can't stat
       }
 
-      // Skip symlinks (same as ARC — avoid duplicate indexing)
+      // Skip symlinks (same as KODRA — avoid duplicate indexing)
       if (entryStat.isSymbolicLink()) {
         return;
       }

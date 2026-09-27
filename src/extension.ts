@@ -3,7 +3,7 @@ import { CodebaseIndexer } from './indexing/indexer';
 import { ProviderRegistry } from './providers/registry';
 import { Logger } from './utils/logger';
 import { SettingsManager } from './utils/settingsManager';
-import { Arc1610ViewProvider } from './webview/viewProvider';
+import { KodraViewProvider } from './webview/viewProvider';
 import { SettingsPanel, SettingsPanelSerializer } from './webview/settingsPanel';
 
 let indexer: CodebaseIndexer;
@@ -14,7 +14,7 @@ let startupTimer: NodeJS.Timeout | undefined;
 export async function activate(context: vscode.ExtensionContext) {
   // Initialize logger
   logger = Logger.getInstance();
-  logger.info('Arc1610 activating...');
+  logger.info('Kodra activating...');
 
   try {
     // Initialize core services
@@ -25,11 +25,11 @@ export async function activate(context: vscode.ExtensionContext) {
     indexer = new CodebaseIndexer(indexerConfig, context.storageUri?.fsPath);
     
     // Register webview provider
-    const viewProvider = new Arc1610ViewProvider(context.extensionUri, providerRegistry, indexer);
+    const viewProvider = new KodraViewProvider(context.extensionUri, providerRegistry, indexer);
     
     context.subscriptions.push(
       vscode.window.registerWebviewViewProvider(
-        Arc1610ViewProvider.viewType,
+        KodraViewProvider.viewType,
         viewProvider,
         {
           webviewOptions: { retainContextWhenHidden: true },
@@ -47,45 +47,45 @@ export async function activate(context: vscode.ExtensionContext) {
 
     // Register commands
     context.subscriptions.push(
-      vscode.commands.registerCommand('arc1610.openChat', async () => {
+      vscode.commands.registerCommand('KODRA.openChat', async () => {
         try {
-          await vscode.commands.executeCommand('workbench.view.extension.arc1610-sidebar');
+          await vscode.commands.executeCommand('workbench.view.extension.KODRA-sidebar');
         } catch {
           // ignore if already open
         }
-        await vscode.commands.executeCommand('arc1610.chatView.focus');
+        await vscode.commands.executeCommand('KODRA.chatView.focus');
       }),
       
-      vscode.commands.registerCommand('arc1610.newChat', () => {
+      vscode.commands.registerCommand('KODRA.newChat', () => {
         viewProvider.newChat();
       }),
       
-      vscode.commands.registerCommand('arc1610.viewHistory', () => {
+      vscode.commands.registerCommand('KODRA.viewHistory', () => {
         viewProvider.navigateTo('/history');
       }),
       
-      vscode.commands.registerCommand('arc1610.openSettings', () => {
+      vscode.commands.registerCommand('KODRA.openSettings', () => {
         SettingsPanel.createOrShow(context.extensionUri, providerRegistry);
       }),
 
-      vscode.commands.registerCommand('arc1610.closeSettings', () => {
+      vscode.commands.registerCommand('KODRA.closeSettings', () => {
         SettingsPanel.currentPanel?.dispose();
-        vscode.commands.executeCommand('arc1610.chatView.focus');
+        vscode.commands.executeCommand('KODRA.chatView.focus');
       }),
       
-      vscode.commands.registerCommand('arc1610.indexWorkspace', () => {
+      vscode.commands.registerCommand('KODRA.indexWorkspace', () => {
         indexer.indexWorkspace(false); // incremental
       }),
       
-      vscode.commands.registerCommand('arc1610.reindexWorkspace', () => {
+      vscode.commands.registerCommand('KODRA.reindexWorkspace', () => {
         indexer.indexWorkspace(true); // full
       }),
       
-      vscode.commands.registerCommand('arc1610.cancelIndexing', () => {
+      vscode.commands.registerCommand('KODRA.cancelIndexing', () => {
         indexer.cancelIndexing();
       }),
       
-      vscode.commands.registerCommand('arc1610.addFileContext', async () => {
+      vscode.commands.registerCommand('KODRA.addFileContext', async () => {
         const editor = vscode.window.activeTextEditor;
         if (editor) {
           const filepath = editor.document.uri.fsPath;
@@ -95,7 +95,7 @@ export async function activate(context: vscode.ExtensionContext) {
         }
       }),
       
-      vscode.commands.registerCommand('arc1610.addSelectionContext', async () => {
+      vscode.commands.registerCommand('KODRA.addSelectionContext', async () => {
         const editor = vscode.window.activeTextEditor;
         if (editor) {
           const filepath = editor.document.uri.fsPath;
@@ -108,7 +108,7 @@ export async function activate(context: vscode.ExtensionContext) {
         }
       }),
       
-      vscode.commands.registerCommand('arc1610.configureProvider', async () => {
+      vscode.commands.registerCommand('KODRA.configureProvider', async () => {
         const providers = providerRegistry.getSupportedProviders();
         
         // Show QuickPick to select provider
@@ -123,7 +123,7 @@ export async function activate(context: vscode.ExtensionContext) {
           }
           
           // Update setting
-          await vscode.workspace.getConfiguration('arc1610').update('provider', selected, true);
+          await vscode.workspace.getConfiguration('KODRA').update('provider', selected, true);
           viewProvider.sendConfig();
           vscode.window.showInformationMessage(`Provider set to ${selected}`);
         }
@@ -133,17 +133,17 @@ export async function activate(context: vscode.ExtensionContext) {
     // Listen for configuration changes
     context.subscriptions.push(
       vscode.workspace.onDidChangeConfiguration(e => {
-        if (e.affectsConfiguration('arc1610.indexing') || e.affectsConfiguration('arc1610.ollama')) {
+        if (e.affectsConfiguration('KODRA.indexing') || e.affectsConfiguration('KODRA.ollama')) {
           indexer.updateConfig(CodebaseIndexer.readConfig());
         }
-        if (e.affectsConfiguration('arc1610.provider') || e.affectsConfiguration('arc1610.modelName')) {
+        if (e.affectsConfiguration('KODRA.provider') || e.affectsConfiguration('KODRA.modelName')) {
           viewProvider.sendConfig();
         }
       })
     );
 
     // Auto-start incremental indexing if enabled
-    const autoIndex = vscode.workspace.getConfiguration('arc1610').get<boolean>('indexing.enabled', true);
+    const autoIndex = vscode.workspace.getConfiguration('KODRA').get<boolean>('indexing.enabled', true);
     if (autoIndex && vscode.workspace.workspaceFolders) {
       // Small delay to not block startup
       startupTimer = setTimeout(() => {
@@ -153,11 +153,11 @@ export async function activate(context: vscode.ExtensionContext) {
       }, 5000);
     }
 
-    logger.info('Arc1610 activation complete');
+    logger.info('Kodra activation complete');
     
   } catch (error) {
-    logger.error('Failed to activate Arc1610', error);
-    vscode.window.showErrorMessage(`Arc1610 failed to activate: ${error instanceof Error ? error.message : String(error)}`);
+    logger.error('Failed to activate Kodra', error);
+    vscode.window.showErrorMessage(`Kodra failed to activate: ${error instanceof Error ? error.message : String(error)}`);
   }
 }
 

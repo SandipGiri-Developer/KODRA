@@ -1,5 +1,5 @@
 /**
- * Typed error classes for ARC1610.
+ * Typed error classes for KODRA.
  * Each error type carries a reason code for structured error handling.
  */
 
@@ -37,14 +37,14 @@ export enum ErrorReason {
   Unknown = 'UNKNOWN',
 }
 
-export class Arc1610Error extends Error {
+export class KodraError extends Error {
   constructor(
     public readonly reason: ErrorReason,
     message: string,
     public readonly cause?: Error,
   ) {
     super(message);
-    this.name = 'Arc1610Error';
+    this.name = 'KodraError';
   }
 
   /**
@@ -53,11 +53,11 @@ export class Arc1610Error extends Error {
   get userMessage(): string {
     switch (this.reason) {
       case ErrorReason.ProviderNotConfigured:
-        return 'No AI provider configured. Open Arc1610 settings to set up a provider.';
+        return 'No AI provider configured. Open Kodra settings to set up a provider.';
       case ErrorReason.ProviderConnectionFailed:
         return 'Could not connect to the AI provider. Check your network and endpoint settings.';
       case ErrorReason.ProviderAuthFailed:
-        return 'Authentication failed. Check your API key in Arc1610 settings.';
+        return 'Authentication failed. Check your API key in Kodra settings.';
       case ErrorReason.ProviderRateLimit:
         return 'Rate limit exceeded. Please wait a moment and try again.';
       case ErrorReason.ProviderModelNotFound:
@@ -83,7 +83,7 @@ export class Arc1610Error extends Error {
  * Type guard to check if an error is an abort/cancellation error.
  */
 export function isCancellationError(error: unknown): boolean {
-  if (error instanceof Arc1610Error && error.reason === ErrorReason.Cancelled) {
+  if (error instanceof KodraError && error.reason === ErrorReason.Cancelled) {
     return true;
   }
   if (error instanceof Error && error.name === 'AbortError') {

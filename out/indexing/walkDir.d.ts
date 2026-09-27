@@ -1,10 +1,10 @@
 /**
- * Workspace file traversal for ARC1610 indexing.
+ * Workspace file traversal for KODRA indexing.
  *
- * Adapted from ARC's core/indexing/walkDir.ts DFS walker.
- * Key behaviors preserved from ARC:
+ * Adapted from KODRA's core/indexing/walkDir.ts DFS walker.
+ * Key behaviors preserved from KODRA:
  *  - DFS traversal with an explicit stack (not recursive)
- *  - Per-directory ignore context stacking (.gitignore + .arc1610ignore)
+ *  - Per-directory ignore context stacking (.gitignore + .KODRAignore)
  *  - Symlink skipping
  *  - Maximum file size filtering
  *  - Workspace boundary enforcement
@@ -29,9 +29,9 @@ export interface WalkResult {
 /**
  * Walk a workspace directory, respecting ignore rules.
  *
- * Design notes (adapted from ARC's DFSWalker):
+ * Design notes (adapted from KODRA's DFSWalker):
  * - Uses an explicit stack to avoid call-stack overflow on deep trees
- * - Builds ignore contexts per-directory by reading .gitignore and .arc1610ignore files
+ * - Builds ignore contexts per-directory by reading .gitignore and .KODRAignore files
  * - Applies default security ignores + user-configured patterns globally
  * - Skips symlinks, binary files, oversized files
  * - Returns absolute paths

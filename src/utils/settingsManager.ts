@@ -13,7 +13,7 @@ export class SettingsManager {
       context.subscriptions.push(this._onDidChangeSettings);
       context.subscriptions.push(
         vscode.workspace.onDidChangeConfiguration((e) => {
-          if (e.affectsConfiguration('arc1610')) {
+          if (e.affectsConfiguration('KODRA')) {
             this._onDidChangeSettings.fire();
           }
         })
@@ -35,7 +35,7 @@ export class SettingsManager {
   }
 
   private getConfig() {
-    return vscode.workspace.getConfiguration('arc1610');
+    return vscode.workspace.getConfiguration('KODRA');
   }
 
   public async getProviders(): Promise<ProviderSettings[]> {
@@ -61,16 +61,16 @@ export class SettingsManager {
   }
 
   public async getApiKey(providerId: string): Promise<string | undefined> {
-    return await this.secretStorage.get(`arc1610.provider.${providerId}.apiKey`);
+    return await this.secretStorage.get(`KODRA.provider.${providerId}.apiKey`);
   }
 
   public async saveApiKey(providerId: string, apiKey: string): Promise<void> {
-    await this.secretStorage.store(`arc1610.provider.${providerId}.apiKey`, apiKey);
+    await this.secretStorage.store(`KODRA.provider.${providerId}.apiKey`, apiKey);
     this._onDidChangeSettings.fire();
   }
 
   public async deleteApiKey(providerId: string): Promise<void> {
-    await this.secretStorage.delete(`arc1610.provider.${providerId}.apiKey`);
+    await this.secretStorage.delete(`KODRA.provider.${providerId}.apiKey`);
     this._onDidChangeSettings.fire();
   }
 }

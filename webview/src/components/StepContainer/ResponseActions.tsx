@@ -11,7 +11,7 @@ import HeaderButtonWithToolTip from "../gui/HeaderButtonWithToolTip";
 
 export interface ResponseActionsProps {
   isTruncated: boolean;
-  onARCGeneration: () => void;
+  onKODRAGeneration: () => void;
   index: number;
   onDelete: () => void;
   item: ChatHistoryItem;
@@ -19,7 +19,7 @@ export interface ResponseActionsProps {
 }
 
 export default function ResponseActions({
-  onARCGeneration,
+  onKODRAGeneration,
   index,
   item,
   isTruncated,
@@ -35,8 +35,8 @@ export default function ResponseActions({
       {isTruncated && (
         <HeaderButtonWithToolTip
           tabIndex={-1}
-          text="ARC generation"
-          onClick={onARCGeneration}
+          text="KODRA generation"
+          onClick={onKODRAGeneration}
         >
           <BarsArrowDownIcon className="text-description-muted h-3.5 w-3.5" />
         </HeaderButtonWithToolTip>

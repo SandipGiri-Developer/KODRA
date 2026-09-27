@@ -1,5 +1,5 @@
 /**
- * Agent tool implementations for ARC1610.
+ * Agent tool implementations for KODRA.
  *
  * Each tool implements the ITool interface and is registered with the agent loop.
  * Tools enforce workspace boundaries and validate arguments.

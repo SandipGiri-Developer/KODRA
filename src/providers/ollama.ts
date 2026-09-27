@@ -6,7 +6,7 @@
  * Supports tool calling for models that support it (e.g., llama3.1+, mistral, qwen2.5+).
  */
 
-import { Arc1610Error, ErrorReason, isCancellationError } from '../utils/errors';
+import { KodraError, ErrorReason, isCancellationError } from '../utils/errors';
 import {
   ChatMessage,
   CompletionOptions,
@@ -94,9 +94,9 @@ export class OllamaProvider implements ILLMProvider {
       });
     } catch (error: unknown) {
       if (isCancellationError(error)) {
-        throw new Arc1610Error(ErrorReason.Cancelled, 'Request cancelled');
+        throw new KodraError(ErrorReason.Cancelled, 'Request cancelled');
       }
-      throw new Arc1610Error(
+      throw new KodraError(
         ErrorReason.ProviderConnectionFailed,
         `Failed to connect to Ollama at ${this.endpoint}. Is Ollama running?`,
         error instanceof Error ? error : undefined,
@@ -106,19 +106,19 @@ export class OllamaProvider implements ILLMProvider {
     if (!response.ok) {
       const errorBody = await response.text().catch(() => '');
       if (response.status === 404) {
-        throw new Arc1610Error(
+        throw new KodraError(
           ErrorReason.ProviderModelNotFound,
           `Model "${model}" not found. Run: ollama pull ${model}`,
         );
       }
-      throw new Arc1610Error(
+      throw new KodraError(
         ErrorReason.Unknown,
         `Ollama error ${response.status}: ${errorBody}`,
       );
     }
 
     if (!response.body) {
-      throw new Arc1610Error(ErrorReason.ProviderConnectionFailed, 'Empty response from Ollama');
+      throw new KodraError(ErrorReason.ProviderConnectionFailed, 'Empty response from Ollama');
     }
 
     const reader = response.body.getReader();
@@ -251,8 +251,8 @@ export class OllamaProvider implements ILLMProvider {
 
       return discovered;
     } catch (error: unknown) {
-      if (error instanceof Arc1610Error) throw error;
-      throw new Arc1610Error(
+      if (error instanceof KodraError) throw error;
+      throw new KodraError(
         ErrorReason.ProviderConnectionFailed,
         `Cannot reach Ollama at ${this.endpoint}. Is Ollama running?`,
         error instanceof Error ? error : undefined,

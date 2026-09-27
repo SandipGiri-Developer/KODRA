@@ -1,11 +1,11 @@
 /**
- * Agent Loop for ARC1610.
+ * Agent Loop for KODRA.
  * 
  * Implements a controlled agent loop:
  *  User request → gather context → call model → parse response/tool request
  *  → validate tool → execute → return result → continue until done/cancelled/limit
  * 
- * Inspired by ARC's core.ts handleToolCall pattern but simplified for v1.0.
+ * Inspired by KODRA's core.ts handleToolCall pattern but simplified for v1.0.
  */
 
 import * as vscode from 'vscode';
@@ -19,7 +19,7 @@ import {
   ToolCall,
   ToolDefinition,
 } from '../providers/types';
-import { Arc1610Error, ErrorReason, isCancellationError, toError } from '../utils/errors';
+import { KodraError, ErrorReason, isCancellationError, toError } from '../utils/errors';
 import { Logger } from '../utils/logger';
 import { AgentEvent, ITool, ToolResult } from './types';
 import { getAllTools } from './tools';
@@ -174,8 +174,8 @@ export class AgentLoop {
             yield { type: 'cancelled' };
             return;
           }
-          const err = error instanceof Arc1610Error ? error : toError(error);
-          yield { type: 'error', error: err instanceof Arc1610Error ? err.userMessage : err.message };
+          const err = error instanceof KodraError ? error : toError(error);
+          yield { type: 'error', error: err instanceof KodraError ? err.userMessage : err.message };
           return;
         }
 
@@ -244,7 +244,7 @@ export class AgentLoop {
           } catch (error: unknown) {
             const err = toError(error);
             result = {
-              content: `Tool error: ${err instanceof Arc1610Error ? err.userMessage : err.message}`,
+              content: `Tool error: ${err instanceof KodraError ? err.userMessage : err.message}`,
               success: false,
             };
           }

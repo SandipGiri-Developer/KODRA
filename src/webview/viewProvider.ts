@@ -1,5 +1,5 @@
 /**
- * Webview Provider for the ARC1610 sidebar chat interface.
+ * Webview Provider for the KODRA sidebar chat interface.
  * 
  * Handles the lifecycle of the webview, message routing to the agent loop,
  * configuration updates, and indexing status reporting.
@@ -17,8 +17,8 @@ import { getWebviewContent } from './htmlHelper';
 import { OllamaManager } from '../utils/ollamaManager';
 import { ChatMessage } from '../providers/types';
 
-export class Arc1610ViewProvider implements vscode.WebviewViewProvider {
-  public static readonly viewType = 'arc1610.chatView';
+export class KodraViewProvider implements vscode.WebviewViewProvider {
+  public static readonly viewType = 'KODRA.chatView';
   
   private view?: vscode.WebviewView;
   private chatHistory: ChatMessage[] = [];
@@ -228,12 +228,12 @@ export class Arc1610ViewProvider implements vscode.WebviewViewProvider {
           break;
           
         case 'setProvider':
-          await vscode.workspace.getConfiguration('arc1610').update('provider', msg.provider, true);
+          await vscode.workspace.getConfiguration('KODRA').update('provider', msg.provider, true);
           await this.sendConfig();
           break;
           
         case 'setModel':
-          await vscode.workspace.getConfiguration('arc1610').update('modelName', msg.model, true);
+          await vscode.workspace.getConfiguration('KODRA').update('modelName', msg.model, true);
           await this.sendConfig();
           break;
           
@@ -340,7 +340,7 @@ export class Arc1610ViewProvider implements vscode.WebviewViewProvider {
       if (config.provider === 'ollama') {
         const isRunning = await OllamaManager.ensureRunning(config.endpoint);
         if (!isRunning) {
-          this.postMessage({ type: 'streamError', error: 'Ollama is not running. Please start it to arc.' });
+          this.postMessage({ type: 'streamError', error: 'Ollama is not running. Please start it to kodra.' });
           this.postMessage({ type: 'streamDone' });
           return;
         }
@@ -354,8 +354,8 @@ export class Arc1610ViewProvider implements vscode.WebviewViewProvider {
       // Save user message to history
       this.chatHistory.push({ role: 'user', content: text });
       
-      const requireApproval = vscode.workspace.getConfiguration('arc1610').get<boolean>('agent.requireApproval', true);
-      const maxIterations = vscode.workspace.getConfiguration('arc1610').get<number>('agent.maxIterations', 15);
+      const requireApproval = vscode.workspace.getConfiguration('KODRA').get<boolean>('agent.requireApproval', true);
+      const maxIterations = vscode.workspace.getConfiguration('KODRA').get<number>('agent.maxIterations', 15);
       
       if (this.agent) {
         this.agent.cancel();
@@ -442,7 +442,7 @@ export class Arc1610ViewProvider implements vscode.WebviewViewProvider {
 
   private getHtmlForWebview(webview: vscode.Webview): string {
     return getWebviewContent(webview, this.extensionUri, {
-      title: 'Arc1610',
+      title: 'Kodra',
       initialRoute: '/',
       isSettingsWindow: false,
     });

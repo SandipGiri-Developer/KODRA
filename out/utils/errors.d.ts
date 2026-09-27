@@ -1,5 +1,5 @@
 /**
- * Typed error classes for ARC1610.
+ * Typed error classes for KODRA.
  * Each error type carries a reason code for structured error handling.
  */
 export declare enum ErrorReason {
@@ -26,7 +26,7 @@ export declare enum ErrorReason {
     ConfigInvalid = "CONFIG_INVALID",
     Unknown = "UNKNOWN"
 }
-export declare class Arc1610Error extends Error {
+export declare class KodraError extends Error {
     readonly reason: ErrorReason;
     readonly cause?: Error | undefined;
     constructor(reason: ErrorReason, message: string, cause?: Error | undefined);

@@ -1,3 +1,3 @@
-# ARC React App
+# KODRA React App
 
-The ARC React app is a notebook-like interface to the ARC server. It allows the user to submit arbitrary text input, then communicates with the server to takes steps, which are displayed as a sequence of editable cells. The React app should sit beside an IDE, as in the VS Code extension.
+The KODRA React app is a notebook-like interface to the KODRA server. It allows the user to submit arbitrary text input, then communicates with the server to takes steps, which are displayed as a sequence of editable cells. The React app should sit beside an IDE, as in the VS Code extension.

@@ -26,7 +26,7 @@ const useFindWidget = (s?: any, t?: any, u?: any) => ({ widget: <></>, highlight
 import TimelineItem from "../../components/gui/TimelineItem";
 import { NewSessionButton } from "../../components/mainInput/belowMainInput/NewSessionButton";
 import ThinkingBlockPeek from "../../components/mainInput/belowMainInput/ThinkingBlockPeek";
-import ARCInputBox from "../../components/mainInput/ARCInputBox";
+import KODRAInputBox from "../../components/mainInput/KODRAInputBox";
 
 import StepContainer from "../../components/StepContainer";
 import { TabBar } from "../../components/TabBar/TabBar";
@@ -344,7 +344,7 @@ export function Chat() {
 
       if (message.role === "user") {
         return (
-          <ARCInputBox
+          <KODRAInputBox
             onEnter={(editorState, modifiers) =>
               sendInput(editorState, modifiers, index)
             }
@@ -485,7 +485,7 @@ export function Chat() {
           ))}
       </StepsDiv>
       <div className={"relative shrink-0"}>
-        <ARCInputBox
+        <KODRAInputBox
           isMainInput
           isLastUserInput={false}
           onEnter={(editorState, modifiers, editor) =>

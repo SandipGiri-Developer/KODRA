@@ -14,7 +14,7 @@ import { ExtensionToWebviewMessage, validateWebviewMessage } from './messageType
 
 export class SettingsPanel {
   public static currentPanel: SettingsPanel | undefined;
-  public static readonly viewType = 'arc1610.settingsPanel';
+  public static readonly viewType = 'KODRA.settingsPanel';
 
   private readonly panel: vscode.WebviewPanel;
   private readonly extensionUri: vscode.Uri;
@@ -176,7 +176,7 @@ export class SettingsPanel {
         case 'returnToChat':
         case 'closeSettings':
           // Focus chat view and dispose settings panel
-          vscode.commands.executeCommand('arc1610.chatView.focus');
+          vscode.commands.executeCommand('KODRA.chatView.focus');
           this.dispose();
           break;
 
@@ -258,12 +258,12 @@ export class SettingsPanel {
         }
 
         case 'setProvider':
-          await vscode.workspace.getConfiguration('arc1610').update('provider', msg.provider, true);
+          await vscode.workspace.getConfiguration('KODRA').update('provider', msg.provider, true);
           await this.sendConfig();
           break;
 
         case 'setModel':
-          await vscode.workspace.getConfiguration('arc1610').update('modelName', msg.model, true);
+          await vscode.workspace.getConfiguration('KODRA').update('modelName', msg.model, true);
           await this.sendConfig();
           break;
 

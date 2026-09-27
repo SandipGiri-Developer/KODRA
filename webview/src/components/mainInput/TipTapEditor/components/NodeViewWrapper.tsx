@@ -12,7 +12,7 @@ export const NodeViewWrapper: React.FC<NodeViewWrapperProps> = ({
   children,
 }) => {
   // Not setting this as a "p" will cause issues with foreign keyboards
-  // See https://github.com/SandipGiri-Developer/Arc1610-extension/issues/3199
+  // See https://github.com/SandipGiri-Developer/Kodra-extension/issues/3199
   const nodeViewWrapperTag: TiptapNodeViewWrapperProps["as"] = "p";
 
   return (

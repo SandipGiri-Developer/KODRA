@@ -1,7 +1,7 @@
 /**
- * Document chunking for ARC1610 indexing.
+ * Document chunking for KODRA indexing.
  *
- * Adapted from ARC's chunking strategies:
+ * Adapted from KODRA's chunking strategies:
  * - basicChunker (core/indexing/chunk/basic.ts): Line-based chunking with token counting
  * - chunkDocument (core/indexing/chunk/chunk.ts): Dispatcher that routes by file type
  *
@@ -12,7 +12,7 @@
  * - Applies overlap for context continuity at chunk boundaries
  * - Filters empty/trivial chunks
  *
- * Tree-sitter AST-based code chunking (ARC's code.ts) is deferred to v1.1
+ * Tree-sitter AST-based code chunking (KODRA's code.ts) is deferred to v1.1
  * due to WASM binary bundling complexity.
  */
 import { ChunkWithoutID } from './types';
@@ -29,7 +29,7 @@ export declare function approximateTokenCount(text: string): number;
 /**
  * Enhanced line-based chunker.
  *
- * Algorithm adapted from ARC's basic.ts chunker:
+ * Algorithm adapted from KODRA's basic.ts chunker:
  * - Iterates lines, accumulating into chunks
  * - When adding a line would exceed maxChunkSize tokens, yields current chunk
  * - Preserves startLine/endLine for source location
@@ -38,7 +38,7 @@ export declare function approximateTokenCount(text: string): number;
 export declare function chunkText(contents: string, maxChunkSize?: number, overlapLines?: number): Generator<ChunkWithoutID>;
 /**
  * Check if a file should be chunked based on its name and content.
- * Adapted from ARC's shouldChunk().
+ * Adapted from KODRA's shouldChunk().
  */
 export declare function shouldChunkFile(filepath: string, content: string): boolean;
 /**

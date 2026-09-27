@@ -16,7 +16,7 @@ import { ToolbarOptions } from "./InputToolbar";
 
 import { TipTapEditor } from "./TipTapEditor";
 
-interface ARCInputBoxProps {
+interface KODRAInputBoxProps {
   isLastUserInput: boolean;
   isMainInput?: boolean;
   onEnter: (
@@ -52,7 +52,7 @@ const EDIT_ALLOWED_SLASH_COMMAND_SOURCES: SlashCommandSource[] = [
   "json-custom-command",
 ];
 
-function ARCInputBox(props: ARCInputBoxProps) {
+function KODRAInputBox(props: KODRAInputBoxProps) {
   const isStreaming = useAppSelector((state) => state.session.isStreaming);
   const availableSlashCommands = useAppSelector(
     selectSlashCommandComboBoxInputs,
@@ -110,7 +110,7 @@ function ARCInputBox(props: ARCInputBoxProps) {
   return (
     <div
       className={`${props.hidden ? "hidden" : ""}`}
-      data-testid={`arc-input-box-${props.inputId}`}
+      data-testid={`kodra-input-box-${props.inputId}`}
     >
       <div className={`relative flex flex-col px-2`}>
         {props.isMainInput && <></>}
@@ -146,4 +146,4 @@ function ARCInputBox(props: ARCInputBoxProps) {
   );
 }
 
-export default memo(ARCInputBox);
+export default memo(KODRAInputBox);

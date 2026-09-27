@@ -1,4 +1,4 @@
-interface ARCSignetProps {
+interface KODRASignetProps {
   /** Height of the signet in pixels */
   height?: number;
   /** Width of the signet in pixels */
@@ -8,13 +8,13 @@ interface ARCSignetProps {
 }
 
 /**
- * The ARC signet/logo symbol without text
+ * The KODRA signet/logo symbol without text
  */
-export default function ARCSignet({
+export default function KODRASignet({
   height = 103,
   width = 107,
   className = "",
-}: ARCSignetProps) {
+}: KODRASignetProps) {
   return (
     <svg
       width={width}

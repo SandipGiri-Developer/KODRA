@@ -45,7 +45,7 @@ export const FatalErrorIndicator = () => {
           onClick={() => {
             ideMessenger.post(
               "openUrl",
-              "https://docs.arc.dev/troubleshooting",
+              "https://docs.kodra.dev/troubleshooting",
             );
           }}
           className="cursor-pointer underline"

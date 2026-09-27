@@ -62,12 +62,12 @@ export default function StepContainer(props: StepContainerProps) {
     dispatch(deleteMessage(props.index));
   }
 
-  function onARCGeneration() {
+  function onKODRAGeneration() {
     window.postMessage(
       {
         messageType: "userInput",
         data: {
-          input: "ARC your response exactly where you left off:",
+          input: "KODRA your response exactly where you left off:",
         },
       },
       "*",
@@ -111,7 +111,7 @@ export default function StepContainer(props: StepContainerProps) {
           <ResponseActions
             isTruncated={isTruncated}
             onDelete={onDelete}
-            onARCGeneration={onARCGeneration}
+            onKODRAGeneration={onKODRAGeneration}
             index={props.index}
             item={props.item}
             isLast={props.isLast}

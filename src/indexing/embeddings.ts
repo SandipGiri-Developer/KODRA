@@ -1,8 +1,8 @@
 /**
  * Embedding provider interface and simple local implementation.
  * 
- * ARC uses BaseLLM for embeddings with multiple providers.
- * For ARC1610 v1.0, we provide:
+ * KODRA uses BaseLLM for embeddings with multiple providers.
+ * For KODRA v1.0, we provide:
  * 1. A simple local embeddings approach using the provider's embed endpoint
  * 2. An interface for future expansion (TransformersJS, OpenAI embeddings, etc.)
  * 
@@ -10,7 +10,7 @@
  * changing the model requires a full re-index.
  */
 
-import { Arc1610Error, ErrorReason } from '../utils/errors';
+import { KodraError, ErrorReason } from '../utils/errors';
 import { Logger } from '../utils/logger';
 
 /** Interface for embedding text into vectors. */
@@ -71,12 +71,12 @@ export class OllamaEmbeddingProvider implements IEmbeddingProvider {
         if (!response.ok) {
           const errorBody = await response.text().catch(() => '');
           if (response.status === 404) {
-            throw new Arc1610Error(
+            throw new KodraError(
               ErrorReason.EmbeddingFailed,
               `Embedding model "${this.model}" not found. Run: ollama pull ${this.model}`,
             );
           }
-          throw new Arc1610Error(
+          throw new KodraError(
             ErrorReason.EmbeddingFailed,
             `Ollama embedding error ${response.status}: ${errorBody.slice(0, 200)}`,
           );
@@ -84,7 +84,7 @@ export class OllamaEmbeddingProvider implements IEmbeddingProvider {
 
         const data = await response.json() as { embeddings: number[][] };
         if (!data.embeddings || data.embeddings.length !== batch.length) {
-          throw new Arc1610Error(
+          throw new KodraError(
             ErrorReason.EmbeddingFailed,
             `Unexpected embeddings response: expected ${batch.length} vectors, got ${data.embeddings?.length ?? 0}`,
           );
@@ -92,8 +92,8 @@ export class OllamaEmbeddingProvider implements IEmbeddingProvider {
 
         allEmbeddings.push(...data.embeddings);
       } catch (error: unknown) {
-        if (error instanceof Arc1610Error) { throw error; }
-        throw new Arc1610Error(
+        if (error instanceof KodraError) { throw error; }
+        throw new KodraError(
           ErrorReason.EmbeddingFailed,
           `Failed to generate embeddings: ${error instanceof Error ? error.message : String(error)}`,
           error instanceof Error ? error : undefined,

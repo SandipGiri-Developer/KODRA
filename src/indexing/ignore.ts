@@ -1,12 +1,12 @@
 /**
- * File ignore rules for ARC1610 indexing.
+ * File ignore rules for KODRA indexing.
  * 
- * Adapted from ARC's core/indexing/ignore.ts.
+ * Adapted from KODRA's core/indexing/ignore.ts.
  * Implements a layered ignore system:
  *  1. Security-critical patterns (always excluded: .env, keys, certs, secrets)
  *  2. Default indexing exclusions (binaries, media, lockfiles, build artifacts)
  *  3. .gitignore rules (per-directory)
- *  4. .arc1610ignore rules (per-directory, overrides .gitignore like .continueignore)
+ *  4. .KODRAignore rules (per-directory, overrides .gitignore like .continueignore)
  *  5. User-configured additional patterns
  */
 
@@ -66,8 +66,8 @@ export const DEFAULT_IGNORE_DIRS = [
   '.venv/', 'venv/', 'env/',
   '.vscode/', '.idea/', '.vs/',
   'coverage/', '.nyc_output/',
-  // ARC1610's own index
-  '.arc1610/',
+  // KODRA's own index
+  '.KODRA/',
 ];
 
 // ─── Combined patterns ────────────────────────────────────────────────────
@@ -114,7 +114,7 @@ export function isSecurityConcern(filepath: string): boolean {
 }
 
 /**
- * Parse a .gitignore or .arc1610ignore file into ignore patterns.
+ * Parse a .gitignore or .KODRAignore file into ignore patterns.
  * Strips comments and empty lines.
  */
 export function parseIgnoreFile(content: string): string[] {

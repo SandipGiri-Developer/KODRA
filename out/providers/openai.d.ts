@@ -3,7 +3,7 @@
  * Connects to OpenAI's API (or any OpenAI-compatible endpoint).
  *
  * Uses the Chat Completions API with streaming and tool/function calling.
- * Users must provide their own API key — ARC1610 does not include one.
+ * Users must provide their own API key — KODRA does not include one.
  */
 import { ChatMessage, CompletionOptions, ILLMProvider, ProviderCapabilities, StreamChunk, DiscoveredModel } from './types';
 export declare class OpenAIProvider implements ILLMProvider {

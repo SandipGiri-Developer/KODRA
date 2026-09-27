@@ -1,5 +1,5 @@
 /**
- * Agent tool implementations for ARC1610.
+ * Agent tool implementations for KODRA.
  * 
  * Each tool implements the ITool interface and is registered with the agent loop.
  * Tools enforce workspace boundaries and validate arguments.
@@ -13,7 +13,7 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 import { isSecurityConcern } from '../indexing/ignore';
 import { isWithinWorkspace } from '../indexing/walkDir';
-import { Arc1610Error, ErrorReason } from '../utils/errors';
+import { KodraError, ErrorReason } from '../utils/errors';
 import { ToolDefinition } from '../providers/types';
 import { ITool, ToolResult } from './types';
 
@@ -102,10 +102,10 @@ export class ReadFileTool implements ITool {
 
   private validatePath(filepath: string): void {
     if (!isWithinWorkspace(filepath)) {
-      throw new Arc1610Error(ErrorReason.OutsideWorkspace, `Path is outside workspace: ${filepath}`);
+      throw new KodraError(ErrorReason.OutsideWorkspace, `Path is outside workspace: ${filepath}`);
     }
     if (isSecurityConcern(filepath)) {
-      throw new Arc1610Error(ErrorReason.FileSecurityConcern, `File is a security concern: ${path.basename(filepath)}`);
+      throw new KodraError(ErrorReason.FileSecurityConcern, `File is a security concern: ${path.basename(filepath)}`);
     }
   }
 }

@@ -1,16 +1,16 @@
 export type ConfigResult<T> = { config: T; errors?: any[] };
 export type ConfigValidationError = any;
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
-import { BrowserSerializedARCConfig } from "core";
+import { BrowserSerializedKODRAConfig } from "core";
 const DEFAULT_CONTEXT_LENGTH = 128000;
 
 export type ConfigState = {
   configError: ConfigValidationError[] | undefined;
-  config: BrowserSerializedARCConfig;
+  config: BrowserSerializedKODRAConfig;
   loading: boolean;
 };
 
-export const EMPTY_CONFIG: BrowserSerializedARCConfig = {
+export const EMPTY_CONFIG: BrowserSerializedKODRAConfig = {
   slashCommands: [],
   contextProviders: [],
   tools: [],
@@ -52,7 +52,7 @@ export const configSlice = createSlice({
       state,
       {
         payload: result,
-      }: PayloadAction<ConfigResult<BrowserSerializedARCConfig>>,
+      }: PayloadAction<ConfigResult<BrowserSerializedKODRAConfig>>,
     ) => {
       const { config, errors } = result;
       if (!errors || errors.length === 0) {
@@ -74,7 +74,7 @@ export const configSlice = createSlice({
     },
     updateConfig: (
       state,
-      { payload: config }: PayloadAction<BrowserSerializedARCConfig>,
+      { payload: config }: PayloadAction<BrowserSerializedKODRAConfig>,
     ) => {
       state.config = config;
     },

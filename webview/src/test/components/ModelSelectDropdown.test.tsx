@@ -139,7 +139,7 @@ describe('ModelSelectDropdown', () => {
 
     expect(mockPostMessage).toHaveBeenCalledWith({
       type: 'executeCommand',
-      command: 'arc1610.openSettings'
+      command: 'KODRA.openSettings'
     });
   });
 });
