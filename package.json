@@ -103,7 +103,8 @@
         {
           "id": "arc1610.chatView",
           "name": "KODRA Assistant",
-          "type": "webview"
+          "type": "webview",
+          "icon": "$(symbol-function)"
         }
       ]
     },

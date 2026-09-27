@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
   PlusIcon,
   TrashIcon,
@@ -11,6 +11,9 @@ import {
   ChevronDownIcon,
   ServerIcon,
   KeyIcon,
+  PencilIcon,
+  EyeIcon,
+  EyeSlashIcon,
 } from "@heroicons/react/24/outline";
 import {
   Anthropic,
@@ -28,12 +31,12 @@ type ProviderType = "ollama" | "openai" | "anthropic" | "gemini";
 
 const PROVIDER_DISPLAY: Record<
   ProviderType,
-  { label: string; icon: string }
+  { label: string }
 > = {
-  ollama: { label: "Ollama", icon: "Ollama" },
-  openai: { label: "OpenAI", icon: "OpenAI" },
-  anthropic: { label: "Anthropic", icon: "Anthropic" },
-  gemini: { label: "Google Gemini", icon: "Gemini" },
+  ollama: { label: "Ollama" },
+  openai: { label: "OpenAI" },
+  anthropic: { label: "Anthropic" },
+  gemini: { label: "Google Gemini" },
 };
 
 const PROVIDER_OPTIONS: {
@@ -53,13 +56,10 @@ const DEFAULT_ENDPOINTS: Record<ProviderType, string> = {
   anthropic: "",
 };
 
-/* -------------------------------------------------------------------------- */
-/* Provider Icon                                                               */
-/* -------------------------------------------------------------------------- */
 
 export function ProviderIcon({
   provider,
-  size = 22,
+  size = 15,
   className = "",
 }: {
   provider: string;
@@ -67,28 +67,48 @@ export function ProviderIcon({
   className?: string;
 }) {
   const styles: Record<string, string> = {
-    ollama: "bg-[#161A26] text-[#E2E8F0] border-[#262D3E]",
-    openai: "bg-[#10241E] text-[#10A37F] border-[#18483B]",
-    anthropic: "bg-[#241C18] text-[#D4A373] border-[#3B2C24]",
-    gemini: "bg-[#141F33] text-[#93C5FD] border-[#223554]",
+    ollama: "bg-[#161A26] border-[#262D3E]",
+    openai: "bg-[#10241E] border-[#18483B]",
+    anthropic: "bg-[#241C18] border-[#3B2C24]",
+    gemini: "bg-[#141F33] border-[#223554]",
   };
 
   const renderIcon = () => {
     const key = (provider || "").toLowerCase();
+
     if (key.includes("ollama")) {
-      return <Ollama size={size} className="text-[#E2E8F0]" />;
+      return (
+        <Ollama
+          size={size}
+          className="text-[#E2E8F0]"
+        />
+      );
     }
+
     if (key.includes("openai")) {
-      return <OpenAI size={size} className="text-[#10A37F]" />;
+      return (
+        <OpenAI
+          size={size}
+          className="text-[#10A37F]"
+        />
+      );
     }
+
     if (key.includes("anthropic") || key.includes("claude")) {
-      return <Anthropic size={size} className="text-[#D4A373]" />;
+      return (
+        <Anthropic
+          size={size}
+          className="text-[#D4A373]"
+        />
+      );
     }
+
     if (key.includes("gemini") || key.includes("google")) {
       return <Gemini.Color size={size} />;
     }
+
     return (
-      <span className="text-[15px] font-semibold text-[#E2E8F0]">
+      <span className="text-[14px] font-semibold text-[#E2E8F0]">
         {provider.charAt(0).toUpperCase()}
       </span>
     );
@@ -96,11 +116,22 @@ export function ProviderIcon({
 
   return (
     <div
+      title={
+        PROVIDER_DISPLAY[
+          provider.toLowerCase() as ProviderType
+        ]?.label ?? provider
+      }
+      aria-label={
+        PROVIDER_DISPLAY[
+          provider.toLowerCase() as ProviderType
+        ]?.label ?? provider
+      }
       className={`
-        flex h-11 w-11 flex-shrink-0 items-center justify-center
-        rounded-[8px]
+        flex h-8 w-8 flex-shrink-0 items-center justify-center
+        rounded-full
         border
-        ${styles[provider.toLowerCase()] ?? "bg-[#161A26] text-[#E2E8F0] border-[#262D3E]"}
+        ${styles[provider.toLowerCase()] ??
+        "bg-[#161A26] border-[#262D3E]"}
         ${className}
       `}
     >
@@ -108,10 +139,6 @@ export function ProviderIcon({
     </div>
   );
 }
-
-/* -------------------------------------------------------------------------- */
-/* Capability Chips                                                            */
-/* -------------------------------------------------------------------------- */
 
 function CapabilityChips({
   capabilities,
@@ -121,21 +148,21 @@ function CapabilityChips({
   return (
     <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
       {capabilities.toolCalling && (
-        <span className="inline-flex h-6 items-center gap-1 rounded-full border border-[#262D3E] bg-[#161A26] px-2 text-[11px] text-[#CBD5E1]">
+        <span className="inline-flex h-5 items-center gap-1 rounded-full border border-[#262D3E] bg-[#161A26] px-1.5 text-[10px] text-[#AEB8C7]">
           <WrenchScrewdriverIcon className="h-3 w-3 text-[#818CF8]" />
           Tools
         </span>
       )}
 
       {capabilities.vision && (
-        <span className="inline-flex h-6 items-center gap-1 rounded-full border border-[#262D3E] bg-[#161A26] px-2 text-[11px] text-[#CBD5E1]">
+        <span className="inline-flex h-5 items-center gap-1 rounded-full border border-[#262D3E] bg-[#161A26] px-1.5 text-[10px] text-[#AEB8C7]">
           <PhotoIcon className="h-3 w-3 text-[#818CF8]" />
           Vision
         </span>
       )}
 
       {capabilities.reasoning && (
-        <span className="inline-flex h-6 items-center gap-1 rounded-full border border-[#262D3E] bg-[#161A26] px-2 text-[11px] text-[#CBD5E1]">
+        <span className="inline-flex h-5 items-center gap-1 rounded-full border border-[#262D3E] bg-[#161A26] px-1.5 text-[10px] text-[#AEB8C7]">
           <LightBulbIcon className="h-3 w-3 text-[#818CF8]" />
           Reasoning
         </span>
@@ -148,19 +175,34 @@ function CapabilityChips({
 /* Model Chip                                                                  */
 /* -------------------------------------------------------------------------- */
 
-function ModelChip({ name }: { name: string }) {
+function ModelChip({
+  name,
+  muted = false,
+}: {
+  name: string;
+  muted?: boolean;
+}) {
   return (
     <span
       title={name}
-      className="
-        inline-flex h-6 max-w-[180px] items-center
-        overflow-hidden text-ellipsis whitespace-nowrap
-        rounded-full border border-[#262D3E]
-        bg-[#161A26]
-        px-2
-        text-[11px] leading-4
-        text-[#CBD5E1]
-      "
+      className={`
+        inline-flex h-7 max-w-[190px]
+        items-center
+        overflow-hidden
+        text-ellipsis
+        whitespace-nowrap
+        rounded-[6px]
+        border
+        px-2.5
+        text-[11px]
+        leading-4
+        transition-colors
+        ${
+          muted
+            ? "border-[#252B3A] bg-[#11151E] text-[#7D8798]"
+            : "border-[#292F40] bg-[#151923] text-[#C7D0DD] hover:border-[#394258] hover:bg-[#1A1F2B]"
+        }
+      `}
     >
       {name}
     </span>
@@ -175,127 +217,234 @@ interface ProviderCardProps {
   provider: ProviderSettings;
   models: WorkspaceModel[];
   onDelete: (id: string) => void;
+  onEdit: (provider: ProviderSettings) => void;
 }
 
 function ProviderCard({
   provider,
   models,
   onDelete,
+  onEdit,
 }: ProviderCardProps) {
   const [menuOpen, setMenuOpen] = useState(false);
 
-  const visibleModels = models.slice(0, 2);
-  const extraCount = Math.max(0, models.length - 2);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setMenuOpen(false);
+      }
+    };
+
+    const handleOutsideClick = (event: MouseEvent) => {
+      if (
+        menuRef.current &&
+        !menuRef.current.contains(event.target as Node)
+      ) {
+        setMenuOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleOutsideClick);
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.removeEventListener("mousedown", handleOutsideClick);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, []);
+
+  const visibleModels = models.slice(0, 3);
+  const extraCount = Math.max(0, models.length - 3);
+
+  const modelTooltip =
+    models.length > 0
+      ? models.map((model) => model.displayName).join("\n")
+      : "No models selected";
 
   return (
     <div
       className="
-        grid min-h-[72px] grid-cols-[minmax(220px,1.4fr)_minmax(150px,.9fr)_minmax(220px,1.5fr)_40px]
-        items-center gap-5
-        rounded-[10px]
-        border border-[#1E2333]
-        bg-[#12151E]
-        p-4
-        transition-colors duration-150
-        hover:border-[#2F374C]
-        hover:bg-[#161A26]
+        relative
+        flex
+        min-h-[52px]
+        w-full
+        items-center
+        gap-3
+        border-b
+        border-[#1E2333]
+        bg-transparent
+        px-2
+        py-2.5
+        transition-all
+        duration-150
+        hover:bg-[#11141C]
+        last:border-b-0
       "
     >
-      {/* Provider identity */}
-      <div className="flex min-w-0 items-center gap-3">
+      {/* Provider */}
+      <div className="flex flex-shrink-0 items-center">
         <ProviderIcon provider={provider.provider} />
-
-        <div className="min-w-0">
-          <div className="flex min-w-0 flex-wrap items-center gap-2">
-            <span
-              title={provider.name}
-              className="truncate text-[14px] font-semibold leading-5 text-[#F1F5F9]"
-            >
-              {provider.name}
-            </span>
-
-            <span className="inline-flex h-[22px] flex-shrink-0 items-center rounded-full border border-[#262D3E] bg-[#161A26] px-2 text-[11px] text-[#CBD5E1]">
-              {PROVIDER_DISPLAY[
-                provider.provider as ProviderType
-              ]?.label ?? provider.provider}
-            </span>
-          </div>
-
-          <div className="mt-1 text-[12px] leading-[17px] text-[#94A3B8]">
-            {models.length} model
-            {models.length !== 1 ? "s" : ""} selected
-          </div>
-        </div>
       </div>
 
       {/* Connection */}
-      <div className="min-w-0">
-        <div className="flex items-center gap-2 text-[12px] font-medium leading-[18px] text-[#4ADE80]">
-          <span className="h-[7px] w-[7px] flex-shrink-0 rounded-full bg-[#22C55E] shadow-[0_0_6px_rgba(34,197,94,0.4)]" />
-          Connected
+      <div className="flex min-w-[150px] flex-shrink-0 flex-col">
+        <div className="flex items-center gap-2">
+          <span
+            className="
+              h-[6px]
+              w-[6px]
+              flex-shrink-0
+              rounded-full
+              bg-[#22C55E]
+              shadow-[0_0_6px_rgba(34,197,94,0.35)]
+            "
+          />
+
+          <span className="text-[12px] font-medium text-[#B9C4D2]">
+            Connected
+          </span>
         </div>
 
         {provider.endpoint && (
           <div
             title={provider.endpoint}
-            className="mt-0.5 truncate text-[11px] leading-[17px] text-[#8B95A5]"
+            className="
+              mt-1
+              max-w-[190px]
+              truncate
+              text-[10px]
+              leading-4
+              text-[#667085]
+            "
           >
             {provider.endpoint}
           </div>
         )}
       </div>
 
-      {/* Selected models */}
-      <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-        {visibleModels.map((model) => (
-          <ModelChip
-            key={model.id}
-            name={model.displayName}
-          />
-        ))}
+      {/* Models */}
+      <div
+        title={modelTooltip}
+        className="
+          flex
+          min-w-0
+        
+          items-center
+          gap-1.5
+          overflow-hidden
+        "
+      >
+        {models.length === 0 ? (
+          <span className="text-[11px] text-[#5F6979]">
+            No models selected
+          </span>
+        ) : (
+          <>
+            {visibleModels.map((model) => (
+              <ModelChip
+                key={model.id}
+                name={model.displayName}
+              />
+            ))}
 
-        {extraCount > 0 && (
-          <ModelChip name={`+${extraCount}`} />
+            {extraCount > 0 && (
+              <ModelChip
+                name={`+${extraCount}`}
+                muted
+              />
+            )}
+          </>
         )}
       </div>
 
       {/* Actions */}
-      <div className="relative flex justify-end">
+      <div
+        ref={menuRef}
+        className="
+          relative
+          z-20
+          flex
+          flex-shrink-0
+          items-center
+        "
+      >
         <button
           type="button"
           onClick={() => setMenuOpen((previous) => !previous)}
-          aria-label={`Actions for ${provider.name}`}
+          aria-label="Provider actions"
+          aria-expanded={menuOpen}
           className="
-            flex h-9 w-9 items-center justify-center
-            rounded-[6px]
-            border border-[#262D3E]
-            bg-[#151924]
-            text-[#94A3B8]
-            transition-colors
-            hover:border-[#38425A]
-            hover:bg-[#1C2233]
-            hover:text-[#F1F5F9]
+            flex
+            h-8
+            w-8
+            items-center
+            justify-center
+            rounded-[7px]
+            border
+            border-transparent
+            bg-transparent
+            text-[#778196]
+            transition-all
+            duration-150
+            hover:border-[#2D3548]
+            hover:bg-[#1A1F2B]
+            hover:text-[#D9E0EA]
             focus:outline-none
+            focus-visible:border-[#4F46E5]
             focus-visible:ring-2
-            focus-visible:ring-[#6366F1]/30
+            focus-visible:ring-[#6366F1]/20
           "
         >
-          <EllipsisHorizontalIcon className="h-5 w-5" />
+          <EllipsisHorizontalIcon className="h-[18px] w-[18px]" />
         </button>
 
         {menuOpen && (
           <div
             className="
-              absolute right-0 top-11 z-50
-              min-w-[140px]
+              absolute
+              right-0
+              top-[calc(100%+6px)]
+              z-[100]
+              w-[154px]
               overflow-hidden
-              rounded-[7px]
-              border border-[#283044]
-              bg-[#131722]
+              rounded-[8px]
+              border
+              border-[#2A3142]
+              bg-[#151923]
               py-1
-              shadow-[0_8px_24px_rgba(0,0,0,.5)]
+              shadow-[0_12px_32px_rgba(0,0,0,.45)]
             "
           >
+            <button
+              autoFocus
+              type="button"
+              onClick={() => {
+                setMenuOpen(false);
+                onEdit(provider);
+              }}
+              className="
+                flex
+                w-full
+                items-center
+                gap-2.5
+                px-3
+                py-2
+                text-left
+                text-[12px]
+                text-[#CBD5E1]
+                transition-colors
+                hover:bg-[#1D2330]
+                hover:text-[#F1F5F9]
+              "
+            >
+              <PencilIcon className="h-3.5 w-3.5" />
+              Edit
+            </button>
+
+            <div className="mx-2 border-t border-[#252B39]" />
+
             <button
               type="button"
               onClick={() => {
@@ -303,17 +452,22 @@ function ProviderCard({
                 onDelete(provider.id);
               }}
               className="
-                flex w-full items-center gap-2
-                border-0 bg-transparent
-                px-3 py-2
-                text-left text-[13px]
+                flex
+                w-full
+                items-center
+                gap-2.5
+                px-3
+                py-2
+                text-left
+                text-[12px]
                 text-[#F87171]
                 transition-colors
-                hover:bg-[#1E1822]
+                hover:bg-[#24191F]
+                hover:text-[#FCA5A5]
               "
             >
-              <TrashIcon className="h-4 w-4" />
-              Remove
+              <TrashIcon className="h-3.5 w-3.5" />
+              Delete
             </button>
           </div>
         )}
@@ -321,10 +475,6 @@ function ProviderCard({
     </div>
   );
 }
-
-/* -------------------------------------------------------------------------- */
-/* Add Provider Form                                                           */
-/* -------------------------------------------------------------------------- */
 
 type DiscoveryStatus =
   | "idle"
@@ -336,19 +486,33 @@ interface AddProviderFormProps {
   onCancel: () => void;
   onSaved: () => void;
   existingModels: WorkspaceModel[];
+  editingProvider?: ProviderSettings | null;
 }
 
 function AddProviderForm({
   onCancel,
   onSaved,
   existingModels,
+  editingProvider = null,
 }: AddProviderFormProps) {
-  const [providerType, setProviderType] =
-    useState<ProviderType>("ollama");
+  const isEditing = Boolean(editingProvider);
 
-  const [name, setName] = useState("");
-  const [endpoint, setEndpoint] = useState("");
+  const [providerType, setProviderType] =
+    useState<ProviderType>(
+      (editingProvider?.provider as ProviderType) ??
+        "ollama",
+    );
+
+  const [name, setName] = useState(
+    editingProvider?.name ?? "",
+  );
+
+  const [endpoint, setEndpoint] = useState(
+    editingProvider?.endpoint ?? "",
+  );
+
   const [apiKey, setApiKey] = useState("");
+  const [showApiKey, setShowApiKey] = useState(false);
 
   const [isConnecting, setIsConnecting] =
     useState(false);
@@ -383,11 +547,6 @@ function AddProviderForm({
 
       setStatus("success");
 
-      /*
-       * Keep the existing capability contract.
-       * The provider/backend remains responsible for determining
-       * actual model capabilities.
-       */
       const chatModels: DiscoveredModel[] = (
         data.models ?? []
       ).filter(
@@ -396,6 +555,27 @@ function AddProviderForm({
       );
 
       setDiscoveredModels(chatModels);
+
+      if (editingProvider) {
+        const existingProviderModels =
+          existingModels.filter(
+            (model) =>
+              model.providerConfigId ===
+              editingProvider.id,
+          );
+
+        const discoveredIds = new Set(
+          chatModels.map((model) => model.id),
+        );
+
+        setSelectedIds(
+          existingProviderModels
+            .map((model) => model.id)
+            .filter((id) => discoveredIds.has(id)),
+        );
+      } else {
+        setSelectedIds([]);
+      }
     };
 
     window.addEventListener("message", handler);
@@ -403,7 +583,7 @@ function AddProviderForm({
     return () => {
       window.removeEventListener("message", handler);
     };
-  }, []);
+  }, [editingProvider, existingModels]);
 
   const handleProviderChange = (
     nextProvider: ProviderType,
@@ -442,7 +622,9 @@ function AddProviderForm({
   const handleToggleModel = (id: string) => {
     setSelectedIds((previous) =>
       previous.includes(id)
-        ? previous.filter((modelId) => modelId !== id)
+        ? previous.filter(
+            (modelId) => modelId !== id,
+          )
         : [...previous, id],
     );
   };
@@ -452,7 +634,9 @@ function AddProviderForm({
       return;
     }
 
-    const newId = `${providerType}-${Date.now()}`;
+    const providerId =
+      editingProvider?.id ??
+      `${providerType}-${Date.now()}`;
 
     const finalEndpoint =
       endpoint.trim() ||
@@ -464,11 +648,13 @@ function AddProviderForm({
       `${PROVIDER_DISPLAY[providerType]?.label ?? providerType} Config`;
 
     const setting: ProviderSettings = {
-      id: newId,
+      id: providerId,
       name: displayName,
       provider: providerType,
       endpoint: finalEndpoint || undefined,
-      apiKeySecret: apiKey.trim().length > 0,
+      apiKeySecret:
+        apiKey.trim().length > 0 ||
+        Boolean(editingProvider?.apiKeySecret),
     };
 
     const newWorkspaceModels: WorkspaceModel[] =
@@ -485,7 +671,7 @@ function AddProviderForm({
           {
             id: found.id,
             displayName: found.displayName,
-            providerConfigId: newId,
+            providerConfigId: providerId,
             provider: providerType,
             capabilities: found.capabilities,
             contextLength: found.contextLength,
@@ -493,7 +679,20 @@ function AddProviderForm({
         ];
       });
 
+
+    const modelsWithoutCurrentProvider =
+      existingModels.filter(
+        (model) =>
+          model.providerConfigId !== providerId,
+      );
+
+    const updatedWorkspaceModels = [
+      ...modelsWithoutCurrentProvider,
+      ...newWorkspaceModels,
+    ];
+
     if ((window as any).vscode) {
+
       (window as any).vscode.postMessage({
         type: "saveProviderSetting",
         setting,
@@ -502,10 +701,7 @@ function AddProviderForm({
 
       (window as any).vscode.postMessage({
         type: "saveWorkspaceModels",
-        models: [
-          ...existingModels,
-          ...newWorkspaceModels,
-        ],
+        models: updatedWorkspaceModels,
       });
     }
 
@@ -522,21 +718,49 @@ function AddProviderForm({
     <section
       className="
         rounded-[10px]
-        border border-[#1E2333]
-        bg-[#12151E]
+        border
+        border-[#1E2333]
+        bg-[#11141C]
         p-5
       "
     >
-      {/* Form header */}
-      <div className="mb-6">
-        <h2 className="m-0 text-[18px] font-semibold leading-6 text-[#F1F5F9]">
-          Add AI Provider
-        </h2>
+      {/* Header */}
+      <div className="mb-6 flex items-start justify-between">
+        <div>
+          <div className="flex items-center gap-2.5">
+            <div
+              className="
+                flex
+                h-8
+                w-8
+                items-center
+                justify-center
+                rounded-[7px]
+                border
+                border-[#2A3142]
+                bg-[#171B26]
+              "
+            >
+              {isEditing ? (
+                <PencilIcon className="h-4 w-4 text-[#A5B4FC]" />
+              ) : (
+                <PlusIcon className="h-4 w-4 text-[#A5B4FC]" />
+              )}
+            </div>
 
-        <p className="mt-1 text-[13px] leading-[19px] text-[#94A3B8]">
-          Add a provider, connect, and select models
-          to use in your workspace.
-        </p>
+            <h2 className="m-0 text-[17px] font-semibold leading-6 text-[#F1F5F9]">
+              {isEditing
+                ? "Edit AI Provider"
+                : "Add AI Provider"}
+            </h2>
+          </div>
+
+          <p className="mt-1.5 text-[12px] leading-[18px] text-[#7D8798]">
+            {isEditing
+              ? "Update the connection and workspace models."
+              : "Connect a provider and choose the models available in your workspace."}
+          </p>
+        </div>
       </div>
 
       <div className="flex max-w-[760px] flex-col gap-5">
@@ -544,9 +768,9 @@ function AddProviderForm({
         <div className="flex flex-col gap-1.5">
           <label
             htmlFor="provider-type-select"
-            className="text-[12px] font-medium leading-[18px] text-[#CBD5E1]"
+            className="text-[11px] font-medium uppercase tracking-[0.04em] text-[#94A3B8]"
           >
-            Provider Type
+            Provider
           </label>
 
           <div className="flex items-center gap-3">
@@ -562,18 +786,23 @@ function AddProviderForm({
                   )
                 }
                 className="
-                  h-10 w-full appearance-none
-                  rounded-[6px]
-                  border border-[#262D3D]
-                  bg-[#0C0E14]
-                  px-3 pr-9
-                  text-[14px] text-[#F1F5F9]
+                  h-10
+                  w-full
+                  appearance-none
+                  rounded-[7px]
+                  border
+                  border-[#282F40]
+                  bg-[#0C0F15]
+                  px-3
+                  pr-9
+                  text-[13px]
+                  text-[#E5EAF1]
                   outline-none
                   transition-colors
-                  hover:border-[#384258]
+                  hover:border-[#394258]
                   focus:border-[#6366F1]
                   focus:ring-2
-                  focus:ring-[#6366F1]/20
+                  focus:ring-[#6366F1]/15
                 "
               >
                 {PROVIDER_OPTIONS.map((option) => (
@@ -589,10 +818,13 @@ function AddProviderForm({
               <ChevronDownIcon
                 className="
                   pointer-events-none
-                  absolute right-3 top-1/2
-                  h-4 w-4
+                  absolute
+                  right-3
+                  top-1/2
+                  h-4
+                  w-4
                   -translate-y-1/2
-                  text-[#94A3B8]
+                  text-[#697386]
                 "
               />
             </div>
@@ -600,11 +832,11 @@ function AddProviderForm({
         </div>
 
         {/* Name + Endpoint */}
-        <div className="grid grid-cols-2 gap-4">
+        <div className="flex flex-col sm:grid sm:grid-cols-2 gap-4">
           <div className="flex min-w-0 flex-col gap-1.5">
             <label
               htmlFor="config-name-input"
-              className="text-[12px] font-medium leading-[18px] text-[#CBD5E1]"
+              className="text-[11px] font-medium uppercase tracking-[0.04em] text-[#94A3B8]"
             >
               Configuration Name
             </label>
@@ -621,19 +853,22 @@ function AddProviderForm({
                 providerType
               }`}
               className="
-                h-10 w-full
-                rounded-[6px]
-                border border-[#262D3D]
-                bg-[#0C0E14]
+                h-10
+                w-full
+                rounded-[7px]
+                border
+                border-[#282F40]
+                bg-[#0C0F15]
                 px-3
-                text-[14px] text-[#F1F5F9]
+                text-[13px]
+                text-[#F1F5F9]
                 outline-none
-                placeholder:text-[#64748B]
+                placeholder:text-[#566174]
                 transition-colors
-                hover:border-[#384258]
+                hover:border-[#394258]
                 focus:border-[#6366F1]
                 focus:ring-2
-                focus:ring-[#6366F1]/20
+                focus:ring-[#6366F1]/15
               "
             />
           </div>
@@ -642,9 +877,9 @@ function AddProviderForm({
             <div className="flex min-w-0 flex-col gap-1.5">
               <label
                 htmlFor="endpoint-input"
-                className="text-[12px] font-medium leading-[18px] text-[#CBD5E1]"
+                className="text-[11px] font-medium uppercase tracking-[0.04em] text-[#94A3B8]"
               >
-                Endpoint URL
+                Endpoint
               </label>
 
               <input
@@ -659,25 +894,24 @@ function AddProviderForm({
                   "http://localhost:11434"
                 }
                 className="
-                  h-10 w-full
-                  rounded-[6px]
-                  border border-[#262D3D]
-                  bg-[#0C0E14]
+                  h-10
+                  w-full
+                  rounded-[7px]
+                  border
+                  border-[#282F40]
+                  bg-[#0C0F15]
                   px-3
-                  text-[14px] text-[#F1F5F9]
+                  text-[13px]
+                  text-[#F1F5F9]
                   outline-none
-                  placeholder:text-[#64748B]
+                  placeholder:text-[#566174]
                   transition-colors
-                  hover:border-[#384258]
+                  hover:border-[#394258]
                   focus:border-[#6366F1]
                   focus:ring-2
-                  focus:ring-[#6366F1]/20
+                  focus:ring-[#6366F1]/15
                 "
               />
-
-              <span className="text-[11px] leading-4 text-[#64748B]">
-                Leave empty to use the default endpoint.
-              </span>
             </div>
           )}
         </div>
@@ -687,7 +921,7 @@ function AddProviderForm({
           <div className="flex max-w-[520px] flex-col gap-1.5">
             <label
               htmlFor="api-key-input"
-              className="text-[12px] font-medium leading-[18px] text-[#CBD5E1]"
+              className="text-[11px] font-medium uppercase tracking-[0.04em] text-[#94A3B8]"
             >
               API Key
             </label>
@@ -696,37 +930,59 @@ function AddProviderForm({
               <KeyIcon
                 className="
                   pointer-events-none
-                  absolute left-3 top-1/2
-                  h-4 w-4
+                  absolute
+                  left-3
+                  top-1/2
+                  h-4
+                  w-4
                   -translate-y-1/2
-                  text-[#64748B]
+                  text-[#566174]
                 "
               />
 
               <input
                 id="api-key-input"
-                type="password"
+                type={showApiKey ? "text" : "password"}
                 value={apiKey}
                 onChange={(event) =>
                   setApiKey(event.target.value)
                 }
-                placeholder="Enter API key"
+                placeholder={
+                  isEditing
+                    ? "Leave blank to keep existing key"
+                    : "Enter API key"
+                }
                 className="
-                  h-10 w-full
-                  rounded-[6px]
-                  border border-[#262D3D]
-                  bg-[#0C0E14]
-                  pl-9 pr-3
-                  text-[14px] text-[#F1F5F9]
+                  h-10
+                  w-full
+                  rounded-[7px]
+                  border
+                  border-[#282F40]
+                  bg-[#0C0F15]
+                  pl-9
+                  pr-3
+                  text-[13px]
+                  text-[#F1F5F9]
                   outline-none
-                  placeholder:text-[#64748B]
+                  placeholder:text-[#566174]
                   transition-colors
-                  hover:border-[#384258]
+                  hover:border-[#394258]
                   focus:border-[#6366F1]
                   focus:ring-2
-                  focus:ring-[#6366F1]/20
+                  focus:ring-[#6366F1]/15
                 "
               />
+              <button
+                type="button"
+                onClick={() => setShowApiKey(!showApiKey)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-[#566174] hover:text-[#8C96A8] focus:outline-none"
+              >
+                {showApiKey ? (
+                  <EyeSlashIcon className="h-4 w-4" />
+                ) : (
+                  <EyeIcon className="h-4 w-4" />
+                )}
+              </button>
             </div>
           </div>
         )}
@@ -735,17 +991,20 @@ function AddProviderForm({
         {status === "error" && (
           <div
             className="
-              flex items-start gap-2
+              flex
+              items-start
+              gap-2
               rounded-[7px]
-              border border-[#EF4444]/30
-              bg-[#EF4444]/[0.08]
+              border
+              border-[#EF4444]/25
+              bg-[#EF4444]/[0.06]
               p-3
-              text-[13px]
-              leading-[19px]
+              text-[12px]
+              leading-[18px]
               text-[#FCA5A5]
             "
           >
-            <XCircleIcon className="mt-0.5 h-[17px] w-[17px] flex-shrink-0" />
+            <XCircleIcon className="mt-0.5 h-4 w-4 flex-shrink-0" />
 
             <span>
               {connectionError ||
@@ -758,20 +1017,23 @@ function AddProviderForm({
         {status === "success" && (
           <div
             className="
-              flex flex-col gap-3
-              border-t border-[#1E2333]
+              flex
+              flex-col
+              gap-3
+              border-t
+              border-[#1E2333]
               pt-5
             "
           >
             <div className="flex items-center gap-2">
-              <CheckCircleIcon className="h-[17px] w-[17px] text-[#4ADE80]" />
+              <CheckCircleIcon className="h-4 w-4 text-[#4ADE80]" />
 
-              <span className="text-[14px] font-medium leading-5 text-[#F1F5F9]">
-                Select Workspace Models
+              <span className="text-[13px] font-medium text-[#E8EDF4]">
+                Workspace Models
               </span>
 
-              <span className="text-[12px] text-[#64748B]">
-                ({discoveredModels.length} available)
+              <span className="text-[11px] text-[#5F6979]">
+                {discoveredModels.length} available
               </span>
             </div>
 
@@ -779,11 +1041,13 @@ function AddProviderForm({
               <div
                 className="
                   rounded-[7px]
-                  border border-[#1E2333]
+                  border
+                  border-[#1E2333]
                   bg-[#0C0E14]
-                  px-4 py-4
-                  text-[13px]
-                  text-[#94A3B8]
+                  px-4
+                  py-4
+                  text-[12px]
+                  text-[#7D8798]
                 "
               >
                 No chat-capable models found.
@@ -791,11 +1055,14 @@ function AddProviderForm({
             ) : (
               <div
                 className="
-                  flex max-h-[280px]
-                  flex-col gap-1
+                  flex
+                  max-h-[280px]
+                  flex-col
+                  gap-1
                   overflow-y-auto
                   rounded-[8px]
-                  border border-[#1E2333]
+                  border
+                  border-[#1E2333]
                   bg-[#0C0E14]
                   p-2
                 "
@@ -808,16 +1075,18 @@ function AddProviderForm({
                     <label
                       key={model.id}
                       className={`
-                        flex cursor-pointer
-                        items-start gap-3
+                        flex
+                        cursor-pointer
+                        items-start
+                        gap-3
                         rounded-[7px]
                         border
                         p-3
                         transition-colors
                         ${
                           selected
-                            ? "border-[#6366F1]/50 bg-[#1A1D2E]"
-                            : "border-transparent hover:bg-[#151824]"
+                            ? "border-[#6366F1]/45 bg-[#181C2A]"
+                            : "border-transparent hover:bg-[#151924]"
                         }
                       `}
                     >
@@ -829,14 +1098,15 @@ function AddProviderForm({
                         }
                         className="
                           mt-1
-                          h-4 w-4
+                          h-4
+                          w-4
                           flex-shrink-0
                           accent-[#6366F1]
                         "
                       />
 
                       <div className="min-w-0">
-                        <div className="truncate text-[13px] font-medium leading-5 text-[#F1F5F9]">
+                        <div className="truncate text-[12px] font-medium leading-5 text-[#E5EAF1]">
                           {model.displayName}
                         </div>
 
@@ -861,17 +1131,20 @@ function AddProviderForm({
               onClick={handleConnect}
               disabled={isConnecting}
               className="
-                inline-flex min-h-[38px]
-                items-center justify-center
+                inline-flex
+                min-h-[38px]
+                items-center
+                justify-center
                 gap-2
-                rounded-[6px]
-                border border-[#6366F1]
+                rounded-[7px]
+                border
+                border-[#6366F1]
                 bg-[#4F46E5]
                 px-4
-                text-[13px] font-medium
+                text-[12px]
+                font-medium
                 text-white
-                shadow-[0_0_12px_rgba(99,102,241,0.25)]
-                transition-colors
+                transition-all
                 hover:border-[#4F46E5]
                 hover:bg-[#4338CA]
                 focus:outline-none
@@ -879,7 +1152,6 @@ function AddProviderForm({
                 focus-visible:ring-[#6366F1]/30
                 disabled:cursor-not-allowed
                 disabled:opacity-50
-                disabled:shadow-none
               "
             >
               <ServerIcon className="h-4 w-4" />
@@ -890,21 +1162,24 @@ function AddProviderForm({
             </button>
           ) : (
             <button
-              id="add-models-btn"
+              id="save-provider-btn"
               type="button"
               onClick={handleSave}
               disabled={selectedIds.length === 0}
               className="
-                inline-flex min-h-[38px]
-                items-center justify-center
-                rounded-[6px]
-                border border-[#6366F1]
+                inline-flex
+                min-h-[38px]
+                items-center
+                justify-center
+                rounded-[7px]
+                border
+                border-[#6366F1]
                 bg-[#4F46E5]
                 px-4
-                text-[13px] font-medium
+                text-[12px]
+                font-medium
                 text-white
-                shadow-[0_0_12px_rgba(99,102,241,0.25)]
-                transition-colors
+                transition-all
                 hover:border-[#4F46E5]
                 hover:bg-[#4338CA]
                 focus:outline-none
@@ -912,31 +1187,35 @@ function AddProviderForm({
                 focus-visible:ring-[#6366F1]/30
                 disabled:cursor-not-allowed
                 disabled:opacity-50
-                disabled:shadow-none
               "
             >
-              Add {selectedIds.length} Model
-              {selectedIds.length !== 1 ? "s" : ""} to Workspace
+              {isEditing
+                ? "Save Changes"
+                : "Add Provider"}
             </button>
           )}
 
           <button
-            id="cancel-add-provider-btn"
+            id="cancel-provider-btn"
             type="button"
             onClick={onCancel}
             className="
-              inline-flex min-h-[38px]
-              items-center justify-center
-              rounded-[6px]
-              border border-[#262D3D]
+              inline-flex
+              min-h-[38px]
+              items-center
+              justify-center
+              rounded-[7px]
+              border
+              border-[#282F40]
               bg-transparent
               px-4
-              text-[13px] font-medium
-              text-[#CBD5E1]
+              text-[12px]
+              font-medium
+              text-[#AEB8C7]
               transition-colors
-              hover:border-[#384258]
-              hover:bg-[#161B26]
-              hover:text-[#F1F5F9]
+              hover:border-[#394258]
+              hover:bg-[#171C26]
+              hover:text-[#E7ECF3]
               focus:outline-none
               focus-visible:ring-2
               focus-visible:ring-[#6366F1]/20
@@ -950,10 +1229,6 @@ function AddProviderForm({
   );
 }
 
-/* -------------------------------------------------------------------------- */
-/* Main Providers Settings                                                     */
-/* -------------------------------------------------------------------------- */
-
 export function ProvidersSettings() {
   const [providers, setProviders] =
     useState<ProviderSettings[]>([]);
@@ -963,6 +1238,9 @@ export function ProvidersSettings() {
 
   const [showAddForm, setShowAddForm] =
     useState(false);
+
+  const [editingProvider, setEditingProvider] =
+    useState<ProviderSettings | null>(null);
 
   useEffect(() => {
     if ((window as any).vscode) {
@@ -1023,17 +1301,29 @@ export function ProvidersSettings() {
       );
 
       setWorkspaceModels(updatedModels);
+
+      if (editingProvider?.id === id) {
+        setEditingProvider(null);
+      }
     },
-    [workspaceModels],
+    [workspaceModels, editingProvider],
   );
+
+
+  const handleEdit = useCallback(
+    (provider: ProviderSettings) => {
+      setShowAddForm(false);
+      setEditingProvider(provider);
+    },
+    [],
+  );
+
 
   const handleFormSaved = () => {
     setShowAddForm(false);
+    setEditingProvider(null);
 
-    /*
-     * Refresh persisted settings after saving so the UI
-     * remains driven by the extension-side source of truth.
-     */
+
     if ((window as any).vscode) {
       (window as any).vscode.postMessage({
         type: "getSettings",
@@ -1041,21 +1331,23 @@ export function ProvidersSettings() {
     }
   };
 
+
+  const handleFormCancel = () => {
+    setShowAddForm(false);
+    setEditingProvider(null);
+  };
+
   return (
-    <div className="flex flex-col gap-8">
-      {/* ------------------------------------------------------------------ */}
-      {/* Configured Providers                                                */}
-      {/* ------------------------------------------------------------------ */}
+    <div className="flex flex-col gap-7">
 
       <section>
-        <div className="mb-4">
-          <h2 className="m-0 text-[18px] font-semibold leading-6 text-[#F1F5F9]">
+        <div className="mb-3.5">
+          <h2 className="m-0 text-[16px] font-semibold leading-6 text-[#F1F5F9]">
             Configured Providers
           </h2>
 
-          <p className="mt-1 text-[13px] leading-[19px] text-[#94A3B8]">
-            These providers are available in your
-            workspace.
+          <p className="mt-1 text-[12px] leading-[18px] text-[#727D8F]">
+            AI connections available in this workspace.
           </p>
         </div>
 
@@ -1063,36 +1355,83 @@ export function ProvidersSettings() {
           <div
             id="empty-providers-state"
             className="
-              flex flex-col items-start
-              rounded-[10px]
-              border border-dashed border-[#262D3D]
-              bg-[#12151E]
-              px-6 py-7
+              flex
+              flex-col
+              items-start
+              rounded-[9px]
+              border
+              border-dashed
+              border-[#282F40]
+              bg-[#11141C]
+              px-5
+              py-6
             "
           >
             <div
               className="
-                mb-3 flex h-9 w-9
-                items-center justify-center
+                mb-3
+                flex
+                h-9
+                w-9
+                items-center
+                justify-center
                 rounded-[7px]
-                border border-[#283042]
-                bg-[#181D2A]
+                border
+                border-[#293144]
+                bg-[#181D28]
               "
             >
               <ServerIcon className="h-4 w-4 text-[#818CF8]" />
             </div>
 
-            <p className="m-0 text-[14px] font-medium leading-5 text-[#F1F5F9]">
+            <p className="m-0 text-[13px] font-medium leading-5 text-[#E7ECF3]">
               No AI providers configured.
             </p>
 
-            <p className="mt-1 max-w-[520px] text-[13px] leading-[19px] text-[#64748B]">
-              Add a provider below to connect an AI
-              model to your workspace.
+            <p className="mt-1 mb-4 max-w-[520px] text-[12px] leading-[18px] text-[#667085]">
+              Add a provider to make its models available in Kodra.
             </p>
+            <button
+            id="add-provider-btn"
+            type="button"
+            onClick={() => {
+              setEditingProvider(null);
+              setShowAddForm(true);
+            }}
+            className="
+              inline-flex
+              min-h-[36px]
+              items-center
+              justify-center
+              gap-2
+              rounded-[7px]
+              border
+              border-[#4F46E5]
+              bg-[#4F46E5]
+              px-3.5
+              text-[12px]
+              font-medium
+              text-white
+              transition-all
+              hover:bg-[#4338CA]
+              focus:outline-none
+              focus-visible:ring-2
+              focus-visible:ring-[#6366F1]/30
+            "
+          >
+            <PlusIcon className="h-4 w-4" />
+            Add AI Provider
+          </button>
           </div>
         ) : (
-          <div className="flex flex-col gap-2.5">
+          <div
+            className="
+              flex
+              flex-col
+              gap-2
+              overflow-visible
+            "
+          >
             {providers.map((provider) => (
               <ProviderCard
                 key={provider.id}
@@ -1103,35 +1442,38 @@ export function ProvidersSettings() {
                     provider.id,
                 )}
                 onDelete={handleDelete}
+                onEdit={handleEdit}
               />
             ))}
           </div>
         )}
       </section>
 
-      {/* ------------------------------------------------------------------ */}
-      {/* Add Provider                                                        */}
-      {/* ------------------------------------------------------------------ */}
 
-      {!showAddForm ? (
+      {(!showAddForm && !editingProvider && providers.length > 0) && (
         <section>
           <button
             id="add-provider-btn"
             type="button"
-            onClick={() => setShowAddForm(true)}
+            onClick={() => {
+              setEditingProvider(null);
+              setShowAddForm(true);
+            }}
             className="
-              inline-flex min-h-[38px]
-              items-center justify-center
+              inline-flex
+              min-h-[36px]
+              items-center
+              justify-center
               gap-2
-              rounded-[6px]
-              border border-[#6366F1]
+              rounded-[7px]
+              border
+              border-[#4F46E5]
               bg-[#4F46E5]
-              px-4
-              text-[13px] font-medium
+              px-3.5
+              text-[12px]
+              font-medium
               text-white
-              shadow-[0_0_12px_rgba(99,102,241,0.25)]
-              transition-colors
-              hover:border-[#4F46E5]
+              transition-all
               hover:bg-[#4338CA]
               focus:outline-none
               focus-visible:ring-2
@@ -1142,11 +1484,13 @@ export function ProvidersSettings() {
             Add AI Provider
           </button>
         </section>
-      ) : (
+      )}
+      {(showAddForm || editingProvider) && (
         <AddProviderForm
-          onCancel={() => setShowAddForm(false)}
+          onCancel={handleFormCancel}
           onSaved={handleFormSaved}
           existingModels={workspaceModels}
+          editingProvider={editingProvider}
         />
       )}
     </div>
