@@ -127,9 +127,9 @@ function ModelSelectionListbox({
           leaveFrom="opacity-100"
           leaveTo="opacity-0"
         >
-          <ListboxOptions className="bg-input rounded-default absolute left-0 top-full z-10 mt-1 flex h-fit w-3/5 flex-col overflow-y-auto p-0 focus:outline-none [&]:!max-h-[30vh]">
+          <ListboxOptions className="bg-input rounded-default border-border shadow-xl absolute left-0 top-full z-50 mt-1 flex max-h-[280px] w-[90%] min-w-[240px] flex-col overflow-hidden p-0 focus:outline-none border">
             {/* Search Box */}
-            <div className="border-border sticky top-0 border-b p-2">
+            <div className="border-border bg-input p-2 border-b flex-shrink-0">
               <div className="bg-background border-border flex items-center rounded border pl-2">
                 <MagnifyingGlassIcon className="text-description-muted h-4 w-4" />
                 <input

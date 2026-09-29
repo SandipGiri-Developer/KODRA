@@ -5,7 +5,8 @@ import {
   ChevronDownIcon,
   WrenchScrewdriverIcon,
   PhotoIcon,
-  LightBulbIcon
+  LightBulbIcon,
+  TrashIcon
 } from "@heroicons/react/24/outline";
 import { Anthropic, OpenAI, Gemini, Ollama } from "@lobehub/icons";
 import React, { useState, useEffect, useContext } from "react";
@@ -107,6 +108,27 @@ export function ModelSelectDropdown() {
     }
   };
 
+  const handleDeleteModel = (e: React.MouseEvent, modelId: string) => {
+    e.stopPropagation();
+    e.preventDefault();
+    setModels(prev => {
+      const newModels = prev.filter(m => m.id !== modelId);
+      if (currentModel === modelId && newModels.length > 0) {
+        setCurrentModel(newModels[0].id);
+        if ((window as any).vscode) {
+          (window as any).vscode.postMessage({ type: "setModel", model: newModels[0].id });
+          (window as any).vscode.postMessage({ type: "setProvider", provider: newModels[0].provider });
+        }
+      }
+      
+      if ((window as any).vscode) {
+        (window as any).vscode.postMessage({ type: "saveWorkspaceModels", models: newModels });
+      }
+      
+      return newModels;
+    });
+  };
+
   const selectedWorkspaceModel = models.find(m => m.id === currentModel);
   const displayTitle = selectedWorkspaceModel ? selectedWorkspaceModel.displayName : currentModel;
 
@@ -124,12 +146,13 @@ export function ModelSelectDropdown() {
       </ListboxButton>
       <ListboxOptions
         anchor="top start"
-        className="w-64 max-h-80 bg-vsc-background border border-vsc-commandCenter-inactiveBorder rounded-md overflow-y-auto mb-1"
+        className="w-64 bg-vsc-background border border-vsc-commandCenter-inactiveBorder rounded-md shadow-xl z-50 mb-1"
       >
         <div className="flex justify-between items-center px-3 py-2 border-b border-vsc-commandCenter-inactiveBorder">
           <span className="text-xs font-semibold">Workspace Models</span>
         </div>
         
+        <div className="no-scrollbar max-h-[300px] overflow-y-auto">
         {isLoading && (
           <div className="px-3 py-2 text-xs text-gray-500 italic">Discovering models...</div>
         )}
@@ -146,7 +169,7 @@ export function ModelSelectDropdown() {
           <ListboxOption
             key={idx}
             value={model.id}
-            className={`cursor-pointer px-3 py-1.5 flex items-center gap-2 hover:bg-list-active hover:text-list-active-foreground ${currentModel === model.id ? "bg-list-active text-list-active-foreground" : ""}`}
+            className={`group cursor-pointer px-3 py-1.5 flex items-center gap-2 hover:bg-list-active hover:text-list-active-foreground ${currentModel === model.id ? "bg-list-active text-list-active-foreground" : ""}`}
           >
             <ProviderMiniIcon provider={model.provider} />
             <div className="flex-1 flex flex-col overflow-hidden">
@@ -163,8 +186,16 @@ export function ModelSelectDropdown() {
                 )}
               </div>
             </div>
+            <div 
+              className="opacity-0 group-hover:opacity-100 p-1 hover:bg-vsc-editor-background rounded transition-opacity"
+              onClick={(e) => handleDeleteModel(e, model.id)}
+              title="Remove from Workspace"
+            >
+              <TrashIcon className="h-3.5 w-3.5 text-red-400 hover:text-red-500" />
+            </div>
           </ListboxOption>
         ))}
+        </div>
         
         <Divider className="my-1" />
         <ListboxOption 

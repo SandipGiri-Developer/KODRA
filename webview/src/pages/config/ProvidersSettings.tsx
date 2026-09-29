@@ -1037,6 +1037,10 @@ function AddProviderForm({
               </span>
             </div>
 
+            <p className="mt-1.5 mb-2 text-[11.5px] leading-relaxed text-[#94A3B8]">
+              <span className="font-medium text-[#A3ADC2]">Note:</span> Please select only the models that are accessible with your provided API key.
+            </p>
+
             {discoveredModels.length === 0 ? (
               <div
                 className="
