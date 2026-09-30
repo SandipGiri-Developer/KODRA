@@ -19,6 +19,12 @@ export class ProviderRegistry {
   private currentProvider: ILLMProvider | null = null;
   private currentConfig: ProviderConfig | null = null;
   private discoveredModelsCache: Map<string, DiscoveredModel[]> = new Map();
+  /**
+   * Stable capabilities cache keyed by "provider:modelId".
+   * Survives provider recreation and is not cleared on config changes.
+   * Populated lazily or via warmCapabilities().
+   */
+  private capabilitiesCache: Map<string, ModelCapabilities> = new Map();
 
   constructor(private readonly secretStorage: vscode.SecretStorage) {}
 
@@ -151,19 +157,58 @@ export class ProviderRegistry {
   }
 
   /**
-   * Get the capabilities of a specific model, using cache if available.
+   * Get the capabilities of a specific model.
+   * 
+   * Uses a stable in-process cache keyed by "provider:modelId" so that
+   * discoverModels() is NEVER called during a chat request. The cache is
+   * pre-populated by warmCapabilities() which should be called once after
+   * provider setup, or lazily on first call (accepting the one-time cost).
    */
   async getModelCapabilities(providerName: string, modelId: string): Promise<ModelCapabilities | undefined> {
+    const cacheKey = `${providerName}:${modelId}`;
+
+    // Fast path — return from stable cache
+    if (this.capabilitiesCache.has(cacheKey)) {
+      return this.capabilitiesCache.get(cacheKey);
+    }
+
+    // Use in-session discovered models cache if already populated
     let models = this.discoveredModelsCache.get(providerName);
-    if (!models || models.length === 0) {
-      try {
-        models = await this.discoverModels(providerName);
-      } catch (e) {
-        // Fallback if discovery fails
-        return undefined;
+    if (models && models.length > 0) {
+      const caps = models.find(m => m.id === modelId)?.capabilities;
+      if (caps) {
+        this.capabilitiesCache.set(cacheKey, caps);
+        return caps;
       }
     }
-    return models?.find(m => m.id === modelId)?.capabilities;
+
+    // Lazy populate — discover once and cache for the session
+    try {
+      models = await this.discoverModels(providerName);
+      const caps = models.find(m => m.id === modelId)?.capabilities;
+      if (caps) {
+        this.capabilitiesCache.set(cacheKey, caps);
+      }
+      return caps;
+    } catch {
+      return undefined;
+    }
+  }
+
+  /**
+   * Pre-warm the capabilities cache for the current provider and model.
+   * Call this after provider configuration is changed (not per-request).
+   * Fire-and-forget — errors are silently ignored.
+   */
+  async warmCapabilities(): Promise<void> {
+    try {
+      const config = await this.readConfig();
+      if (config.provider && config.modelName) {
+        await this.getModelCapabilities(config.provider, config.modelName);
+      }
+    } catch {
+      // Non-critical — capabilities will be lazily fetched later
+    }
   }
 
   /**

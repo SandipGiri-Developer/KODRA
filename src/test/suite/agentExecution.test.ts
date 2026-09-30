@@ -1,6 +1,7 @@
 import { AgentLoop } from '../../agent/agentLoop';
 import { CodebaseIndexer } from '../../indexing/indexer';
 import { ILLMProvider, StreamChunk } from '../../providers/types';
+import { ITool } from '../../agent/types';
 import * as vscode from 'vscode';
 import * as fs from 'fs/promises';
 
@@ -27,13 +28,49 @@ describe('AgentExecution', () => {
     } as any;
   });
 
-  it('should execute full agent loop with tool call', async () => {
+  it('should run smoothly with zero tools registered by default', async () => {
+    const defaultAgent = new AgentLoop(indexer, false);
+    mockProvider.streamChat.mockImplementation(async function* () {
+      yield { content: 'Hello without tools!' } as StreamChunk;
+    });
+
+    const events = [];
+    for await (const event of defaultAgent.run('Hello', [], mockProvider)) {
+      events.push(event);
+    }
+
+    expect(events.filter(e => e.type === 'content')).toHaveLength(1);
+    expect(events.filter(e => e.type === 'toolCall')).toHaveLength(0);
+    expect(events.find(e => e.type === 'done')).toBeDefined();
+  });
+
+  it('should execute full agent loop with tool call when tool is provided', async () => {
+    const mockTool: ITool = {
+      name: 'mock_tool',
+      description: 'A mock tool for testing',
+      isDestructive: false,
+      getDefinition: () => ({
+        type: 'function',
+        function: {
+          name: 'mock_tool',
+          description: 'A mock tool',
+          parameters: { type: 'object', properties: {} },
+        },
+      }),
+      execute: jest.fn().mockResolvedValue({
+        content: 'test content',
+        success: true,
+      }),
+    };
+
+    agent = new AgentLoop(indexer, false, [mockTool]);
+
     // Mock the provider to yield a tool call, then a final response
     const mockResponses = [
       // First iteration: tool call
       (async function* () {
         yield { content: 'Let me check the time.' } as StreamChunk;
-        yield { toolCalls: [{ id: 'call_1', function: { name: 'read_file', arguments: JSON.stringify({ filepath: 'test.txt' }) } }] } as StreamChunk;
+        yield { toolCalls: [{ id: 'call_1', function: { name: 'mock_tool', arguments: JSON.stringify({ filepath: 'test.txt' }) } }] } as StreamChunk;
       })(),
       // Second iteration: final response after tool result
       (async function* () {
@@ -48,9 +85,6 @@ describe('AgentExecution', () => {
 
     (vscode.workspace as any).workspaceFolders = [{ uri: { fsPath: process.cwd() } }];
 
-    // Mock Node.js fs
-    (fs.readFile as jest.Mock).mockResolvedValue('test content');
-    
     const events = [];
     try {
       for await (const event of agent.run('Read my file', [], mockProvider)) {
@@ -66,7 +100,7 @@ describe('AgentExecution', () => {
     expect(events.filter(e => e.type === 'toolResult')).toHaveLength(1);
     expect(events.find(e => e.type === 'done')).toBeDefined();
 
-    expect(fs.readFile).toHaveBeenCalledWith(expect.stringContaining('test.txt'), 'utf-8');
+    expect(mockTool.execute).toHaveBeenCalled();
     
     // Verify that the LLM was given the tool result
     expect(mockProvider.streamChat).toHaveBeenCalledTimes(2);
@@ -77,9 +111,29 @@ describe('AgentExecution', () => {
   });
 
   it('should respect max iterations limit', async () => {
+    const mockTool: ITool = {
+      name: 'mock_tool',
+      description: 'A mock tool for testing',
+      isDestructive: false,
+      getDefinition: () => ({
+        type: 'function',
+        function: {
+          name: 'mock_tool',
+          description: 'A mock tool',
+          parameters: { type: 'object', properties: {} },
+        },
+      }),
+      execute: jest.fn().mockResolvedValue({
+        content: 'result',
+        success: true,
+      }),
+    };
+
+    agent = new AgentLoop(indexer, false, [mockTool]);
+
     // LLM just keeps returning a tool call infinitely
     mockProvider.streamChat.mockImplementation(async function* () {
-      yield { toolCalls: [{ id: 'call_infinite', function: { name: 'search_files', arguments: JSON.stringify({ query: 'loop' }) } }] } as StreamChunk;
+      yield { toolCalls: [{ id: 'call_infinite', function: { name: 'mock_tool', arguments: JSON.stringify({ query: 'loop' }) } }] } as StreamChunk;
     });
 
     const mockFindFiles = jest.fn().mockResolvedValue([]);

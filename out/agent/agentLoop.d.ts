@@ -9,13 +9,13 @@
  */
 import { CodebaseIndexer } from '../indexing/indexer';
 import { ChatMessage, ILLMProvider } from '../providers/types';
-import { AgentEvent } from './types';
+import { AgentEvent, ITool } from './types';
 export declare class AgentLoop {
     private readonly indexer;
     private readonly requireApproval;
     private tools;
     private abortController;
-    constructor(indexer: CodebaseIndexer, requireApproval?: boolean);
+    constructor(indexer: CodebaseIndexer, requireApproval?: boolean, initialTools?: ITool[]);
     /**
      * Run the agent loop for a user message.
      *

@@ -9,6 +9,7 @@
  */
 
 import * as vscode from 'vscode';
+import * as path from 'path';
 import { CodebaseIndexer } from '../indexing/indexer';
 import { SearchResult } from '../indexing/types';
 import {
@@ -26,17 +27,14 @@ import { getAllTools } from './tools';
 
 const SYSTEM_PROMPT = `You are KODRA, an expert AI coding assistant integrated into VS Code.
 
-You have access to the user's workspace and can read, search, create, and edit files.
+You help users write, debug, and understand code.
 You can see relevant codebase context retrieved from the workspace index.
 
 Guidelines:
 - Be concise and precise in your responses.
-- When asked to make changes, use the available tools to read files first, then make targeted edits.
-- Always explain what you're about to do before making changes.
-- Use the search_files tool to find relevant code before making assumptions.
-- When editing files, provide the exact text to find and replace.
+- Always explain your reasoning clearly and provide helpful solutions.
 - If you're unsure about something, ask the user for clarification.
-- Never modify files outside the workspace.
+- Never suggest modifications outside the workspace.
 - Never read or modify files that contain secrets (.env, API keys, certificates).`;
 
 export class AgentLoop {
@@ -46,10 +44,12 @@ export class AgentLoop {
   constructor(
     private readonly indexer: CodebaseIndexer,
     private readonly requireApproval: boolean = true,
+    initialTools?: ITool[],
   ) {
     // Register tools
     this.tools = new Map();
-    for (const tool of getAllTools()) {
+    const toolsToRegister = initialTools ?? getAllTools();
+    for (const tool of toolsToRegister) {
       this.tools.set(tool.name, tool);
     }
   }
@@ -89,8 +89,12 @@ export class AgentLoop {
         ...conversationHistory,
       ];
 
-      // Gather codebase context
+      // Gather codebase context (with timing)
+      const tRetrieval = Date.now();
       const contextChunks = await this.gatherContext(userMessage);
+      const retrievalMs = Date.now() - tRetrieval;
+      logger.info(`[KODRA Timing] retrieval=${retrievalMs}ms chunks=${contextChunks.length}`);
+
       if (contextChunks.length > 0) {
         const contextText = this.formatContext(contextChunks);
         messages.push({
@@ -103,12 +107,27 @@ export class AgentLoop {
       if (options.contextFiles && options.contextFiles.length > 0) {
         for (const filepath of options.contextFiles) {
           try {
-            const tool = this.tools.get('read_file')!;
-            const result = await tool.execute({ filepath });
-            if (result.success) {
+            const tool = this.tools.get('read_file');
+            if (tool) {
+              const result = await tool.execute({ filepath });
+              if (result.success) {
+                messages.push({
+                  role: 'system',
+                  content: `Attached file context:\n\n${result.content}`,
+                });
+              }
+            } else {
+              // Direct file read fallback when read_file tool is not registered
+              const targetUri = path.isAbsolute(filepath)
+                ? vscode.Uri.file(filepath)
+                : vscode.workspace.workspaceFolders?.[0]
+                  ? vscode.Uri.joinPath(vscode.workspace.workspaceFolders[0].uri, filepath)
+                  : vscode.Uri.file(filepath);
+              const data = await vscode.workspace.fs.readFile(targetUri);
+              const content = new TextDecoder().decode(data);
               messages.push({
                 role: 'system',
-                content: `Attached file context:\n\n${result.content}`,
+                content: `Attached file context:\n\nFile: ${filepath}\n\n${content}`,
               });
             }
           } catch {
@@ -143,6 +162,14 @@ export class AgentLoop {
           signal: this.abortController.signal,
           tools: toolDefinitions.length > 0 ? toolDefinitions : undefined,
         };
+
+        // Log the exact model being sent to the provider on iteration 0
+        if (iteration === 0) {
+          logger.info(
+            `[KODRA Request] Actual Runtime Model sent to provider.streamChat: "${options.model || '(provider default)'}"` +
+            ` | Tools: ${toolDefinitions.length}`
+          );
+        }
 
         let fullContent = '';
         let toolCalls: ToolCall[] = [];
@@ -327,25 +354,9 @@ export class AgentLoop {
     });
   }
 
-  private async applyToolResult(toolName: string, args: Record<string, unknown>): Promise<void> {
-    // @ts-ignore - Webpack handles this resolution, but tsc complains without .js
-    const { CreateFileTool, EditFileTool } = await import('./tools');
-
-    switch (toolName) {
-      case 'create_file':
-        await CreateFileTool.apply(
-          String(args.filepath),
-          String(args.content),
-        );
-        break;
-      case 'edit_file':
-        await EditFileTool.apply(
-          String(args.filepath),
-          String(args.search),
-          String(args.replace),
-        );
-        break;
-    }
+  private async applyToolResult(toolName: string, _args: Record<string, unknown>): Promise<void> {
+    // Currently no tools are installed; placeholder for when tools are rebuilt from scratch
+    Logger.getInstance().warn(`applyToolResult called for ${toolName}, but all tools have been deleted.`);
   }
 
   private async gatherContext(query: string): Promise<SearchResult[]> {

@@ -15,29 +15,45 @@ export class OllamaManager {
   private static isPrompting = false;
 
   /**
+   * Timestamp (ms) of the last successful ping. Used to skip redundant pings within
+   * a short window. 30 seconds is long enough to avoid per-message overhead while
+   * still detecting restarts quickly.
+   */
+  private static lastConfirmedAt = 0;
+  private static readonly CONFIRMED_TTL_MS = 30_000;
+
+  /**
    * Silently checks if Ollama is reachable. Does NOT prompt the user.
    * Use this for background tasks (indexing, embeddings) that should not interrupt the user.
+   * Results are cached for 30 seconds to avoid repeated pings.
    */
   static async isRunning(endpoint: string = 'http://127.0.0.1:11434'): Promise<boolean> {
-    return this.ping(endpoint);
+    if (Date.now() - this.lastConfirmedAt < this.CONFIRMED_TTL_MS) {
+      return true;
+    }
+    const running = await this.ping(endpoint);
+    if (running) { this.lastConfirmedAt = Date.now(); }
+    return running;
   }
 
   /**
    * Ensures Ollama is running, prompting the user to start it if not.
    * Only one user-facing prompt can be shown at a time. If startup is already
    * in progress, all callers await the same singleton promise.
+   * Results are cached for 30 seconds to avoid a ping on every message.
    *
    * @returns true if Ollama is running (or was successfully started), false otherwise.
    */
   static async ensureRunning(endpoint: string = 'http://127.0.0.1:11434'): Promise<boolean> {
-    // Fast path: already running
-    if (await this.ping(endpoint)) {
+    // Fast path: confirmed running recently — skip the HTTP round-trip
+    if (Date.now() - this.lastConfirmedAt < this.CONFIRMED_TTL_MS) {
       return true;
     }
 
-    // If startup is already underway, join it instead of spawning a new process
-    if (this.startupPromise) {
-      return this.startupPromise;
+    // Actual ping — Ollama was not confirmed running within the TTL
+    if (await this.ping(endpoint)) {
+      this.lastConfirmedAt = Date.now();
+      return true;
     }
 
     // Prevent multiple simultaneous user-facing dialogs
@@ -62,7 +78,9 @@ export class OllamaManager {
         this.startupPromise = null;
       });
 
-      return await this.startupPromise;
+      const started = await this.startupPromise;
+      if (started) { this.lastConfirmedAt = Date.now(); }
+      return started;
     } finally {
       this.isPrompting = false;
     }

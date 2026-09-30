@@ -11,6 +11,12 @@ export declare class ProviderRegistry {
     private currentProvider;
     private currentConfig;
     private discoveredModelsCache;
+    /**
+     * Stable capabilities cache keyed by "provider:modelId".
+     * Survives provider recreation and is not cleared on config changes.
+     * Populated lazily or via warmCapabilities().
+     */
+    private capabilitiesCache;
     constructor(secretStorage: vscode.SecretStorage);
     /**
      * Get the current provider, creating it if necessary.
@@ -27,9 +33,20 @@ export declare class ProviderRegistry {
      */
     discoverModels(providerName: string, apiKey?: string, endpoint?: string): Promise<DiscoveredModel[]>;
     /**
-     * Get the capabilities of a specific model, using cache if available.
+     * Get the capabilities of a specific model.
+     *
+     * Uses a stable in-process cache keyed by "provider:modelId" so that
+     * discoverModels() is NEVER called during a chat request. The cache is
+     * pre-populated by warmCapabilities() which should be called once after
+     * provider setup, or lazily on first call (accepting the one-time cost).
      */
     getModelCapabilities(providerName: string, modelId: string): Promise<ModelCapabilities | undefined>;
+    /**
+     * Pre-warm the capabilities cache for the current provider and model.
+     * Call this after provider configuration is changed (not per-request).
+     * Fire-and-forget — errors are silently ignored.
+     */
+    warmCapabilities(): Promise<void>;
     /**
      * Store an API key securely in SecretStorage.
      */

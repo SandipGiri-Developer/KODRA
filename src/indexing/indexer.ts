@@ -275,11 +275,20 @@ export class CodebaseIndexer {
       this.embeddingProvider = await this.createEmbeddingProvider();
     }
 
+    const logger = Logger.getInstance();
     try {
+      const tEmbed = Date.now();
       const [queryVector] = await this.embeddingProvider.embed([query]);
-      return this.vectorStore.search(queryVector, topK, 0.1);
+      const embedMs = Date.now() - tEmbed;
+
+      const tSearch = Date.now();
+      const results = this.vectorStore.search(queryVector, topK, 0.1);
+      const searchMs = Date.now() - tSearch;
+
+      logger.info(`[KODRA Timing] embedding=${embedMs}ms vector_search=${searchMs}ms results=${results.length}`);
+      return results;
     } catch (error) {
-      Logger.getInstance().error('Search failed', error);
+      logger.error('Search failed', error);
       return [];
     }
   }

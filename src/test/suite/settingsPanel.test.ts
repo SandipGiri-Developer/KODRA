@@ -39,6 +39,7 @@ describe('SettingsPanel and Dedicated Settings Surface Architecture', () => {
       getProvider: jest.fn(),
       discoverModels: jest.fn(),
       setApiKey: jest.fn().mockResolvedValue(undefined),
+      warmCapabilities: jest.fn().mockResolvedValue(undefined),
     };
 
     // Ensure clean state before each test

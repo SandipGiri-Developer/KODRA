@@ -158,6 +158,9 @@ export class KodraViewProvider implements vscode.WebviewViewProvider {
         hasApiKey,
         availableProviders: this.providerRegistry.getSupportedProviders(),
       });
+
+      // Pre-warm the capabilities cache so the first message doesn't incur a discovery round-trip
+      this.providerRegistry.warmCapabilities().catch(() => { /* non-critical */ });
     } catch (e) {
       this.logger.error('Failed to send config', e);
     }
@@ -333,10 +336,17 @@ export class KodraViewProvider implements vscode.WebviewViewProvider {
   }
 
   private async handleUserMessage(text: string, contextFiles?: string[]) {
+    const t0 = Date.now();
+    const logger = this.logger;
+
     try {
+      // ─── Phase 1: Config (single read — eliminates 3x duplicate readConfig) ───
+      const t1 = Date.now();
       const config = await this.providerRegistry.readConfig();
-      
-      // Ensure Ollama is running if selected
+      const configMs = Date.now() - t1;
+
+      // ─── Phase 2: Ollama availability check (cached, skipped within 30s) ─────
+      const t2 = Date.now();
       if (config.provider === 'ollama') {
         const isRunning = await OllamaManager.ensureRunning(config.endpoint);
         if (!isRunning) {
@@ -345,40 +355,60 @@ export class KodraViewProvider implements vscode.WebviewViewProvider {
           return;
         }
       }
+      const pingMs = Date.now() - t2;
 
-      // Ensure index is loaded
-      await this.indexer.ensureLoaded();
-      
-      const provider = await this.providerRegistry.getProvider();
-      
-      // Save user message to history
+      // ─── Phase 3: Parallel pre-request work ──────────────────────────────────
+      const t3 = Date.now();
+      const [provider] = await Promise.all([
+        this.providerRegistry.getProvider(),
+        this.indexer.ensureLoaded(),
+      ]);
+      const parallelMs = Date.now() - t3;
+
+      // ─── Phase 4: Capabilities (from stable cache — no network call) ─────────
+      const t4 = Date.now();
+      const modelName = config.modelName || provider.getDefaultModel();
+      const capabilities = await this.providerRegistry.getModelCapabilities(config.provider, modelName);
+      const toolCalling = capabilities?.toolCalling ?? provider.capabilities.toolCalling;
+      const capsMs = Date.now() - t4;
+
+      // Log full model routing info on every request
+      logger.info(
+        `[KODRA Request] ` +
+        `Selected Model: ${modelName || '(none)'} | ` +
+        `Provider: ${config.provider} | ` +
+        `Endpoint: ${config.endpoint || 'default'} | ` +
+        `ToolCalling: ${toolCalling} | ` +
+        `Router: none (direct pass-through)`
+      );
+      logger.info(
+        `[KODRA Timing] config=${configMs}ms ping=${pingMs}ms provider+index=${parallelMs}ms caps=${capsMs}ms`
+      );
+
+      // ─── Phase 5: Run agent ───────────────────────────────────────────────────
       this.chatHistory.push({ role: 'user', content: text });
-      
+
       const requireApproval = vscode.workspace.getConfiguration('KODRA').get<boolean>('agent.requireApproval', true);
       const maxIterations = vscode.workspace.getConfiguration('KODRA').get<number>('agent.maxIterations', 15);
-      
+
       if (this.agent) {
         this.agent.cancel();
       }
       this.agent = new AgentLoop(this.indexer, requireApproval);
-      
-      // Retrieve dynamic capabilities for the specific model
-      const modelName = config.modelName || provider.getDefaultModel();
-      const capabilities = await this.providerRegistry.getModelCapabilities(config.provider, modelName);
-      const toolCalling = capabilities?.toolCalling ?? provider.capabilities.toolCalling;
-      
-      // Note: In a robust implementation, we would append the full agent history (including tools).
-      // Here, we simplify by passing the accumulated user/assistant history.
+
       const historyToPass = [...this.chatHistory];
-      // Pop the last user message so we can pass it separately to `run`
-      historyToPass.pop();
-      
+      historyToPass.pop(); // remove last user message (passed separately)
+
+      const tStream = Date.now();
+      let ttftMs: number | null = null;
+      let firstToken = true;
+
       const generator = this.agent.run(text, historyToPass, provider, {
         model: modelName,
         maxTokens: config.maxTokens,
         maxIterations: maxIterations,
         contextFiles,
-        toolCalling: toolCalling, // Pass the resolved model-specific tool capability
+        toolCalling,
       });
 
       let accumulatedContent = '';
@@ -386,23 +416,28 @@ export class KodraViewProvider implements vscode.WebviewViewProvider {
       for await (const event of generator) {
         switch (event.type) {
           case 'content':
+            if (firstToken) {
+              ttftMs = Date.now() - tStream;
+              logger.info(`[KODRA Timing] TTFT=${ttftMs}ms (time from streamChat call to first token)`);
+              firstToken = false;
+            }
             accumulatedContent += event.content;
             this.postMessage({ type: 'streamContent', content: event.content });
             break;
-            
+
           case 'toolCall':
             this.postMessage({ type: 'toolCall', toolName: event.toolName, args: event.args });
             break;
-            
+
           case 'toolResult':
-            this.postMessage({ 
-              type: 'toolResult', 
-              toolName: event.toolName, 
+            this.postMessage({
+              type: 'toolResult',
+              toolName: event.toolName,
               content: event.result.content,
               success: event.result.success
             });
             break;
-            
+
           case 'approval':
             this.postMessage({
               type: 'approvalRequest',
@@ -412,15 +447,15 @@ export class KodraViewProvider implements vscode.WebviewViewProvider {
               filepath: event.filepath
             });
             break;
-            
+
           case 'error':
             this.postMessage({ type: 'streamError', error: event.error });
             break;
-            
+
           case 'cancelled':
             this.postMessage({ type: 'streamCancelled' });
             break;
-            
+
           case 'done':
             this.postMessage({ type: 'streamDone' });
             if (accumulatedContent) {
@@ -429,11 +464,18 @@ export class KodraViewProvider implements vscode.WebviewViewProvider {
             break;
         }
       }
+
+      const totalMs = Date.now() - t0;
+      const generationMs = Date.now() - (tStream + (ttftMs ?? 0));
+      logger.info(
+        `[KODRA Timing] total=${totalMs}ms generation=${generationMs}ms TTFT=${ttftMs ?? 'N/A'}ms`
+      );
+
     } catch (error) {
       this.logger.error('Failed to handle user message', error);
-      this.postMessage({ 
-        type: 'streamError', 
-        error: error instanceof Error ? error.message : String(error) 
+      this.postMessage({
+        type: 'streamError',
+        error: error instanceof Error ? error.message : String(error)
       });
     } finally {
       this.agent = null;
