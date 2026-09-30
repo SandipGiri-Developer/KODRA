@@ -2,13 +2,13 @@
   "name": "kodra",
   "displayName": "KODRA",
   "description": "An AI coding assistant that understands your entire codebase. Supports local models via Ollama and cloud providers like OpenAI and Anthropic.",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "publisher": "SandipGiri",
   "engines": {
     "vscode": "^1.85.0"
   },
   "main": "./dist/extension.js",
-  "icon": "media/icon.png",
+  "icon": "media/icon.webp",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -94,7 +94,7 @@
         {
           "id": "KODRA-sidebar",
           "title": "KODRA",
-          "icon": "media/icon.png"
+          "icon": "media/icon.webp"
         }
       ]
     },
@@ -247,6 +247,31 @@
           },
           "description": "Additional glob patterns to exclude from indexing (gitignore syntax)."
         },
+        "KODRA.embedding.provider": {
+          "type": "string",
+          "default": "local",
+          "enum": [
+            "local",
+            "ollama",
+            "openai"
+          ],
+          "enumDescriptions": [
+            "Local in-process embeddings via Transformers.js (zero setup, private, fast)",
+            "Ollama embeddings (free, local, requires running Ollama)",
+            "OpenAI-compatible embeddings API"
+          ],
+          "description": "Embedding provider for codebase semantic search."
+        },
+        "KODRA.embedding.model": {
+          "type": "string",
+          "default": "all-MiniLM-L6-v2",
+          "description": "Embedding model name. Default: all-MiniLM-L6-v2 for local, nomic-embed-text for Ollama."
+        },
+        "KODRA.embedding.ollamaEndpoint": {
+          "type": "string",
+          "default": "http://127.0.0.1:11434",
+          "description": "Ollama API endpoint (when embedding provider is ollama)."
+        },
         "KODRA.agent.maxIterations": {
           "type": "number",
           "default": 15,
@@ -274,8 +299,10 @@
     "package:vsix": "npx @vscode/vsce package --no-dependencies"
   },
   "dependencies": {
+    "@xenova/transformers": "^2.17.2",
     "gpt-tokenizer": "^2.2.1",
     "ignore": "^5.3.1",
+    "sharp": "^0.35.5",
     "uuid": "^9.0.0",
     "vectra": "^0.9.0"
   },
