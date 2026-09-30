@@ -37,13 +37,9 @@ jest.mock('../../providers/ollama', () => ({
   })),
 }));
 
-const mockSecretStorage: any = {
-  get: jest.fn().mockResolvedValue(undefined),
-  store: jest.fn().mockResolvedValue(undefined),
-  delete: jest.fn().mockResolvedValue(undefined),
-};
-
-const mockVsCode: any = {
+// vscode must be mocked inline — jest.mock() is hoisted before variable declarations
+// so referencing a const defined below would cause a TDZ ReferenceError.
+jest.mock('vscode', () => ({
   workspace: {
     getConfiguration: jest.fn().mockReturnValue({
       get: jest.fn().mockImplementation((key: string, def: any) => {
@@ -58,10 +54,37 @@ const mockVsCode: any = {
         return map[key] ?? def;
       }),
     }),
+    workspaceFolders: undefined,
   },
-};
+  window: {
+    createOutputChannel: jest.fn().mockReturnValue({
+      appendLine: jest.fn(),
+      show: jest.fn(),
+      dispose: jest.fn(),
+    }),
+    showWarningMessage: jest.fn().mockResolvedValue(undefined),
+    showErrorMessage: jest.fn().mockResolvedValue(undefined),
+    showInformationMessage: jest.fn().mockResolvedValue(undefined),
+    withProgress: jest.fn().mockResolvedValue(undefined),
+  },
+  Uri: {
+    file: (p: string) => ({ fsPath: p, toString: () => p }),
+    joinPath: (base: any, ...parts: string[]) => ({ fsPath: [base.fsPath, ...parts].join('/') }),
+  },
+  EventEmitter: jest.fn().mockImplementation(() => ({
+    event: jest.fn(),
+    fire: jest.fn(),
+    dispose: jest.fn(),
+  })),
+  SecretStorage: jest.fn(),
+}), { virtual: true });
 
-jest.mock('vscode', () => mockVsCode, { virtual: true });
+// Declared after jest.mock calls so they are not subject to hoisting TDZ rules
+const mockSecretStorage: any = {
+  get: jest.fn().mockResolvedValue(undefined),
+  store: jest.fn().mockResolvedValue(undefined),
+  delete: jest.fn().mockResolvedValue(undefined),
+};
 
 // ─── Test: Model Routing ──────────────────────────────────────────────────────
 
@@ -230,17 +253,23 @@ describe('ProviderRegistry provider lifecycle', () => {
 describe('AgentLoop cancellation', () => {
   it('should emit cancelled event when cancel() is called mid-stream', async () => {
     const indexer: any = { search: jest.fn().mockResolvedValue([]) };
-    let resolveChunk: (() => void) | undefined;
+
+    // Two promises: one to signal the stream is mid-flight, one to resume it
+    let signalReady!: () => void;
+    let signalResume!: () => void;
+    const streamReady = new Promise<void>(r => { signalReady = r; });
+    const streamResume = new Promise<void>(r => { signalResume = r; });
 
     const mockProvider: ILLMProvider = {
       id: 'mock',
       displayName: 'Mock',
       capabilities: { streaming: true, toolCalling: false, vision: false },
-      streamChat: jest.fn(async function* (_msgs: any, opts: any) {
-        // Pause until we signal
-        await new Promise<void>(r => { resolveChunk = r; });
-        if (opts.signal?.aborted) { return; }
-        yield { content: 'hello', done: true } as StreamChunk;
+      streamChat: jest.fn(async function* () {
+        // Signal that the stream has started and is now mid-flight
+        signalReady();
+        // Pause until the test tells us to resume
+        await streamResume;
+        // After cancel(), return early without yielding — simulates a real abort
       }) as any,
       discoverModels: jest.fn().mockResolvedValue([]),
       testConnection: jest.fn().mockResolvedValue([]),
@@ -257,10 +286,10 @@ describe('AgentLoop cancellation', () => {
       }
     })();
 
-    // Cancel before the chunk resolves
-    await new Promise(r => setTimeout(r, 50));
+    // Wait until the stream generator is definitely mid-flight before cancelling
+    await streamReady;
     agent.cancel();
-    resolveChunk?.();
+    signalResume(); // unblock the generator so the run() can complete
     await runPromise;
 
     expect(events.find(e => e.type === 'cancelled')).toBeDefined();

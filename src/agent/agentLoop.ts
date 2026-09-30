@@ -206,6 +206,13 @@ export class AgentLoop {
           return;
         }
 
+        // Guard: if cancel() was called while the stream was running (the generator
+        // may have returned early without yielding, so the in-loop check never fired)
+        if (this.abortController.signal.aborted) {
+          yield { type: 'cancelled' };
+          return;
+        }
+
         // Add assistant message to history
         const assistantMessage: ChatMessage = {
           role: 'assistant',
