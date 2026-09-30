@@ -28,7 +28,7 @@ function Loader(props: { size?: string }) {
   return (
     <FlashingDiv>
       {vscMediaUrl ? (
-        <img src={`${vscMediaUrl}/icon.png`} width="22px" />
+        <img src={`${vscMediaUrl}/icon.webp`} width="22px" />
       ) : (
         <PlayIcon width={props.size || DEFAULT_SIZE} />
       )}

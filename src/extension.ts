@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { CodebaseIndexer } from './indexing/indexer';
+import { ModelCacheManager } from './indexing/modelCache';
 import { ProviderRegistry } from './providers/registry';
 import { Logger } from './utils/logger';
 import { SettingsManager } from './utils/settingsManager';
@@ -19,6 +20,7 @@ export async function activate(context: vscode.ExtensionContext) {
   try {
     // Initialize core services
     SettingsManager.initialize(context);
+    ModelCacheManager.setGlobalStoragePath(context.globalStorageUri.fsPath);
     providerRegistry = new ProviderRegistry(context.secrets);
     
     const indexerConfig = CodebaseIndexer.readConfig();
@@ -133,7 +135,11 @@ export async function activate(context: vscode.ExtensionContext) {
     // Listen for configuration changes
     context.subscriptions.push(
       vscode.workspace.onDidChangeConfiguration(e => {
-        if (e.affectsConfiguration('KODRA.indexing') || e.affectsConfiguration('KODRA.ollama')) {
+        if (
+          e.affectsConfiguration('KODRA.indexing') ||
+          e.affectsConfiguration('KODRA.ollama') ||
+          e.affectsConfiguration('KODRA.embedding')
+        ) {
           indexer.updateConfig(CodebaseIndexer.readConfig());
         }
         if (e.affectsConfiguration('KODRA.provider') || e.affectsConfiguration('KODRA.modelName')) {

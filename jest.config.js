@@ -7,5 +7,6 @@ module.exports = {
   moduleFileExtensions: ['ts', 'js'],
   moduleNameMapper: {
     '^vscode$': '<rootDir>/__mocks__/vscode.js',
+    '^sharp$': '<rootDir>/src/utils/mockSharp.js',
   },
 };

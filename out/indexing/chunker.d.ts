@@ -50,6 +50,7 @@ export declare function chunkDocument(filepath: string, contents: string, digest
     endLine: number;
     filepath: string;
     digest: string;
+    chunkHash: string;
     index: number;
 }>;
 //# sourceMappingURL=chunker.d.ts.map

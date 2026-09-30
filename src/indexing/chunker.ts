@@ -16,6 +16,7 @@
  * due to WASM binary bundling complexity.
  */
 
+import * as crypto from 'crypto';
 import { ChunkWithoutID } from './types';
 
 /** Default maximum chunk size in tokens. */
@@ -142,8 +143,8 @@ export function chunkDocument(
   contents: string,
   digest: string,
   maxChunkSize: number = DEFAULT_MAX_CHUNK_SIZE,
-): Array<{ content: string; startLine: number; endLine: number; filepath: string; digest: string; index: number }> {
-  const chunks: Array<{ content: string; startLine: number; endLine: number; filepath: string; digest: string; index: number }> = [];
+): Array<{ content: string; startLine: number; endLine: number; filepath: string; digest: string; chunkHash: string; index: number }> {
+  const chunks: Array<{ content: string; startLine: number; endLine: number; filepath: string; digest: string; chunkHash: string; index: number }> = [];
   let index = 0;
 
   for (const chunk of chunkText(contents, maxChunkSize)) {
@@ -152,10 +153,13 @@ export function chunkDocument(
       continue;
     }
 
+    const chunkHash = crypto.createHash('sha256').update(chunk.content).digest('hex');
+
     chunks.push({
       ...chunk,
       filepath,
       digest,
+      chunkHash,
       index: index++,
     });
   }

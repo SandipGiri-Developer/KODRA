@@ -4,6 +4,18 @@ All notable changes to the "KODRA" extension will be documented in this file.
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [0.1.3] - 2026-09-30
+
+### Zero-Setup Local Embeddings & Codebase Indexing
+- **In-Process Local Embeddings**: Built-in `@xenova/transformers` ONNX runtime generating `all-MiniLM-L6-v2` embeddings in-process. Kodra now works out of the box on clean machines without requiring Ollama or manual model downloads.
+- **Automatic Model Acquisition & Caching**: Missing embedding models are automatically downloaded with real byte progress streaming, cached outside the workspace in global storage, and reused offline on all subsequent runs.
+- **Provider-Agnostic Architecture**: Introduced `IEmbeddingProvider` layer decoupling indexing from model providers. Supports Local (default), Ollama, and future API backends with dynamic dimension detection.
+- **Content-Addressed Incremental Indexing**: Added per-chunk SHA-256 hashing and file digests. Untouched files skip re-embedding; moved files and duplicate code reuse cached vectors in $O(1)$ time.
+- **Vector Purging & Clean Sync**: Integrated Vectra (`LocalIndex`) with dynamic schema validation. Deleted workspace files are purged from the vector index and search results.
+
+### Assets & Optimization
+- **WebP Icon Assets**: Migrated extension and sidebar icons to optimized `.webp` format for reduced package overhead.
+
 ## [0.1.2] - 2026-09-27
 
 ### Dedicated Settings Tab & State Persistence

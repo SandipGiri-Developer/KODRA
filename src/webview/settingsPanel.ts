@@ -72,8 +72,8 @@ export class SettingsPanel {
     // Set panel icon
     try {
       this.panel.iconPath = {
-        light: vscode.Uri.joinPath(this.extensionUri, 'media', 'icon.png'),
-        dark: vscode.Uri.joinPath(this.extensionUri, 'media', 'icon.png'),
+        light: vscode.Uri.joinPath(this.extensionUri, 'media', 'icon.webp'),
+        dark: vscode.Uri.joinPath(this.extensionUri, 'media', 'icon.webp'),
       };
     } catch {
       // Ignore if icon not found
