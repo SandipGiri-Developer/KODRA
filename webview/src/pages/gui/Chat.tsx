@@ -46,6 +46,7 @@ import {
 import { isJetBrains, isMetaEquivalentKeyPressed } from "../../util";
 import { ToolCallDiv } from "./ToolCallDiv";
 import { submitEditorAndInitAtIndex, streamUpdate, setInactive } from "../../redux/slices/sessionSlice";
+import { AgentActivityBar, ActiveToolInfo, PendingApproval } from "./AgentActivityBar";
 
 function getTextFromJSONContent(content: any): string {
   if (!content) return "";
@@ -57,17 +58,27 @@ function getTextFromJSONContent(content: any): string {
   return "";
 }
 
-// Module-level singleton for the active stream dispatch.
-// Only one stream can be active at a time. Using a module-level variable
-// ensures we never have multiple window.addEventListener calls stacking up.
+// Module-level singleton for active stream and tool activity dispatches
 let _activeStreamDispatch: ((msg: any) => void) | null = null;
+let _toolActivityListeners: Array<(msg: any) => void> = [];
+
+function subscribeToolActivity(fn: (msg: any) => void) {
+  _toolActivityListeners.push(fn);
+  return () => {
+    _toolActivityListeners = _toolActivityListeners.filter((l) => l !== fn);
+  };
+}
 
 // Installed once, permanently, at module load time.
 window.addEventListener('message', (event: MessageEvent) => {
   const msg = event.data;
   if (!msg || typeof msg !== 'object') return;
 
-  // Only route stream messages. Anything else is handled by useWebviewListener.
+  if (['toolCall', 'toolResult', 'approvalRequest', 'streamDone', 'streamCancelled', 'streamError'].includes(msg.type)) {
+    _toolActivityListeners.forEach((listener) => listener(msg));
+  }
+
+  // Only route stream messages. Anything else is handled by useWebviewListener or tool listeners.
   if (!['streamContent', 'streamDone', 'streamError', 'streamCancelled'].includes(msg.type)) return;
 
   if (_activeStreamDispatch) {
@@ -201,6 +212,49 @@ export function Chat() {
   );
   const jetbrains = useMemo(() => {
     return isJetBrains();
+  }, []);
+
+  const [activeTool, setActiveTool] = useState<ActiveToolInfo | null>(null);
+  const [pendingApproval, setPendingApproval] = useState<PendingApproval | null>(null);
+
+  useEffect(() => {
+    return subscribeToolActivity((msg) => {
+      switch (msg.type) {
+        case 'approvalRequest':
+          setPendingApproval({
+            toolName: msg.toolName,
+            description: msg.description,
+            command: msg.command,
+            filepath: msg.filepath,
+            diff: msg.diff,
+          });
+          setActiveTool(null);
+          break;
+        case 'toolCall':
+          setActiveTool({
+            toolName: msg.toolName,
+            args: msg.args,
+            status: 'executing',
+          });
+          break;
+        case 'toolResult':
+          setActiveTool(null);
+          break;
+        case 'streamDone':
+        case 'streamCancelled':
+        case 'streamError':
+          setActiveTool(null);
+          setPendingApproval(null);
+          break;
+      }
+    });
+  }, []);
+
+  const handleApprovalDecision = useCallback((approved: boolean) => {
+    if ((window as any).vscode) {
+      (window as any).vscode.postMessage({ type: 'approveAction', approved });
+    }
+    setPendingApproval(null);
   }, []);
 
   useAutoScroll(stepsDivRef, history);
@@ -484,6 +538,11 @@ export function Chat() {
             </div>
           ))}
       </StepsDiv>
+      <AgentActivityBar
+        activeTool={activeTool}
+        pendingApproval={pendingApproval}
+        onDecision={handleApprovalDecision}
+      />
       <div className={"relative shrink-0"}>
         <KODRAInputBox
           isMainInput

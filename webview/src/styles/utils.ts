@@ -1,19 +1,32 @@
-export function parseHexColor(hexColor: string): {
+export function parseHexColor(hexColor?: string): {
   r: number;
   g: number;
   b: number;
 } {
-  if (hexColor.startsWith("#")) {
-    hexColor = hexColor.slice(1);
+  if (!hexColor || typeof hexColor !== "string") {
+    return { r: 30, g: 30, b: 30 };
   }
 
-  if (hexColor.length > 6) {
-    hexColor = hexColor.slice(0, 6);
+  let cleaned = hexColor.trim();
+  if (cleaned.startsWith("#")) {
+    cleaned = cleaned.slice(1);
   }
 
-  const r = parseInt(hexColor.substring(0, 2), 16);
-  const g = parseInt(hexColor.substring(2, 4), 16);
-  const b = parseInt(hexColor.substring(4, 6), 16);
+  if (cleaned.length === 3) {
+    cleaned = cleaned[0] + cleaned[0] + cleaned[1] + cleaned[1] + cleaned[2] + cleaned[2];
+  }
+
+  if (cleaned.length > 6) {
+    cleaned = cleaned.slice(0, 6);
+  }
+
+  const r = parseInt(cleaned.substring(0, 2), 16);
+  const g = parseInt(cleaned.substring(2, 4), 16);
+  const b = parseInt(cleaned.substring(4, 6), 16);
+
+  if (isNaN(r) || isNaN(g) || isNaN(b)) {
+    return { r: 30, g: 30, b: 30 };
+  }
 
   return { r, g, b };
 }

@@ -246,10 +246,11 @@ export class GeminiProvider implements ILLMProvider {
         }
         result.push({ role: 'model', parts });
       } else if (msg.role === 'tool') {
+        const toolName = this.resolveToolName(msg, messages);
         const parts: any[] = [
           {
             functionResponse: {
-              name: msg.toolCallId || 'unknown_tool',
+              name: toolName,
               response: { result: msg.content },
             }
           }
@@ -258,9 +259,10 @@ export class GeminiProvider implements ILLMProvider {
         // Combine consecutive tool results
         while (i + 1 < messages.length && messages[i + 1].role === 'tool') {
           i++;
+          const nextToolName = this.resolveToolName(messages[i], messages);
           parts.push({
             functionResponse: {
-              name: messages[i].toolCallId || 'unknown_tool',
+              name: nextToolName,
               response: { result: messages[i].content },
             }
           });
@@ -284,6 +286,13 @@ export class GeminiProvider implements ILLMProvider {
       }
     }
     return result;
+  }
+
+  private resolveToolName(msg: ChatMessage, messages: ChatMessage[]): string {
+    if (msg.toolName) {
+      return msg.toolName;
+    }
+    return msg.toolCallId || 'unknown_tool';
   }
 
   private handleHttpError(status: number, body: string, model: string): never {

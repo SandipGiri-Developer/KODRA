@@ -90,6 +90,7 @@ export type ExtensionToWebviewMessage = {
     type: 'approvalRequest';
     toolName: string;
     description: string;
+    command?: string;
     diff?: string;
     filepath?: string;
 } | {

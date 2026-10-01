@@ -15,11 +15,11 @@ export function getCsp(webview: vscode.Webview, nonce: string): string {
     // Allow scripts with the generated nonce, plus standard webview sources
     `script-src ${webview.cspSource} 'unsafe-inline' 'unsafe-eval' 'nonce-${nonce}'`,
     // Allow fonts if needed
-    `font-src ${webview.cspSource}`,
-    // The webview doesn't make direct API calls — all network happens in the extension host
-    `connect-src 'none'`,
-    // Images allowed from extension and data URIs
-    `img-src ${webview.cspSource} data:`,
+    `font-src ${webview.cspSource} data:`,
+    // Allow chunk loading and local data/blob resources
+    `connect-src ${webview.cspSource} https: data: blob:`,
+    // Images allowed from extension, https, and data URIs
+    `img-src ${webview.cspSource} https: data: blob:`,
     // Frame control
     `frame-src 'none'`,
   ].join('; ');

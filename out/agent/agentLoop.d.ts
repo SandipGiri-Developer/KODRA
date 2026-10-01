@@ -1,32 +1,46 @@
 /**
  * Agent Loop for KODRA.
  *
- * Implements a controlled agent loop:
- *  User request → gather context → call model → parse response/tool request
- *  → validate tool → execute → return result → continue until done/cancelled/limit
- *
- * Inspired by KODRA's core.ts handleToolCall pattern but simplified for v1.0.
+ * Provides the high-level bridge between the extension/UI and AgentRuntime.
+ * Connects codebase context retrieval, model streaming, and tool execution.
+ * Streams AgentEvents in real-time to the caller.
  */
 import { CodebaseIndexer } from '../indexing/indexer';
 import { ChatMessage, ILLMProvider } from '../providers/types';
+import { AgentRuntime } from './agentRuntime';
+import { ContextManager } from './contextManager';
+import { IToolRegistry } from './toolRegistry';
 import { AgentEvent, ITool } from './types';
+import { IWorkspaceService } from './workspaceService';
 export declare class AgentLoop {
-    private readonly indexer;
+    private readonly indexer?;
     private readonly requireApproval;
-    private tools;
-    private abortController;
-    constructor(indexer: CodebaseIndexer, requireApproval?: boolean, initialTools?: ITool[]);
+    private readonly runtime;
+    private readonly registry;
+    private readonly permissionManager;
+    private readonly contextManager;
+    private readonly workspaceService;
+    private readonly eventBus;
+    constructor(indexer?: CodebaseIndexer | undefined, requireApproval?: boolean, initialTools?: ITool[], workspaceService?: IWorkspaceService);
+    /**
+     * Get the underlying ToolRegistry.
+     */
+    getRegistry(): IToolRegistry;
+    /**
+     * Get the underlying AgentRuntime.
+     */
+    getRuntime(): AgentRuntime;
+    /**
+     * Get the underlying ContextManager.
+     */
+    getContextManager(): ContextManager;
+    /**
+     * Get the underlying WorkspaceService.
+     */
+    getWorkspaceService(): IWorkspaceService;
     /**
      * Run the agent loop for a user message.
-     *
-     * Yields AgentEvents as the agent processes the request:
-     * - content: streamed text from the model
-     * - toolCall: tool being invoked
-     * - toolResult: result of tool execution
-     * - approval: waiting for user to approve a destructive action
-     * - error: an error occurred
-     * - done: agent finished
-     * - cancelled: user cancelled
+     * Yields AgentEvents in real-time for UI consumption.
      */
     run(userMessage: string, conversationHistory: ChatMessage[], provider: ILLMProvider, options?: {
         maxIterations?: number;
@@ -36,18 +50,12 @@ export declare class AgentLoop {
         toolCalling?: boolean;
     }): AsyncGenerator<AgentEvent>;
     /**
-     * Cancel the current agent run.
+     * Cancel the active agent run.
      */
     cancel(): void;
     /**
-     * Resolve a pending approval request.
+     * Resolve an approval request.
      */
-    private approvalResolve;
-    resolveApproval(approved: boolean): void;
-    private waitForApproval;
-    private applyToolResult;
-    private gatherContext;
-    private formatContext;
-    private getToolDefinitions;
+    resolveApproval(approved: boolean, requestId?: string): void;
 }
 //# sourceMappingURL=agentLoop.d.ts.map

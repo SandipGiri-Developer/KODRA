@@ -3,6 +3,7 @@ import { resolve } from "path";
 import { defineConfig } from "vitest/config";
 
 export default defineConfig({
+  base: "./",
   plugins: [react()],
   resolve: {
     alias: {
@@ -10,17 +11,31 @@ export default defineConfig({
     },
   },
   build: {
-    sourcemap: true,
-
+    sourcemap: false,
+    minify: "esbuild",
+    chunkSizeWarningLimit: 1200,
     rollupOptions: {
       input: {
         index: resolve(__dirname, "index.html"),
-        
       },
       output: {
         entryFileNames: `assets/[name].js`,
         chunkFileNames: `assets/[name].js`,
         assetFileNames: `assets/[name].[ext]`,
+        manualChunks: (id) => {
+          if (id.includes("node_modules/highlight.js") || id.includes("node_modules/lowlight")) {
+            return "syntax-highlighter";
+          }
+          if (id.includes("node_modules/@tiptap") || id.includes("node_modules/prosemirror")) {
+            return "editor-vendor";
+          }
+          if (id.includes("node_modules/react/") || id.includes("node_modules/react-dom/") || id.includes("node_modules/react-router")) {
+            return "react-vendor";
+          }
+          if (id.includes("node_modules/@reduxjs") || id.includes("node_modules/redux")) {
+            return "redux-vendor";
+          }
+        },
       },
     },
   },
