@@ -32,7 +32,7 @@
     "@tiptap/extension-text": "^2.27.1",
     "@tiptap/pm": "^2.1.13",
     "@tiptap/react": "^2.1.13",
-    "@tiptap/starter-kit": "^2.1.13",
+    "@tiptap/starter-kit": "^3.31.3",
     "@tiptap/suggestion": "^2.1.13",
     "@types/diff": "^7.0.2",
     "@types/uuid": "^10.0.0",
