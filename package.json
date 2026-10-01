@@ -315,7 +315,7 @@
     "@types/uuid": "^9.0.0",
     "@types/vscode": "^1.85.0",
     "@typescript-eslint/eslint-plugin": "^8.0.0",
-    "@typescript-eslint/parser": "^8.0.0",
+    "@typescript-eslint/parser": "^8.71.0",
     "@vscode/vsce": "^3.0.0",
     "eslint": "^9.0.0",
     "jest": "^30.5.2",
