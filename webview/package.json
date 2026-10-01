@@ -76,7 +76,7 @@
     "table": "^6.8.1",
     "tailwind-merge": "^3.0.2",
     "tippy.js": "^6.3.7",
-    "unist-util-visit": "^5.0.0",
+    "unist-util-visit": "^5.1.0",
     "uuid": "^9.0.1"
   },
   "devDependencies": {
