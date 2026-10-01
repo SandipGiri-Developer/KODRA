@@ -1,6 +1,6 @@
 const getContextItemsFromHistory = (a: any, b: any) => [];
 const ctxItemToRifWithContents = (item: any, x: any) => ({} as any);
-import { memo, useEffect, useMemo, useRef } from "react";
+import { memo, useEffect, useMemo, useRef, lazy, Suspense } from "react";
 import { useRemark } from "react-remark";
 import rehypeKatex from "rehype-katex";
 import remarkMath from "remark-math";
@@ -22,7 +22,7 @@ import { ToolTip } from "../gui/Tooltip";
 import FilenameLink from "./FilenameLink";
 import "./katex.css";
 import "./markdown.css";
-import MermaidBlock from "./MermaidBlock";
+const MermaidBlock = lazy(() => import("./MermaidBlock"));
 import { rehypeHighlightPlugin } from "./rehypeHighlightPlugin";
 import { SecureImageComponent } from "./SecureImageComponent";
 import { StepContainerPreToolbar } from "./StepContainerPreToolbar";
@@ -354,7 +354,11 @@ const StyledMarkdownPreview = memo(function StyledMarkdownPreview(
           }
           if (codeProps.className?.includes("language-mermaid")) {
             const codeText = String(codeProps.children || "");
-            return <MermaidBlock code={codeText} />;
+            return (
+              <Suspense fallback={<div className="text-vsc-foreground text-xs py-1">Loading diagram...</div>}>
+                <MermaidBlock code={codeText} />
+              </Suspense>
+            );
           }
           return <code {...codeProps}>{codeProps.children}</code>;
         },

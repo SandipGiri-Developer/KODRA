@@ -89,10 +89,47 @@ const migrations: MigrationManifest = {
   },
 };
 
+const inMemoryFallback: Record<string, string> = {};
+
+const safeStorage = {
+  getItem: async (key: string): Promise<string | null> => {
+    try {
+      if (typeof window !== "undefined" && window.localStorage) {
+        return window.localStorage.getItem(key);
+      }
+    } catch {
+      // Storage access restricted in webview sandbox
+    }
+    return inMemoryFallback[key] ?? null;
+  },
+  setItem: async (key: string, value: string): Promise<void> => {
+    try {
+      if (typeof window !== "undefined" && window.localStorage) {
+        window.localStorage.setItem(key, value);
+        return;
+      }
+    } catch {
+      // Storage access restricted in webview sandbox
+    }
+    inMemoryFallback[key] = value;
+  },
+  removeItem: async (key: string): Promise<void> => {
+    try {
+      if (typeof window !== "undefined" && window.localStorage) {
+        window.localStorage.removeItem(key);
+        return;
+      }
+    } catch {
+      // Storage access restricted in webview sandbox
+    }
+    delete inMemoryFallback[key];
+  },
+};
+
 const persistConfig = {
   version: 1,
   key: "root",
-  storage,
+  storage: safeStorage,
   transforms: [...saveSubsetFilters],
   stateReconciler: autoMergeLevel2,
   migrate: createMigrate(migrations, { debug: false }),

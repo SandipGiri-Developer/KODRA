@@ -30,7 +30,9 @@
     "indexing"
   ],
   "activationEvents": [
-    "onStartupFinished"
+    "onStartupFinished",
+    "onView:KODRA.chatView",
+    "onCommand:KODRA.openChat"
   ],
   "contributes": {
     "commands": [
@@ -288,15 +290,15 @@
     }
   },
   "scripts": {
-    "vscode:prepublish": "npm run package",
+    "vscode:prepublish": "npm run build:webview && npm run package && node -e \"const fs=require('fs');const p=require('path');['encoder.json','vocab.bpe'].forEach(f=>{fs.copyFileSync(p.join('node_modules','gpt-3-encoder',f),p.join('dist',f));console.log('Copied',f);})\"",
     "compile": "webpack --mode development",
     "watch": "webpack --watch --mode development",
-    "package": "webpack --mode production --devtool hidden-source-map",
+    "package": "webpack --mode production --devtool hidden-source-map && node -e \"const fs=require('fs');const p=require('path');['encoder.json','vocab.bpe'].forEach(f=>{fs.copyFileSync(p.join('node_modules','gpt-3-encoder',f),p.join('dist',f));console.log('Copied',f);})\"",
     "build:webview": "cd webview && npm run build",
     "lint": "eslint src --ext .ts",
     "test": "jest",
     "test:watch": "jest --watch",
-    "package:vsix": "npx @vscode/vsce package --no-dependencies"
+    "package:vsix": "npx @vscode/vsce package --no-dependencies --allow-package-all-secrets"
   },
   "dependencies": {
     "@xenova/transformers": "^2.17.2",

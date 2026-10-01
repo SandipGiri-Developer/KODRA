@@ -11,6 +11,8 @@ export interface ChatMessage {
   content: string;
   /** For tool result messages */
   toolCallId?: string;
+  /** Tool name that produced this result */
+  toolName?: string;
   /** Tool calls requested by the assistant */
   toolCalls?: ToolCall[];
 }

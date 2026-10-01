@@ -148,8 +148,8 @@ export async function activate(context: vscode.ExtensionContext) {
       })
     );
 
-    // Auto-start incremental indexing if enabled
-    const autoIndex = vscode.workspace.getConfiguration('KODRA').get<boolean>('indexing.enabled', true);
+    // Auto-start incremental indexing only if explicitly enabled in user settings
+    const autoIndex = vscode.workspace.getConfiguration('KODRA').get<boolean>('indexing.enabled', false);
     if (autoIndex && vscode.workspace.workspaceFolders) {
       // Small delay to not block startup
       startupTimer = setTimeout(() => {

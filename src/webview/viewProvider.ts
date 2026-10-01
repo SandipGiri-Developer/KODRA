@@ -443,6 +443,7 @@ export class KodraViewProvider implements vscode.WebviewViewProvider {
               type: 'approvalRequest',
               toolName: event.toolName,
               description: event.description,
+              command: event.command,
               diff: event.diff,
               filepath: event.filepath
             });

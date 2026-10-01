@@ -43,7 +43,7 @@ export type ExtensionToWebviewMessage =
   | { type: 'streamCancelled' }
   | { type: 'toolCall'; toolName: string; args: Record<string, unknown> }
   | { type: 'toolResult'; toolName: string; content: string; success: boolean }
-  | { type: 'approvalRequest'; toolName: string; description: string; diff?: string; filepath?: string }
+  | { type: 'approvalRequest'; toolName: string; description: string; command?: string; diff?: string; filepath?: string }
   | { type: 'config'; provider: string; model: string; hasApiKey: boolean; availableProviders: string[] }
   | { type: 'connectionResult'; success: boolean; models?: string[]; error?: string }
   | { type: 'modelsDiscovered'; provider: string; models?: DiscoveredModel[]; error?: string }

@@ -1,6 +1,6 @@
 const OnboardingCard = () => <></>;
 import { ConversationStarterCards } from "../../components/ConversationStarters";
-const kodraLogo = (window as any).vscMediaUrl || "";
+const kodraLogo = (window as any).vscLogoUrl || ((window as any).vscMediaUrl ? `${(window as any).vscMediaUrl}/icon.webp` : "");
 
 export interface EmptyChatBodyProps {
   showOnboardingCard?: boolean;

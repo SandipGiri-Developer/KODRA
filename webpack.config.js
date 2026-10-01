@@ -3,6 +3,7 @@
 'use strict';
 
 const path = require('path');
+const fs = require('fs');
 
 //@ts-check
 /** @typedef {import('webpack').Configuration} WebpackConfig **/
@@ -41,9 +42,36 @@ const extensionConfig = {
             loader: 'ts-loader'
           }
         ]
+      },
+      {
+        test: /(uuid[\\/]dist[\\/].*v35\.js|get-intrinsic[\\/]index\.js|turndown[\\/].*\.js)$/,
+        use: [
+          {
+            loader: path.resolve(__dirname, 'scripts/fix-uuid-loader.js')
+          }
+        ]
       }
     ]
   },
+  plugins: [
+    {
+      apply: (compiler) => {
+        compiler.hooks.afterEmit.tap('CopyGpt3EncoderFiles', () => {
+          try {
+            ['encoder.json', 'vocab.bpe'].forEach(file => {
+              const src = path.join(__dirname, 'node_modules', 'gpt-3-encoder', file);
+              const dest = path.join(__dirname, 'dist', file);
+              if (fs.existsSync(src)) {
+                fs.copyFileSync(src, dest);
+              }
+            });
+          } catch (e) {
+            console.error('Failed to copy gpt-3-encoder files', e);
+          }
+        });
+      }
+    }
+  ],
   devtool: 'nosources-source-map',
   infrastructureLogging: {
     level: "log", // enables logging required for problem matchers

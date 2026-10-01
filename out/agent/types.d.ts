@@ -1,53 +1,182 @@
 /**
  * Agent and Tool type definitions for KODRA.
+ *
+ * Provides a generic, extensible foundation for:
+ * - Tool definitions & schemas (compatible with OpenAI/Anthropic/Ollama function calling)
+ * - Agent execution state machine (idle, running, waiting_for_approval, etc.)
+ * - Normalized runtime event stream
+ * - Permission & approval contracts
  */
-import { ChatMessage, ToolDefinition } from '../providers/types';
-/** Result of executing a tool. */
+import { ToolDefinition } from '../providers/types';
+export { IWorkspaceService, WorkspaceFolderInfo, DirectoryEntry, SearchMatch } from './workspaceService';
+export { IAgentEventBus } from './agentEventBus';
+export { IToolExecutor, ToolExecutionResponse } from './toolExecutor';
+export { IContextManager, BuildMessagesOptions } from './contextManager';
+/** Result of executing an agent tool. */
 export interface ToolResult {
-    /** Result content (may be text, file content, search results, etc.) */
+    /** Textual or structured result representation returned to the model */
     content: string;
-    /** Whether the tool execution succeeded */
+    /** Whether execution succeeded without fatal error */
     success: boolean;
-    /** For file operations: the affected file path */
+    /** Optional file path affected by the operation */
     filepath?: string;
-    /** For edit operations: the proposed diff */
+    /** Optional unified diff for file edits */
     diff?: string;
-    /** Whether this result requires user approval before taking effect */
+    /** Additional structured metadata */
+    metadata?: Record<string, unknown>;
+}
+/** JSON Schema property specification for tool parameters. */
+export interface ToolPropertySchema {
+    type: string;
+    description?: string;
+    enum?: string[];
+    default?: unknown;
+    items?: Record<string, unknown>;
+}
+/** Parameter schema for a tool. */
+export interface ToolParameterSchema {
+    type: 'object';
+    properties: Record<string, ToolPropertySchema>;
+    required?: string[];
+}
+/** Tool metadata for capabilities, UI display, and permissions. */
+export interface ToolMetadata {
+    /** Human-readable category (e.g., 'filesystem', 'terminal', 'search') */
+    category?: string;
+    /** Whether this tool modifies disk or state */
+    isDestructive?: boolean;
+    /** Whether this tool requires user approval before execution */
     requiresApproval?: boolean;
+    /** Short summary of what the tool does for UI display */
+    displaySummary?: (args: Record<string, unknown>) => string;
 }
-/** A tool implementation. */
+/** Generic tool interface. All Kodra tools implement this contract. */
 export interface ITool {
-    /** Tool name (matches the function name in ToolDefinition) */
+    /** Unique tool identifier */
     readonly name: string;
-    /** Human-readable description */
+    /** Human-readable description provided to the LLM */
     readonly description: string;
-    /** Whether this tool modifies files (requires approval) */
-    readonly isDestructive: boolean;
-    /** The tool definition to send to the model */
+    /** Parameter schema definition */
+    readonly parameters?: ToolParameterSchema;
+    /** Whether execution requires explicit approval from the user */
+    readonly requiresApproval?: boolean;
+    /** Whether this tool modifies files/state (backward compatibility) */
+    readonly isDestructive?: boolean;
+    /** Optional metadata and capabilities */
+    readonly metadata?: ToolMetadata;
+    /** Convert to provider-compatible ToolDefinition */
     getDefinition(): ToolDefinition;
-    /** Execute the tool with parsed arguments */
-    execute(args: Record<string, unknown>): Promise<ToolResult>;
+    /** Execute the tool with validated arguments */
+    execute(args: Record<string, unknown>, signal?: AbortSignal): Promise<ToolResult>;
 }
-/** Agent loop state. */
-export interface AgentState {
-    /** Conversation history */
-    messages: ChatMessage[];
-    /** Current iteration number */
+/** Explicit runtime states of an agent execution. */
+export type AgentStatus = 'idle' | 'running' | 'waiting_for_approval' | 'executing_tool' | 'completed' | 'failed' | 'cancelled';
+/** Record of a single tool invocation within an agent turn. */
+export interface ToolCallRecord {
+    id: string;
+    toolName: string;
+    args: Record<string, unknown>;
+    timestamp: number;
+}
+/** Record of a tool execution result. */
+export interface ToolResultRecord {
+    toolCallId: string;
+    toolName: string;
+    result: ToolResult;
+    durationMs: number;
+    timestamp: number;
+}
+/** Normalized state snapshot of an active or past agent execution. */
+export interface AgentExecutionState {
+    executionId: string;
+    turnId: string;
+    status: AgentStatus;
     iteration: number;
-    /** Maximum allowed iterations */
     maxIterations: number;
-    /** Whether the agent is waiting for user approval */
-    pendingApproval: boolean;
-    /** The pending action details (for approval) */
-    pendingAction?: {
-        toolName: string;
-        description: string;
-        diff?: string;
-        filepath?: string;
-        resolve: (approved: boolean) => void;
-    };
+    toolCalls: ToolCallRecord[];
+    toolResults: ToolResultRecord[];
+    startTime: number;
+    endTime?: number;
+    error?: string;
 }
-/** Events emitted by the agent. */
+/** Normalized runtime events emitted by AgentRuntime. */
+export type AgentNormalizedEvent = {
+    type: 'agent.started';
+    executionId: string;
+    turnId: string;
+    timestamp: number;
+} | {
+    type: 'tool.requested';
+    executionId: string;
+    toolCallId: string;
+    toolName: string;
+    args: Record<string, unknown>;
+    timestamp: number;
+} | {
+    type: 'tool.approval_required';
+    executionId: string;
+    toolCallId: string;
+    toolName: string;
+    description: string;
+    command?: string;
+    filepath?: string;
+    diff?: string;
+    timestamp: number;
+} | {
+    type: 'tool.approved';
+    executionId: string;
+    toolCallId: string;
+    toolName: string;
+    timestamp: number;
+} | {
+    type: 'tool.rejected';
+    executionId: string;
+    toolCallId: string;
+    toolName: string;
+    reason?: string;
+    timestamp: number;
+} | {
+    type: 'tool.started';
+    executionId: string;
+    toolCallId: string;
+    toolName: string;
+    timestamp: number;
+} | {
+    type: 'tool.completed';
+    executionId: string;
+    toolCallId: string;
+    toolName: string;
+    result: ToolResult;
+    durationMs: number;
+    timestamp: number;
+} | {
+    type: 'tool.failed';
+    executionId: string;
+    toolCallId: string;
+    toolName: string;
+    error: string;
+    durationMs: number;
+    timestamp: number;
+} | {
+    type: 'agent.completed';
+    executionId: string;
+    durationMs: number;
+    usage?: {
+        promptTokens: number;
+        completionTokens: number;
+    };
+    timestamp: number;
+} | {
+    type: 'agent.failed';
+    executionId: string;
+    error: string;
+    timestamp: number;
+} | {
+    type: 'agent.cancelled';
+    executionId: string;
+    timestamp: number;
+};
+/** Backward-compatible streaming generator event for UI callers. */
 export type AgentEvent = {
     type: 'content';
     content: string;
@@ -55,6 +184,7 @@ export type AgentEvent = {
     type: 'toolCall';
     toolName: string;
     args: Record<string, unknown>;
+    toolCallId?: string;
 } | {
     type: 'toolResult';
     toolName: string;
@@ -63,6 +193,7 @@ export type AgentEvent = {
     type: 'approval';
     toolName: string;
     description: string;
+    command?: string;
     diff?: string;
     filepath?: string;
 } | {
@@ -77,4 +208,16 @@ export type AgentEvent = {
 } | {
     type: 'cancelled';
 };
+/** Permission request payload passed to PermissionManager. */
+export interface PermissionRequest {
+    requestId: string;
+    executionId: string;
+    toolCallId: string;
+    toolName: string;
+    description: string;
+    command?: string;
+    filepath?: string;
+    diff?: string;
+    metadata?: Record<string, unknown>;
+}
 //# sourceMappingURL=types.d.ts.map

@@ -99,6 +99,12 @@ module.exports = {
     })),
     executeCommand: jest.fn(),
   },
+  FileType: {
+    Unknown: 0,
+    File: 1,
+    Directory: 2,
+    SymbolicLink: 64,
+  },
   workspace: {
     getConfiguration: jest.fn(() => ({
       get: jest.fn(),
@@ -106,6 +112,41 @@ module.exports = {
     })),
     onDidChangeConfiguration: jest.fn(() => ({ dispose: jest.fn() })),
     workspaceFolders: [],
+    fs: {
+      stat: jest.fn(async (uri) => {
+        const fsPromises = require('fs/promises');
+        try {
+          const st = await fsPromises.stat(uri.fsPath);
+          return {
+            type: st.isDirectory() ? 2 : 1,
+            ctime: st.ctimeMs,
+            mtime: st.mtimeMs,
+            size: st.size,
+          };
+        } catch (err) {
+          const notFoundErr = new Error(`FileNotFound: ${uri.fsPath}`);
+          notFoundErr.code = 'FileNotFound';
+          throw notFoundErr;
+        }
+      }),
+      readFile: jest.fn(async (uri) => {
+        const fsPromises = require('fs/promises');
+        return await fsPromises.readFile(uri.fsPath);
+      }),
+      writeFile: jest.fn(async (uri, content) => {
+        const fsPromises = require('fs/promises');
+        return await fsPromises.writeFile(uri.fsPath, content);
+      }),
+      delete: jest.fn(async (uri, options) => {
+        const fsPromises = require('fs/promises');
+        return await fsPromises.rm(uri.fsPath, { recursive: options?.recursive, force: true });
+      }),
+      readDirectory: jest.fn(async (uri) => {
+        const fsPromises = require('fs/promises');
+        const entries = await fsPromises.readdir(uri.fsPath, { withFileTypes: true });
+        return entries.map((e) => [e.name, e.isDirectory() ? 2 : 1]);
+      }),
+    },
   },
   EventEmitter: MockEventEmitter,
   Uri: {

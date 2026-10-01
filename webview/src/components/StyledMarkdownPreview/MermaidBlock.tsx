@@ -3,10 +3,6 @@ import {
   MagnifyingGlassMinusIcon,
   MagnifyingGlassPlusIcon,
 } from "@heroicons/react/24/outline";
-// @ts-ignore
-import Panzoom from "@panzoom/panzoom";
-// @ts-ignore
-import mermaid from "mermaid";
 import { useEffect, useRef, useState } from "react";
 import { useEffect as useDebouncedEffect } from "react";
 import { ToolTip } from "../gui/Tooltip";
@@ -61,16 +57,26 @@ const MERMAID_THEME_COLORS = {
   fillType7: "#4d8bf0",
 };
 
-mermaid.initialize({
-  startOnLoad: false,
-  securityLevel: "loose",
-  theme: "dark",
-  themeVariables: {
-    ...MERMAID_THEME_COLORS,
-    fontSize: "14px",
-    fontFamily: "var(--vscode-font-family)",
-  },
-});
+let mermaidInitialized = false;
+async function getMermaidInstance() {
+  // @ts-ignore
+  const mermaidModule = await import("mermaid");
+  const mermaid = mermaidModule.default || mermaidModule;
+  if (!mermaidInitialized) {
+    mermaid.initialize({
+      startOnLoad: false,
+      securityLevel: "loose",
+      theme: "dark",
+      themeVariables: {
+        ...MERMAID_THEME_COLORS,
+        fontSize: "14px",
+        fontFamily: "var(--vscode-font-family)",
+      },
+    });
+    mermaidInitialized = true;
+  }
+  return mermaid;
+}
 
 export default function MermaidDiagram({ code }: { code: string }) {
   const mermaidRenderContainerRef = useRef<HTMLDivElement>(null);
@@ -94,10 +100,14 @@ export default function MermaidDiagram({ code }: { code: string }) {
       void (async () => {
         if (!mermaidRenderContainerRef.current) return;
         try {
+          const mermaid = await getMermaidInstance();
           await mermaid.parse(code);
           const renderedSVG = await mermaid.render(diagramId, code);
           mermaidRenderContainerRef.current.innerHTML = renderedSVG.svg;
           setError("");
+          // @ts-ignore
+          const panzoomModule = await import("@panzoom/panzoom");
+          const Panzoom = panzoomModule.default || panzoomModule;
           const panzoom = Panzoom(mermaidRenderContainerRef.current, {
             step: MINIMUM_ZOOM_STEP,
           });
