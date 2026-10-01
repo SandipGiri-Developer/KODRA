@@ -107,4 +107,33 @@ describe('ProviderRegistry', () => {
       expect(mockDiscoverModels).toHaveBeenCalled();
     });
   });
+
+  describe('Extensibility & Provider Factory Registration', () => {
+    it('should allow registering and using custom provider factory', async () => {
+      const mockCustomProvider: any = {
+        id: 'custom-ai',
+        displayName: 'Custom AI Provider',
+        capabilities: { streaming: true, toolCalling: true, vision: false },
+        dispose: jest.fn(),
+      };
+
+      registry.registerProvider('custom-ai', (config) => mockCustomProvider);
+      expect(registry.hasProvider('custom-ai')).toBe(true);
+      expect(registry.getSupportedProviders()).toContain('custom-ai');
+
+      mockGetConfiguration.mockReturnValue({
+        get: (key: string) => {
+          if (key === 'provider') return 'custom-ai';
+          return undefined;
+        },
+      });
+
+      const provider = await registry.getProvider();
+      expect(provider).toBe(mockCustomProvider);
+
+      registry.unregisterProvider('custom-ai');
+      expect(registry.hasProvider('custom-ai')).toBe(false);
+      expect(registry.getSupportedProviders()).not.toContain('custom-ai');
+    });
+  });
 });

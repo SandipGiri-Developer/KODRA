@@ -12,7 +12,7 @@ import { AnthropicProvider } from './anthropic';
 import { GeminiProvider } from './gemini';
 import { OllamaProvider } from './ollama';
 import { OpenAIProvider } from './openai';
-import { DiscoveredModel, ILLMProvider, ProviderConfig, ModelCapabilities } from './types';
+import { DiscoveredModel, ILLMProvider, ProviderConfig, ModelCapabilities, ProviderFactory } from './types';
 import { SettingsManager } from '../utils/settingsManager';
 
 export class ProviderRegistry {
@@ -25,8 +25,66 @@ export class ProviderRegistry {
    * Populated lazily or via warmCapabilities().
    */
   private capabilitiesCache: Map<string, ModelCapabilities> = new Map();
+  private readonly factories: Map<string, ProviderFactory> = new Map();
 
-  constructor(private readonly secretStorage: vscode.SecretStorage) {}
+  constructor(private readonly secretStorage: vscode.SecretStorage) {
+    this.registerBuiltinProviders();
+  }
+
+  private registerBuiltinProviders(): void {
+    this.registerProvider('ollama', (config) => new OllamaProvider(config.endpoint));
+
+    this.registerProvider('openai', (config) => {
+      if (!config.apiKey) {
+        throw new KodraError(
+          ErrorReason.ProviderNotConfigured,
+          'OpenAI API key not configured. Use "Kodra: Configure AI Provider" to set it up.',
+        );
+      }
+      return new OpenAIProvider(config.apiKey, config.endpoint);
+    });
+
+    this.registerProvider('anthropic', (config) => {
+      if (!config.apiKey) {
+        throw new KodraError(
+          ErrorReason.ProviderNotConfigured,
+          'Anthropic API key not configured. Use "Kodra: Configure AI Provider" to set it up.',
+        );
+      }
+      return new AnthropicProvider(config.apiKey);
+    });
+
+    this.registerProvider('gemini', (config) => {
+      if (!config.apiKey) {
+        throw new KodraError(
+          ErrorReason.ProviderNotConfigured,
+          'Google Gemini API key not configured. Use "Kodra: Configure AI Provider" to set it up.',
+        );
+      }
+      return new GeminiProvider(config.apiKey, config.endpoint);
+    });
+  }
+
+  /**
+   * Register a new provider factory dynamically.
+   */
+  registerProvider(providerId: string, factory: ProviderFactory): void {
+    this.factories.set(providerId.toLowerCase(), factory);
+  }
+
+  /**
+   * Unregister a provider factory.
+   */
+  unregisterProvider(providerId: string): boolean {
+    return this.factories.delete(providerId.toLowerCase());
+  }
+
+  /**
+   * Check if a provider is registered.
+   */
+  hasProvider(providerId: string): boolean {
+    return this.factories.has(providerId.toLowerCase());
+  }
 
   /**
    * Get the current provider, creating it if necessary.
@@ -267,7 +325,7 @@ export class ProviderRegistry {
    * Get the list of supported provider IDs.
    */
   getSupportedProviders(): string[] {
-    return ['ollama', 'openai', 'anthropic', 'gemini'];
+    return Array.from(this.factories.keys());
   }
 
   dispose(): void {
@@ -276,46 +334,14 @@ export class ProviderRegistry {
   }
 
   private async createProvider(config: ProviderConfig): Promise<ILLMProvider> {
-    switch (config.provider) {
-      case 'ollama':
-        return new OllamaProvider(config.endpoint);
-
-      case 'openai': {
-        if (!config.apiKey) {
-          throw new KodraError(
-            ErrorReason.ProviderNotConfigured,
-            'OpenAI API key not configured. Use "Kodra: Configure AI Provider" to set it up.',
-          );
-        }
-        return new OpenAIProvider(config.apiKey, config.endpoint);
-      }
-
-      case 'anthropic': {
-        if (!config.apiKey) {
-          throw new KodraError(
-            ErrorReason.ProviderNotConfigured,
-            'Anthropic API key not configured. Use "Kodra: Configure AI Provider" to set it up.',
-          );
-        }
-        return new AnthropicProvider(config.apiKey);
-      }
-
-      case 'gemini': {
-        if (!config.apiKey) {
-          throw new KodraError(
-            ErrorReason.ProviderNotConfigured,
-            'Google Gemini API key not configured. Use "Kodra: Configure AI Provider" to set it up.',
-          );
-        }
-        return new GeminiProvider(config.apiKey, config.endpoint);
-      }
-
-      default:
-        throw new KodraError(
-          ErrorReason.ConfigInvalid,
-          `Unknown provider: "${config.provider}". Supported providers: ollama, openai, anthropic, gemini.`,
-        );
+    const factory = this.factories.get(config.provider.toLowerCase());
+    if (!factory) {
+      throw new KodraError(
+        ErrorReason.ConfigInvalid,
+        `Unknown provider: "${config.provider}". Supported providers: ${this.getSupportedProviders().join(', ')}.`,
+      );
     }
+    return await factory(config);
   }
 
   private configsMatch(a: ProviderConfig, b: ProviderConfig): boolean {

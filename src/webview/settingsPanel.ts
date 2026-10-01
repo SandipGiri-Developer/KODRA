@@ -11,8 +11,9 @@ import { Logger } from '../utils/logger';
 import { SettingsManager } from '../utils/settingsManager';
 import { getWebviewContent } from './htmlHelper';
 import { ExtensionToWebviewMessage, validateWebviewMessage } from './messageTypes';
+import { WebviewSettingsBridge, IWebviewMessagePoster } from './webviewSettingsBridge';
 
-export class SettingsPanel {
+export class SettingsPanel implements IWebviewMessagePoster {
   public static currentPanel: SettingsPanel | undefined;
   public static readonly viewType = 'KODRA.settingsPanel';
 
@@ -20,6 +21,7 @@ export class SettingsPanel {
   private readonly extensionUri: vscode.Uri;
   private readonly providerRegistry: ProviderRegistry;
   private readonly logger = Logger.getInstance();
+  private readonly settingsBridge: WebviewSettingsBridge;
   private disposables: vscode.Disposable[] = [];
 
   public static createOrShow(
@@ -68,12 +70,13 @@ export class SettingsPanel {
     this.panel = panel;
     this.extensionUri = extensionUri;
     this.providerRegistry = providerRegistry;
+    this.settingsBridge = new WebviewSettingsBridge(this.providerRegistry);
 
     // Set panel icon
     try {
       this.panel.iconPath = {
-        light: vscode.Uri.joinPath(this.extensionUri, 'media', 'icon.webp'),
-        dark: vscode.Uri.joinPath(this.extensionUri, 'media', 'icon.webp'),
+        light: vscode.Uri.joinPath(this.extensionUri, 'media', 'icon.png'),
+        dark: vscode.Uri.joinPath(this.extensionUri, 'media', 'icon.png'),
       };
     } catch {
       // Ignore if icon not found
@@ -115,40 +118,15 @@ export class SettingsPanel {
   }
 
   public postMessage(message: ExtensionToWebviewMessage) {
-    this.panel.webview.postMessage(message);
+    return this.panel.webview.postMessage(message);
   }
 
   public async sendSettingsData() {
-    try {
-      const manager = SettingsManager.getInstance();
-      const providers = await manager.getProviders();
-      const workspaceModels = await manager.getWorkspaceModels();
-
-      this.postMessage({
-        type: 'settingsData',
-        providers,
-        workspaceModels,
-      });
-    } catch (e) {
-      this.logger.error('Failed to send settings data to SettingsPanel', e);
-    }
+    await this.settingsBridge.sendSettingsData(this);
   }
 
   public async sendConfig() {
-    try {
-      const config = await this.providerRegistry.readConfig();
-      const hasApiKey = Boolean(config.apiKey && config.apiKey.length > 0);
-
-      this.postMessage({
-        type: 'config',
-        provider: config.provider,
-        model: config.modelName,
-        hasApiKey,
-        availableProviders: this.providerRegistry.getSupportedProviders(),
-      });
-    } catch (e) {
-      this.logger.error('Failed to send config to SettingsPanel', e);
-    }
+    await this.settingsBridge.sendConfig(this);
   }
 
   private async handleMessage(data: unknown) {
@@ -159,18 +137,15 @@ export class SettingsPanel {
     }
 
     try {
+      // Delegate settings and model configuration messages to WebviewSettingsBridge
+      if (await this.settingsBridge.handleSettingsMessage(msg, this)) {
+        return;
+      }
+
       switch (msg.type) {
         case 'webviewReady':
-          this.sendConfig();
-          this.sendSettingsData();
-          break;
-
-        case 'getSettings':
-          await this.sendSettingsData();
-          break;
-
-        case 'getConfig':
           await this.sendConfig();
+          await this.sendSettingsData();
           break;
 
         case 'returnToChat':
@@ -186,90 +161,6 @@ export class SettingsPanel {
           } else {
             vscode.commands.executeCommand(msg.command);
           }
-          break;
-
-        case 'testConnection':
-          try {
-            const provider = await this.providerRegistry.getProvider();
-            const models = await provider.testConnection();
-            this.postMessage({ type: 'connectionResult', success: true, models });
-          } catch (e) {
-            this.postMessage({
-              type: 'connectionResult',
-              success: false,
-              error: e instanceof Error ? e.message : String(e),
-            });
-          }
-          break;
-
-        case 'discoverModels':
-          try {
-            const models = await this.providerRegistry.discoverModels(msg.provider, msg.apiKey, msg.endpoint);
-            this.postMessage({ type: 'modelsDiscovered', provider: msg.provider, models });
-          } catch (e) {
-            this.postMessage({
-              type: 'modelsDiscovered',
-              provider: msg.provider,
-              error: e instanceof Error ? e.message : String(e),
-            });
-          }
-          break;
-
-        case 'saveProviderSetting': {
-          const manager = SettingsManager.getInstance();
-          const providers = await manager.getProviders();
-          const idx = providers.findIndex((p) => p.id === msg.setting.id);
-
-          if (msg.apiKey !== undefined) {
-            if (msg.apiKey.trim().length > 0) {
-              await manager.saveApiKey(msg.setting.id, msg.apiKey);
-              msg.setting.apiKeySecret = true;
-            } else {
-              await manager.deleteApiKey(msg.setting.id);
-              msg.setting.apiKeySecret = false;
-            }
-          }
-
-          if (idx >= 0) {
-            providers[idx] = msg.setting;
-          } else {
-            providers.push(msg.setting);
-          }
-          await manager.saveProviders(providers);
-          await this.sendSettingsData();
-          break;
-        }
-
-        case 'deleteProviderSetting': {
-          const manager = SettingsManager.getInstance();
-          const providers = await manager.getProviders();
-          const updated = providers.filter((p) => p.id !== msg.id);
-          await manager.deleteApiKey(msg.id);
-          await manager.saveProviders(updated);
-          await this.sendSettingsData();
-          break;
-        }
-
-        case 'saveWorkspaceModels': {
-          const manager = SettingsManager.getInstance();
-          await manager.saveWorkspaceModels(msg.models);
-          await this.sendSettingsData();
-          break;
-        }
-
-        case 'setProvider':
-          await vscode.workspace.getConfiguration('KODRA').update('provider', msg.provider, true);
-          await this.sendConfig();
-          break;
-
-        case 'setModel':
-          await vscode.workspace.getConfiguration('KODRA').update('modelName', msg.model, true);
-          await this.sendConfig();
-          break;
-
-        case 'setApiKey':
-          await this.providerRegistry.setApiKey(msg.provider, msg.key);
-          await this.sendConfig();
           break;
       }
     } catch (error) {

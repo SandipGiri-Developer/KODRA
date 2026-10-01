@@ -142,6 +142,11 @@ export interface ILLMProvider {
   dispose(): void;
 }
 
+/**
+ * Factory function to instantiate an LLM provider from configuration.
+ */
+export type ProviderFactory = (config: ProviderConfig) => ILLMProvider | Promise<ILLMProvider>;
+
 
 /**
  * Provider configuration, read from VS Code settings and SecretStorage.

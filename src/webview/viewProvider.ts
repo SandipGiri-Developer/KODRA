@@ -16,20 +16,25 @@ import { getCsp } from './securityPolicy';
 import { getWebviewContent } from './htmlHelper';
 import { OllamaManager } from '../utils/ollamaManager';
 import { ChatMessage } from '../providers/types';
+import { WebviewSettingsBridge, IWebviewMessagePoster } from './webviewSettingsBridge';
 
-export class KodraViewProvider implements vscode.WebviewViewProvider {
+export class KodraViewProvider implements vscode.WebviewViewProvider, IWebviewMessagePoster {
   public static readonly viewType = 'KODRA.chatView';
   
   private view?: vscode.WebviewView;
   private chatHistory: ChatMessage[] = [];
   private agent: AgentLoop | null = null;
   private readonly logger = Logger.getInstance();
+  private readonly settingsBridge: WebviewSettingsBridge;
 
   constructor(
     private readonly extensionUri: vscode.Uri,
     private readonly providerRegistry: ProviderRegistry,
     private readonly indexer: CodebaseIndexer,
-  ) {}
+    settingsBridge?: WebviewSettingsBridge,
+  ) {
+    this.settingsBridge = settingsBridge ?? new WebviewSettingsBridge(this.providerRegistry);
+  }
 
   public resolveWebviewView(
     webviewView: vscode.WebviewView,
@@ -128,42 +133,14 @@ export class KodraViewProvider implements vscode.WebviewViewProvider {
    * Send all settings to the webview.
    */
   public async sendSettingsData() {
-    try {
-      const manager = SettingsManager.getInstance();
-      const providers = await manager.getProviders();
-      const workspaceModels = await manager.getWorkspaceModels();
-      
-      this.postMessage({
-        type: 'settingsData',
-        providers,
-        workspaceModels,
-      });
-    } catch (e) {
-      this.logger.error('Failed to send settings data', e);
-    }
+    await this.settingsBridge.sendSettingsData(this);
   }
 
   /**
    * Send configuration to the webview.
    */
   public async sendConfig() {
-    try {
-      const config = await this.providerRegistry.readConfig();
-      const hasApiKey = Boolean(config.apiKey && config.apiKey.length > 0);
-      
-      this.postMessage({
-        type: 'config',
-        provider: config.provider,
-        model: config.modelName,
-        hasApiKey,
-        availableProviders: this.providerRegistry.getSupportedProviders(),
-      });
-
-      // Pre-warm the capabilities cache so the first message doesn't incur a discovery round-trip
-      this.providerRegistry.warmCapabilities().catch(() => { /* non-critical */ });
-    } catch (e) {
-      this.logger.error('Failed to send config', e);
-    }
+    await this.settingsBridge.sendConfig(this);
   }
 
   /**
@@ -180,8 +157,8 @@ export class KodraViewProvider implements vscode.WebviewViewProvider {
     });
   }
 
-  private postMessage(message: ExtensionToWebviewMessage) {
-    this.view?.webview.postMessage(message);
+  public postMessage(message: ExtensionToWebviewMessage) {
+    return this.view?.webview.postMessage(message);
   }
 
   private async handleMessage(data: unknown) {
@@ -192,11 +169,16 @@ export class KodraViewProvider implements vscode.WebviewViewProvider {
     }
 
     try {
+      // Delegate settings and model configuration messages to WebviewSettingsBridge
+      if (await this.settingsBridge.handleSettingsMessage(msg, this)) {
+        return;
+      }
+
       switch (msg.type) {
         case 'webviewReady':
-          this.sendConfig();
+          await this.sendConfig();
           this.sendIndexStatus();
-          this.sendSettingsData();
+          await this.sendSettingsData();
           break;
           
         case 'sendMessage':
@@ -226,52 +208,6 @@ export class KodraViewProvider implements vscode.WebviewViewProvider {
           }
           break;
           
-        case 'getConfig':
-          await this.sendConfig();
-          break;
-          
-        case 'setProvider':
-          await vscode.workspace.getConfiguration('KODRA').update('provider', msg.provider, true);
-          await this.sendConfig();
-          break;
-          
-        case 'setModel':
-          await vscode.workspace.getConfiguration('KODRA').update('modelName', msg.model, true);
-          await this.sendConfig();
-          break;
-          
-        case 'setApiKey':
-          await this.providerRegistry.setApiKey(msg.provider, msg.key);
-          await this.sendConfig();
-          break;
-          
-        case 'testConnection':
-          try {
-            const provider = await this.providerRegistry.getProvider();
-            const models = await provider.testConnection();
-            this.postMessage({ type: 'connectionResult', success: true, models });
-          } catch (e) {
-            this.postMessage({ 
-              type: 'connectionResult', 
-              success: false, 
-              error: e instanceof Error ? e.message : String(e) 
-            });
-          }
-          break;
-
-        case 'discoverModels':
-          try {
-            const models = await this.providerRegistry.discoverModels(msg.provider, msg.apiKey, msg.endpoint);
-            this.postMessage({ type: 'modelsDiscovered', provider: msg.provider, models });
-          } catch (e) {
-            this.postMessage({
-              type: 'modelsDiscovered',
-              provider: msg.provider,
-              error: e instanceof Error ? e.message : String(e)
-            });
-          }
-          break;
-          
         case 'startIndexing':
           this.indexer.indexWorkspace(msg.fullReindex);
           break;
@@ -283,52 +219,6 @@ export class KodraViewProvider implements vscode.WebviewViewProvider {
         case 'getIndexStatus':
           this.sendIndexStatus();
           break;
-          
-        case 'getSettings':
-          await this.sendSettingsData();
-          break;
-          
-        case 'saveProviderSetting': {
-          const manager = SettingsManager.getInstance();
-          const providers = await manager.getProviders();
-          const idx = providers.findIndex(p => p.id === msg.setting.id);
-          
-          if (msg.apiKey !== undefined) {
-            if (msg.apiKey.trim().length > 0) {
-              await manager.saveApiKey(msg.setting.id, msg.apiKey);
-              msg.setting.apiKeySecret = true;
-            } else {
-              await manager.deleteApiKey(msg.setting.id);
-              msg.setting.apiKeySecret = false;
-            }
-          }
-
-          if (idx >= 0) {
-            providers[idx] = msg.setting;
-          } else {
-            providers.push(msg.setting);
-          }
-          await manager.saveProviders(providers);
-          await this.sendSettingsData();
-          break;
-        }
-
-        case 'deleteProviderSetting': {
-          const manager = SettingsManager.getInstance();
-          const providers = await manager.getProviders();
-          const updated = providers.filter(p => p.id !== msg.id);
-          await manager.deleteApiKey(msg.id);
-          await manager.saveProviders(updated);
-          await this.sendSettingsData();
-          break;
-        }
-
-        case 'saveWorkspaceModels': {
-          const manager = SettingsManager.getInstance();
-          await manager.saveWorkspaceModels(msg.models);
-          await this.sendSettingsData();
-          break;
-        }
       }
     } catch (error) {
       this.logger.error(`Error handling webview message: ${msg.type}`, error);

@@ -21,6 +21,7 @@ import * as crypto from 'crypto';
 import * as fs from 'fs/promises';
 import * as vscode from 'vscode';
 import { Logger } from '../utils/logger';
+import { PauseGate } from '../utils/pauseGate';
 import { chunkDocument, shouldChunkFile } from './chunker';
 import {
   createEmbeddingProvider,
@@ -63,7 +64,7 @@ export class CodebaseIndexer {
   private embeddingProvider: IEmbeddingProvider | null = null;
   private abortController: AbortController | null = null;
   private indexingInProgress = false;
-  private _paused = false;
+  private readonly pauseGate = new PauseGate();
   private partialFailuresCount = 0;
 
   private readonly _onProgress = new vscode.EventEmitter<IndexingProgress>();
@@ -413,8 +414,10 @@ export class CodebaseIndexer {
           }
 
           // Handle pause
-          while (this._paused && !this.abortController.signal.aborted) {
-            await new Promise((r) => setTimeout(r, 400));
+          await this.pauseGate.wait(this.abortController.signal);
+          if (this.abortController.signal.aborted) {
+            this.emitProgress('cancelled', 0, 'Indexing cancelled');
+            break;
           }
 
           const batch = chunksToEmbed.slice(i, i + this.config.batchSize);
@@ -528,6 +531,7 @@ export class CodebaseIndexer {
   cancelIndexing(): void {
     if (this.abortController) {
       this.abortController.abort();
+      this.pauseGate.resume();
       Logger.getInstance().info('Indexing cancellation requested');
     }
   }
@@ -536,11 +540,11 @@ export class CodebaseIndexer {
    * Pause/resume indexing.
    */
   set paused(value: boolean) {
-    this._paused = value;
+    this.pauseGate.setPaused(value);
   }
 
   get paused(): boolean {
-    return this._paused;
+    return this.pauseGate.isPaused;
   }
 
   /**
