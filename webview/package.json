@@ -105,7 +105,7 @@
     "eslint-plugin-no-barrel-files": "^1.2.1",
     "eslint-plugin-react": "^7.37.2",
     "jsdom": "^25.0.1",
-    "postcss": "^8.4.21",
+    "postcss": "^8.5.28",
     "tailwindcss": "^3.2.7",
     "typescript": "^5.6.3",
     "typescript-eslint": "^8.16.0",
