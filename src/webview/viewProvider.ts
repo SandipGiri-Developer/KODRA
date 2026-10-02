@@ -305,6 +305,10 @@ export class KodraViewProvider implements vscode.WebviewViewProvider, IWebviewMe
 
       for await (const event of generator) {
         switch (event.type) {
+          case 'agentStarted':
+            this.postMessage({ type: 'agentStarted', executionId: event.executionId });
+            break;
+
           case 'content':
             if (firstToken) {
               ttftMs = Date.now() - tStream;
@@ -316,7 +320,11 @@ export class KodraViewProvider implements vscode.WebviewViewProvider, IWebviewMe
             break;
 
           case 'toolCall':
-            this.postMessage({ type: 'toolCall', toolName: event.toolName, args: event.args });
+            this.postMessage({ type: 'toolCall', toolName: event.toolName, args: event.args, toolCallId: event.toolCallId });
+            break;
+
+          case 'toolStarted':
+            this.postMessage({ type: 'toolStarted', toolName: event.toolName, toolCallId: event.toolCallId });
             break;
 
           case 'toolResult':
@@ -324,7 +332,9 @@ export class KodraViewProvider implements vscode.WebviewViewProvider, IWebviewMe
               type: 'toolResult',
               toolName: event.toolName,
               content: event.result.content,
-              success: event.result.success
+              success: event.result.success,
+              toolCallId: event.toolCallId,
+              durationMs: event.durationMs,
             });
             break;
 

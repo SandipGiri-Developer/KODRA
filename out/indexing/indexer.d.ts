@@ -38,7 +38,7 @@ export declare class CodebaseIndexer {
     private embeddingProvider;
     private abortController;
     private indexingInProgress;
-    private _paused;
+    private readonly pauseGate;
     private partialFailuresCount;
     private readonly _onProgress;
     readonly onProgress: vscode.Event<IndexingProgress>;

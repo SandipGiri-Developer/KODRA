@@ -46,7 +46,7 @@ import {
 import { isJetBrains, isMetaEquivalentKeyPressed } from "../../util";
 import { ToolCallDiv } from "./ToolCallDiv";
 import { submitEditorAndInitAtIndex, streamUpdate, setInactive } from "../../redux/slices/sessionSlice";
-import { AgentActivityBar, ActiveToolInfo, PendingApproval } from "./AgentActivityBar";
+import { AgentActivityTracker, ToolActivityEntry, PendingApproval } from "./AgentActivityTracker";
 
 function getTextFromJSONContent(content: any): string {
   if (!content) return "";
@@ -74,7 +74,7 @@ window.addEventListener('message', (event: MessageEvent) => {
   const msg = event.data;
   if (!msg || typeof msg !== 'object') return;
 
-  if (['toolCall', 'toolResult', 'approvalRequest', 'streamDone', 'streamCancelled', 'streamError'].includes(msg.type)) {
+  if (['agentStarted', 'toolCall', 'toolStarted', 'toolResult', 'approvalRequest', 'streamDone', 'streamCancelled', 'streamError'].includes(msg.type)) {
     _toolActivityListeners.forEach((listener) => listener(msg));
   }
 
@@ -214,12 +214,62 @@ export function Chat() {
     return isJetBrains();
   }, []);
 
-  const [activeTool, setActiveTool] = useState<ActiveToolInfo | null>(null);
+  const [toolEntries, setToolEntries] = useState<ToolActivityEntry[]>([]);
+  const [agentRunning, setAgentRunning] = useState(false);
   const [pendingApproval, setPendingApproval] = useState<PendingApproval | null>(null);
 
   useEffect(() => {
     return subscribeToolActivity((msg) => {
       switch (msg.type) {
+        case 'agentStarted':
+          // Reset activity state for new agent execution
+          setToolEntries([]);
+          setAgentRunning(true);
+          setPendingApproval(null);
+          break;
+
+        case 'toolCall':
+          setToolEntries(prev => {
+            // Avoid duplicates if toolCallId matches
+            if (msg.toolCallId && prev.some(e => e.toolCallId === msg.toolCallId)) {
+              return prev;
+            }
+            return [...prev, {
+              toolCallId: msg.toolCallId || `tc_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+              toolName: msg.toolName,
+              args: msg.args,
+              status: 'requested' as const,
+              startedAt: Date.now(),
+            }];
+          });
+          break;
+
+        case 'toolStarted':
+          setToolEntries(prev =>
+            prev.map(e =>
+              e.toolCallId === msg.toolCallId
+                ? { ...e, status: 'executing' as const }
+                : e
+            )
+          );
+          break;
+
+        case 'toolResult':
+          setToolEntries(prev =>
+            prev.map(e =>
+              (msg.toolCallId && e.toolCallId === msg.toolCallId) ||
+              (!msg.toolCallId && e.toolName === msg.toolName && (e.status === 'executing' || e.status === 'requested'))
+                ? {
+                    ...e,
+                    status: (msg.success ? 'completed' : 'failed') as ToolActivityEntry['status'],
+                    durationMs: msg.durationMs,
+                    completedAt: Date.now(),
+                  }
+                : e
+            )
+          );
+          break;
+
         case 'approvalRequest':
           setPendingApproval({
             toolName: msg.toolName,
@@ -228,22 +278,12 @@ export function Chat() {
             filepath: msg.filepath,
             diff: msg.diff,
           });
-          setActiveTool(null);
           break;
-        case 'toolCall':
-          setActiveTool({
-            toolName: msg.toolName,
-            args: msg.args,
-            status: 'executing',
-          });
-          break;
-        case 'toolResult':
-          setActiveTool(null);
-          break;
+
         case 'streamDone':
         case 'streamCancelled':
         case 'streamError':
-          setActiveTool(null);
+          setAgentRunning(false);
           setPendingApproval(null);
           break;
       }
@@ -538,10 +578,11 @@ export function Chat() {
             </div>
           ))}
       </StepsDiv>
-      <AgentActivityBar
-        activeTool={activeTool}
+      <AgentActivityTracker
+        entries={toolEntries}
+        isRunning={agentRunning}
         pendingApproval={pendingApproval}
-        onDecision={handleApprovalDecision}
+        onApprovalDecision={handleApprovalDecision}
       />
       <div className={"relative shrink-0"}>
         <KODRAInputBox
