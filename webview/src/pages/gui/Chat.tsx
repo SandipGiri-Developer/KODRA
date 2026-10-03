@@ -297,7 +297,7 @@ export function Chat() {
     setPendingApproval(null);
   }, []);
 
-  useAutoScroll(stepsDivRef, history);
+  const { userHasScrolled, scrollToBottom } = useAutoScroll(stepsDivRef, history);
 
   useEffect(() => {
     // Cmd + Backspace to delete current step
@@ -578,6 +578,24 @@ export function Chat() {
             </div>
           ))}
       </StepsDiv>
+
+      {/* Jump to latest — appears when user scrolled up and agent is active */}
+      {userHasScrolled && (agentRunning || isStreaming) && (
+        <div className="flex justify-center pb-1">
+          <button
+            type="button"
+            onClick={scrollToBottom}
+            aria-label="Jump to latest"
+            className="flex items-center gap-1 px-2.5 py-1 text-[11px] rounded border border-[var(--vscode-widget-border,rgba(128,128,128,0.2))] bg-[var(--vscode-editor-background,#1e1e1e)] text-[var(--vscode-descriptionForeground,#9d9d9d)] hover:text-[var(--vscode-foreground,#cccccc)] hover:border-[var(--vscode-focusBorder,#007fd4)] transition-colors duration-100 shadow-sm"
+          >
+            <svg className="w-3 h-3" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+              <path d="M2 4l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            Jump to latest
+          </button>
+        </div>
+      )}
+
       <AgentActivityTracker
         entries={toolEntries}
         isRunning={agentRunning}
