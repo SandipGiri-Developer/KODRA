@@ -3,11 +3,15 @@ updates:
   - package-ecosystem: "npm"
     directory: "/"
     schedule:
-      interval: "weekly"
+      interval: "daily"
+      time: "10:00"
+      timezone: "Asia/Kolkata"
     ignore:
       - dependency-name: "vscode"
-  
+
   - package-ecosystem: "npm"
     directory: "/webview"
     schedule:
-      interval: "weekly"
+      interval: "daily"
+      time: "10:00"
+      timezone: "Asia/Kolkata"   
