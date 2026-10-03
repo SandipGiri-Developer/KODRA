@@ -136,11 +136,26 @@ export class AgentLoop {
     // Subscribe to normalized runtime events from the AgentEventBus
     const unsubscribe = this.eventBus.on((event: AgentNormalizedEvent) => {
       switch (event.type) {
+        case 'agent.started':
+          eventQueue.push({
+            type: 'agentStarted',
+            executionId: event.executionId,
+          });
+          break;
+
         case 'tool.requested':
           eventQueue.push({
             type: 'toolCall',
             toolName: event.toolName,
             args: event.args,
+            toolCallId: event.toolCallId,
+          });
+          break;
+
+        case 'tool.started':
+          eventQueue.push({
+            type: 'toolStarted',
+            toolName: event.toolName,
             toolCallId: event.toolCallId,
           });
           break;
@@ -161,6 +176,8 @@ export class AgentLoop {
             type: 'toolResult',
             toolName: event.toolName,
             result: event.result,
+            toolCallId: event.toolCallId,
+            durationMs: event.durationMs,
           });
           break;
 
@@ -169,6 +186,8 @@ export class AgentLoop {
             type: 'toolResult',
             toolName: event.toolName,
             result: { content: event.error, success: false },
+            toolCallId: event.toolCallId,
+            durationMs: event.durationMs,
           });
           break;
 

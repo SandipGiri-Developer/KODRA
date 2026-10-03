@@ -178,6 +178,9 @@ export type AgentNormalizedEvent = {
 };
 /** Backward-compatible streaming generator event for UI callers. */
 export type AgentEvent = {
+    type: 'agentStarted';
+    executionId: string;
+} | {
     type: 'content';
     content: string;
 } | {
@@ -186,9 +189,15 @@ export type AgentEvent = {
     args: Record<string, unknown>;
     toolCallId?: string;
 } | {
+    type: 'toolStarted';
+    toolName: string;
+    toolCallId: string;
+} | {
     type: 'toolResult';
     toolName: string;
     result: ToolResult;
+    toolCallId?: string;
+    durationMs?: number;
 } | {
     type: 'approval';
     toolName: string;

@@ -5,7 +5,7 @@
  * instantiates the appropriate provider, and caches it for reuse.
  */
 import * as vscode from 'vscode';
-import { DiscoveredModel, ILLMProvider, ProviderConfig, ModelCapabilities } from './types';
+import { DiscoveredModel, ILLMProvider, ProviderConfig, ModelCapabilities, ProviderFactory } from './types';
 export declare class ProviderRegistry {
     private readonly secretStorage;
     private currentProvider;
@@ -17,7 +17,21 @@ export declare class ProviderRegistry {
      * Populated lazily or via warmCapabilities().
      */
     private capabilitiesCache;
+    private readonly factories;
     constructor(secretStorage: vscode.SecretStorage);
+    private registerBuiltinProviders;
+    /**
+     * Register a new provider factory dynamically.
+     */
+    registerProvider(providerId: string, factory: ProviderFactory): void;
+    /**
+     * Unregister a provider factory.
+     */
+    unregisterProvider(providerId: string): boolean;
+    /**
+     * Check if a provider is registered.
+     */
+    hasProvider(providerId: string): boolean;
     /**
      * Get the current provider, creating it if necessary.
      * Re-creates the provider if configuration has changed.

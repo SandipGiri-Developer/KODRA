@@ -7,7 +7,9 @@
 import * as vscode from 'vscode';
 import { CodebaseIndexer } from '../indexing/indexer';
 import { ProviderRegistry } from '../providers/registry';
-export declare class KodraViewProvider implements vscode.WebviewViewProvider {
+import { ExtensionToWebviewMessage } from './messageTypes';
+import { WebviewSettingsBridge, IWebviewMessagePoster } from './webviewSettingsBridge';
+export declare class KodraViewProvider implements vscode.WebviewViewProvider, IWebviewMessagePoster {
     private readonly extensionUri;
     private readonly providerRegistry;
     private readonly indexer;
@@ -16,7 +18,8 @@ export declare class KodraViewProvider implements vscode.WebviewViewProvider {
     private chatHistory;
     private agent;
     private readonly logger;
-    constructor(extensionUri: vscode.Uri, providerRegistry: ProviderRegistry, indexer: CodebaseIndexer);
+    private readonly settingsBridge;
+    constructor(extensionUri: vscode.Uri, providerRegistry: ProviderRegistry, indexer: CodebaseIndexer, settingsBridge?: WebviewSettingsBridge);
     resolveWebviewView(webviewView: vscode.WebviewView, context: vscode.WebviewViewResolveContext, _token: vscode.CancellationToken): void;
     /**
      * Start a new chat session.
@@ -42,7 +45,7 @@ export declare class KodraViewProvider implements vscode.WebviewViewProvider {
      * Send index status to the webview.
      */
     sendIndexStatus(): void;
-    private postMessage;
+    postMessage(message: ExtensionToWebviewMessage): Thenable<boolean> | undefined;
     private handleMessage;
     private handleUserMessage;
     private getHtmlForWebview;
