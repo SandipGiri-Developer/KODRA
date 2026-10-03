@@ -316,7 +316,7 @@
     "@types/vscode": "^1.138.0",
     "@typescript-eslint/eslint-plugin": "^8.71.0",
     "@typescript-eslint/parser": "^8.71.0",
-    "@vscode/vsce": "^3.0.0",
+    "@vscode/vsce": "^4.0.0",
     "eslint": "^9.0.0",
     "jest": "^30.5.2",
     "ts-jest": "^29.4.14",
