@@ -33,7 +33,7 @@
     "@tiptap/pm": "^2.1.13",
     "@tiptap/react": "^2.1.13",
     "@tiptap/starter-kit": "^2.1.13",
-    "@tiptap/suggestion": "^2.1.13",
+    "@tiptap/suggestion": "^3.31.4",
     "@types/diff": "^7.0.2",
     "@types/uuid": "^10.0.0",
     "anser": "^2.3.2",
