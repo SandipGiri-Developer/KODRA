@@ -80,7 +80,7 @@
     "uuid": "^9.0.1"
   },
   "devDependencies": {
-    "@swc/cli": "^0.8.0",
+    "@swc/cli": "^0.8.1",
     "@swc/core": "^1.7.26",
     "@testing-library/dom": "^10.4.0",
     "@testing-library/jest-dom": "^6.6.4",
