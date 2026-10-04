@@ -3,9 +3,12 @@ updates:
   - package-ecosystem: "npm"
     directory: "/"
     schedule:
-      interval: "weekly"
-
+      interval: "daily"
+      time: "10:00"
+      day: "sunday"
   - package-ecosystem: "npm"
     directory: "/webview"
     schedule:
-      interval: "weekly"
+      interval: "daily"
+      time: "10:00"
+      day: "sunday"
