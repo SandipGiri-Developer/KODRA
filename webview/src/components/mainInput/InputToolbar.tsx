@@ -10,7 +10,7 @@ import {
 } from "@heroicons/react/24/outline";
 import {
   LightBulbIcon as LightBulbIconSolid,
-  ArrowRightIcon,
+  ArrowUpIcon,
   StopIcon,
 } from "@heroicons/react/24/solid";
 import { InputModifiers, MessageModes } from "core";
@@ -328,13 +328,16 @@ function InputToolbar(props: InputToolbarProps) {
             place="top"
             content={
               isStreaming
-                ? "Stop generating"
-                : "Send (⏎)"
+                ? "Stop generation"
+                : "Send message (⏎)"
             }
           >
             {isStreaming ? (
               <button
+                type="button"
                 data-testid="stop-generation-button"
+                title="Stop generation"
+                aria-label="Stop generating response"
                 onClick={() => {
                   ideMessenger.post(
                     "cancelGeneration",
@@ -347,32 +350,18 @@ function InputToolbar(props: InputToolbarProps) {
                     });
                   }
                 }}
-                className="
-                  group
-                  relative
-                  flex
-                  h-8
-                  w-8
-                  cursor-pointer
-                  items-center
-                  justify-center
-                  rounded-full
-                  border-none
-                  bg-transparent
-                  backdrop-blur-md
-                  transition-all
-                  hover:bg-vsc-foreground/5
-                "
+                className="p-2 rounded-xl bg-gray-800 hover:bg-gray-700 text-white transition-all duration-150 active:scale-95 flex items-center justify-center cursor-pointer shadow-sm"
               >
-                <div className="pointer-events-none absolute inset-0 rounded-full bg-vsc-background/30 shadow-[0_0_10px_rgba(0,0,0,0.1)]" />
-
-                <div className="relative z-10 h-2.5 w-2.5 rounded-[2px] bg-[#e05252] shadow-[0_0_8px_rgba(224,82,82,0.4)] transition-colors group-hover:bg-[#f15e5e]" />
+                <StopIcon className="h-3.5 w-3.5 fill-current" />
               </button>
             ) : (
               <button
+                type="button"
                 data-testid="submit-input-button"
+                title="Send message"
+                aria-label="Send message"
                 onClick={async (e) => {
-                  if (props.onEnter) {
+                  if (props.onEnter && !isEnterDisabled) {
                     props.onEnter({
                       useCodebase: false,
                       noContext: useActiveFile
@@ -387,13 +376,13 @@ function InputToolbar(props: InputToolbarProps) {
                   }
                 }}
                 disabled={isEnterDisabled}
-                className={`flex h-8 w-8 items-center justify-center rounded-full border-none transition-colors ${
-                  isEnterDisabled
-                    ? "cursor-not-allowed bg-gray-500 text-gray-300 opacity-50"
-                    : "cursor-pointer bg-blue-500 text-white hover:bg-blue-400"
+                className={`p-2 rounded-xl transition-all duration-150 active:scale-95 flex items-center justify-center ${
+                  !isEnterDisabled
+                    ? "bg-blue-600 hover:bg-blue-500 text-white shadow-md shadow-blue-600/20 hover:shadow-blue-600/30 cursor-pointer"
+                    : "bg-gray-800/40 text-gray-600 cursor-not-allowed"
                 }`}
               >
-                <ArrowRightIcon className="h-4 w-4" />
+                <ArrowUpIcon className="h-4 w-4" />
               </button>
             )}
           </ToolTip>
