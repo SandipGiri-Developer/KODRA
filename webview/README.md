@@ -20,7 +20,7 @@ A notebook interface for interacting with KODRA AI. This application allows you 
 
 ### Prerequisites
 
-- Node.js version 20.20.1 or higher.
+- Node.js version 22.0.0 or higher.
 
 ### Installation
 
