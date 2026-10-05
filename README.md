@@ -1,65 +1,89 @@
 # Kodra
 
-Kodra is an open-source VS Code coding assistant built natively in TypeScript. It provides a chat interface, semantic codebase indexing, and agentic file editing, running entirely within the VS Code Extension Host.
-
-It supports fully offline workflows using local models via Ollama, as well as cloud providers like OpenAI and Anthropic.
+Kodra is an AI coding assistant extension for VS Code. It runs inside the editor to answer questions about your project, retrieve relevant files using local embeddings, and inspect or edit code through an agent tool loop.
 
 ## Features
 
-- **Semantic Codebase Indexing**: Indexes your workspace locally using a pure-TypeScript vector database. It supports incremental updates (only re-indexing changed files) and enforces `.gitignore` and security exclusion rules to prevent indexing secrets.
-- **Local & Cloud Provider Support**: 
-  - **Ollama**: Free, local, and private code generation and vector embeddings (`nomic-embed-text`).
-  - **OpenAI & Anthropic**: Connect your API keys. Keys are stored securely in VS Code's native `SecretStorage` and are never exposed in the webview.
-- **Agentic File Editing**: The assistant can read, search, create, and edit files in your workspace. 
-- **Safe Modifications**: Destructive actions (creating or editing files) generate a unified diff preview. The extension will not modify your files until you click "Approve" in the UI.
-- **Native UI**: The chat interface is built with React and Vite, using VS Code's native CSS variables to seamlessly match your current editor theme.
+Chat directly inside VS Code with context from your open files, active selections, or the whole project.
 
-## Installation
+Search code with local semantic indexing. Kodra chunks workspace files and creates embeddings using an in-process model or Ollama, with file ignores and secret exclusions applied.
 
-### From Source
-1. Clone the repository: `git clone https://github.com/SandipGiri-Developer/Kodra-VSextension.git`
-2. Open the project in VS Code.
-3. Install dependencies: `npm install`
-4. Build the webview: `npm run build:webview`
-5. Press `F5` to launch the Extension Development Host.
+Support for local and cloud models. Use Ollama for private offline work, or connect OpenAI, Anthropic, or Google Gemini.
 
-### VSIX Release (Coming Soon)
-Pre-packaged `.vsix` releases will be available in the GitHub Releases tab. You can install them by running `code --install-extension KODRA-0.1.0.vsix` or using the "Install from VSIX..." option in the VS Code Extensions pane.
+Agent tools for reading and writing files. The model can inspect directory trees, search code, read files, and propose edits with diff previews that require approval before saving.
 
-## Configuration
+## Getting Started
 
-Access settings via **File > Preferences > Settings** and search for `Kodra`:
+### Prerequisites
 
-- `KODRA.provider`: Choose between `ollama`, `openai`, or `anthropic`.
-- `KODRA.modelName`: Specify the model (e.g., `llama3.2`, `gpt-4o`, `claude-3-5-sonnet-20240620`).
-- `KODRA.ollama.endpoint`: Your local Ollama server address (default: `http://127.0.0.1:11434`).
-- `KODRA.indexing.enabled`: Toggle automatic workspace indexing.
-- `KODRA.agent.requireApproval`: Toggle the approval requirement for file modifications.
+Node.js 18 or later and VS Code 1.85 or later.
 
-To configure API keys, open the command palette (`Ctrl+Shift+P`) and run **"Kodra: Configure AI Provider"**.
+If you plan to run models locally, install and start Ollama.
 
-## Architecture
+### Installation from Source
 
-Kodra is a monolithic VS Code extension. It does not rely on external backend servers or Python binaries.
-
-- **`src/agent/`**: Contains the main Agent Loop and tools (`read_file`, `edit_file`, etc.).
-- **`src/indexing/`**: Implements the DFS workspace traversal, document chunking, and the local JSON-based vector store.
-- **`src/providers/`**: Handles streaming communication and tool-calling schemas for Ollama, OpenAI, and Anthropic APIs.
-- **`webview/`**: The React/Vite frontend. It communicates with the extension host exclusively via strongly-typed postMessage events.
-
-## Development & Testing
-
-The project uses `jest` for backend testing and `eslint` for linting.
+Clone the repository and install dependencies:
 
 ```bash
-# Run tests
-npm test
+git clone https://github.com/SandipGiri-Developer/KODRA.git
+cd KODRA
+npm install
+cd webview && npm install && cd ..
+```
 
-# Run linter
-npm run lint
+Build the webview and compile the extension:
 
-# Compile extension
+```bash
+npm run build:webview
 npm run compile
 ```
 
-# KODRA
+Open the project folder in VS Code and press `F5` to start a new Extension Development Host window.
+
+Open the chat panel using the sidebar icon or press `Ctrl+L` (`Cmd+L` on macOS).
+
+## Configuration
+
+Open VS Code settings (`Ctrl+,` or `Cmd+,`) and search for `KODRA`.
+
+You can set your default provider, model, and indexing preferences:
+
+`KODRA.provider`: Select `ollama`, `openai`, `anthropic`, or `gemini`.
+
+`KODRA.modelName`: Specify the model you want to run (such as `llama3.2`, `gpt-4o-mini`, or `claude-3-5-sonnet-20241022`).
+
+`KODRA.ollama.endpoint`: Set your local Ollama address if different from `http://127.0.0.1:11434`.
+
+`KODRA.agent.requireApproval`: Ask for manual approval before applying file modifications (enabled by default).
+
+To save API keys for cloud providers, open the Command Palette (`Ctrl+Shift+P` / `Cmd+Shift+P`) and run `Kodra: Configure AI Provider`. Keys are stored in VS Code SecretStorage.
+
+## Development
+
+Run tests:
+
+```bash
+npm test
+```
+
+Run linter:
+
+```bash
+npm run lint
+```
+
+Build production package:
+
+```bash
+npm run package
+```
+
+Package a VSIX installer:
+
+```bash
+npm run package:vsix
+```
+
+## License
+
+MIT

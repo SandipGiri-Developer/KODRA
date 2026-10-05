@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { ChatHistoryItemWithMessageId } from "../../redux/slices/sessionSlice";
 
 /**
@@ -9,16 +9,31 @@ function getNumUserMsgs(history: ChatHistoryItemWithMessageId[]) {
   return history.filter((msg) => msg.message.role === "user").length;
 }
 
+export interface UseAutoScrollResult {
+  /** True when the user has scrolled upward away from the bottom. */
+  userHasScrolled: boolean;
+  /** Programmatically scroll to the bottom. */
+  scrollToBottom: () => void;
+}
+
 export const useAutoScroll = (
   ref: React.RefObject<HTMLDivElement>,
   history: ChatHistoryItemWithMessageId[],
-) => {
+): UseAutoScrollResult => {
   const [userHasScrolled, setUserHasScrolled] = useState(false);
   const numUserMsgs = useMemo(() => getNumUserMsgs(history), [history.length]);
 
+  // Reset when a new user message appears (new conversation turn)
   useEffect(() => {
     setUserHasScrolled(false);
   }, [numUserMsgs]);
+
+  const scrollToBottom = useCallback(() => {
+    if (ref.current) {
+      ref.current.scrollTop = ref.current.scrollHeight;
+      setUserHasScrolled(false);
+    }
+  }, [ref]);
 
   useEffect(() => {
     if (!ref.current || history.length === 0) return;
@@ -31,8 +46,8 @@ export const useAutoScroll = (
         Math.abs(elem.scrollHeight - elem.scrollTop - elem.clientHeight) < 1;
 
       /**
-       * We stop auto scrolling if a user manually scrolled up.
-       * We resume auto scrolling if a user manually scrolled to the bottom.
+       * Stop auto scrolling if the user manually scrolled up.
+       * Resume auto scrolling if the user scrolls back to the bottom.
        */
       setUserHasScrolled(!isAtBottom);
     };
@@ -45,10 +60,8 @@ export const useAutoScroll = (
 
     ref.current.addEventListener("scroll", handleScroll);
 
-    // Observe the container
+    // Observe the container and all immediate children for size changes
     resizeObserver.observe(ref.current);
-
-    // Observe all immediate children
     Array.from(ref.current.children).forEach((child) => {
       resizeObserver.observe(child);
     });
@@ -58,4 +71,6 @@ export const useAutoScroll = (
       ref.current?.removeEventListener("scroll", handleScroll);
     };
   }, [ref, history.length, userHasScrolled]);
+
+  return { userHasScrolled, scrollToBottom };
 };
