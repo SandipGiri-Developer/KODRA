@@ -45,7 +45,8 @@ import {
 } from "../../redux/slices/sessionSlice";
 import { isJetBrains, isMetaEquivalentKeyPressed } from "../../util";
 import { ToolCallDiv } from "./ToolCallDiv";
-import { submitEditorAndInitAtIndex, streamUpdate, setInactive } from "../../redux/slices/sessionSlice";
+import { submitEditorAndInitAtIndex, streamUpdate, setInactive, addAgentActivity } from "../../redux/slices/sessionSlice";
+import { AgentActivityPanel } from "../../components/gui/AgentActivityPanel";
 
 export interface PendingApproval {
   toolName: string;
@@ -85,8 +86,8 @@ window.addEventListener('message', (event: MessageEvent) => {
     _toolActivityListeners.forEach((listener) => listener(msg));
   }
 
-  // Only route stream messages. Anything else is handled by useWebviewListener or tool listeners.
-  if (!['streamContent', 'streamDone', 'streamError', 'streamCancelled'].includes(msg.type)) return;
+  // Only route stream messages and agent activity.
+  if (!['streamContent', 'streamDone', 'streamError', 'streamCancelled', 'agentActivity'].includes(msg.type)) return;
 
   if (_activeStreamDispatch) {
     _activeStreamDispatch(msg);
@@ -118,6 +119,10 @@ const streamResponseThunk = (payload: any): any => (dispatch: any, getState: any
       case 'streamCancelled':
         dispatch(setInactive());
         _activeStreamDispatch = null;
+        break;
+      case 'agentActivity':
+        // The assistant message is at index + 1 relative to the user message index
+        dispatch(addAgentActivity({ index: index + 1, activity: msg }));
         break;
     }
   };
@@ -414,7 +419,7 @@ export function Chat() {
       if (message.role === "assistant") {
         return (
           <>
-            {/* Always render assistant content through normal path */}
+            <AgentActivityPanel activities={item.agentActivities || []} />
             <div className="thread-message">
               <TimelineItem
                 item={item}

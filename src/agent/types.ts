@@ -136,7 +136,7 @@ export type AgentNormalizedEvent =
     }
   | { type: 'tool.approved'; executionId: string; toolCallId: string; toolName: string; timestamp: number }
   | { type: 'tool.rejected'; executionId: string; toolCallId: string; toolName: string; reason?: string; timestamp: number }
-  | { type: 'tool.started'; executionId: string; toolCallId: string; toolName: string; timestamp: number }
+  | { type: 'tool.started'; executionId: string; toolCallId: string; toolName: string; args: Record<string, unknown>; timestamp: number }
   | {
       type: 'tool.completed';
       executionId: string;

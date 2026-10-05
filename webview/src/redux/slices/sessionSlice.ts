@@ -196,6 +196,7 @@ export function handleStreamingToolCallUpdates(
 // The proper fix is adding a UUID to all chat messages, but this is the temp workaround.
 export type ChatHistoryItemWithMessageId = ChatHistoryItem & {
   message: ChatMessage & { id: string };
+  agentActivities?: any[];
 };
 
 type SessionState = {
@@ -269,6 +270,16 @@ export const sessionSlice = createSlice({
     },
     setActive: (state) => {
       state.isStreaming = true;
+    },
+    addAgentActivity: (
+      state,
+      { payload }: PayloadAction<{ index: number; activity: any }>,
+    ) => {
+      if (state.history[payload.index]) {
+        const item = state.history[payload.index];
+        if (!item.agentActivities) item.agentActivities = [];
+        item.agentActivities.push(payload.activity);
+      }
     },
     setIsGatheringContext: (state, { payload }: PayloadAction<boolean>) => {
       const curMessage = state.history.at(-1);
@@ -1075,6 +1086,7 @@ export const {
   acceptToolCall,
   setToolGenerated,
   updateToolCallOutput,
+  addAgentActivity,
   setProcessedToolCallArgs,
   setMode,
   setIsSessionMetadataLoading,
