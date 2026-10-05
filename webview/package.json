@@ -102,7 +102,7 @@
     "@vitest/ui": "^3.1.0",
     "autoprefixer": "^10.4.13",
     "eslint": "^8",
-    "eslint-plugin-no-barrel-files": "^1.2.1",
+    "eslint-plugin-no-barrel-files": "^2.2.0",
     "eslint-plugin-react": "^7.37.2",
     "jsdom": "^25.0.1",
     "postcss": "^8.5.28",
