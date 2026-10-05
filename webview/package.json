@@ -116,5 +116,10 @@
   "engine-strict": true,
   "engines": {
     "node": ">=20.20.1"
+  },
+  "overrides": {
+    "eslint-plugin-react": {
+      "eslint": "$eslint"
+    }
   }
 }
