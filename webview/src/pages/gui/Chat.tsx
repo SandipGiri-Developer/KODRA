@@ -46,7 +46,14 @@ import {
 import { isJetBrains, isMetaEquivalentKeyPressed } from "../../util";
 import { ToolCallDiv } from "./ToolCallDiv";
 import { submitEditorAndInitAtIndex, streamUpdate, setInactive } from "../../redux/slices/sessionSlice";
-import { AgentActivityTracker, ToolActivityEntry, PendingApproval } from "./AgentActivityTracker";
+
+export interface PendingApproval {
+  toolName: string;
+  description: string;
+  command?: string;
+  filepath?: string;
+  diff?: string;
+}
 
 function getTextFromJSONContent(content: any): string {
   if (!content) return "";
@@ -74,7 +81,7 @@ window.addEventListener('message', (event: MessageEvent) => {
   const msg = event.data;
   if (!msg || typeof msg !== 'object') return;
 
-  if (['agentStarted', 'toolCall', 'toolStarted', 'toolResult', 'approvalRequest', 'streamDone', 'streamCancelled', 'streamError'].includes(msg.type)) {
+  if (['approvalRequest', 'streamDone', 'streamCancelled', 'streamError'].includes(msg.type)) {
     _toolActivityListeners.forEach((listener) => listener(msg));
   }
 
@@ -214,62 +221,11 @@ export function Chat() {
     return isJetBrains();
   }, []);
 
-  const [toolEntries, setToolEntries] = useState<ToolActivityEntry[]>([]);
-  const [agentRunning, setAgentRunning] = useState(false);
   const [pendingApproval, setPendingApproval] = useState<PendingApproval | null>(null);
 
   useEffect(() => {
     return subscribeToolActivity((msg) => {
       switch (msg.type) {
-        case 'agentStarted':
-          // Reset activity state for new agent execution
-          setToolEntries([]);
-          setAgentRunning(true);
-          setPendingApproval(null);
-          break;
-
-        case 'toolCall':
-          setToolEntries(prev => {
-            // Avoid duplicates if toolCallId matches
-            if (msg.toolCallId && prev.some(e => e.toolCallId === msg.toolCallId)) {
-              return prev;
-            }
-            return [...prev, {
-              toolCallId: msg.toolCallId || `tc_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
-              toolName: msg.toolName,
-              args: msg.args,
-              status: 'requested' as const,
-              startedAt: Date.now(),
-            }];
-          });
-          break;
-
-        case 'toolStarted':
-          setToolEntries(prev =>
-            prev.map(e =>
-              e.toolCallId === msg.toolCallId
-                ? { ...e, status: 'executing' as const }
-                : e
-            )
-          );
-          break;
-
-        case 'toolResult':
-          setToolEntries(prev =>
-            prev.map(e =>
-              (msg.toolCallId && e.toolCallId === msg.toolCallId) ||
-              (!msg.toolCallId && e.toolName === msg.toolName && (e.status === 'executing' || e.status === 'requested'))
-                ? {
-                    ...e,
-                    status: (msg.success ? 'completed' : 'failed') as ToolActivityEntry['status'],
-                    durationMs: msg.durationMs,
-                    completedAt: Date.now(),
-                  }
-                : e
-            )
-          );
-          break;
-
         case 'approvalRequest':
           setPendingApproval({
             toolName: msg.toolName,
@@ -283,7 +239,6 @@ export function Chat() {
         case 'streamDone':
         case 'streamCancelled':
         case 'streamError':
-          setAgentRunning(false);
           setPendingApproval(null);
           break;
       }
@@ -579,8 +534,8 @@ export function Chat() {
           ))}
       </StepsDiv>
 
-      {/* Jump to latest — appears when user scrolled up and agent is active */}
-      {userHasScrolled && (agentRunning || isStreaming) && (
+      {/* Jump to latest — appears when user scrolled up and streaming is active */}
+      {userHasScrolled && isStreaming && (
         <div className="flex justify-center pb-1">
           <button
             type="button"
@@ -596,12 +551,60 @@ export function Chat() {
         </div>
       )}
 
-      <AgentActivityTracker
-        entries={toolEntries}
-        isRunning={agentRunning}
-        pendingApproval={pendingApproval}
-        onApprovalDecision={handleApprovalDecision}
-      />
+      {pendingApproval && (
+        <div
+          role="alertdialog"
+          aria-label="Action requires approval"
+          className="mx-2 my-1.5 px-3 py-2.5 rounded border border-[var(--vscode-inputValidation-warningBorder,#b89500)] bg-[var(--vscode-inputValidation-warningBackground,rgba(255,200,0,0.05))]"
+        >
+          <div className="flex items-center gap-1.5 mb-1.5">
+            <span
+              aria-hidden="true"
+              className="text-[var(--vscode-editorWarning-foreground,#cca700)] text-[11px]"
+            >
+              {'\u26a0'}
+            </span>
+            <span className="text-[11px] font-medium text-[var(--vscode-editorWarning-foreground,#cca700)]">
+              {pendingApproval.description}
+            </span>
+          </div>
+
+          {pendingApproval.command && (
+            <pre className="text-[10px] font-mono text-[var(--vscode-terminal-foreground,#cccccc)] bg-[var(--vscode-terminal-background,rgba(0,0,0,0.18))] rounded px-2 py-1.5 mb-2 overflow-x-auto whitespace-pre-wrap break-all leading-relaxed">
+              <span className="opacity-40 select-none">{'$ '}</span>
+              {pendingApproval.command}
+            </pre>
+          )}
+
+          {pendingApproval.filepath && (
+            <div className="text-[10px] text-[var(--vscode-descriptionForeground,#9d9d9d)] mb-2">
+              {'File: '}
+              <code className="text-[var(--vscode-foreground,#cccccc)] opacity-80">
+                {pendingApproval.filepath}
+              </code>
+            </div>
+          )}
+
+          <div className="flex gap-2 mt-2 justify-end">
+            <button
+              type="button"
+              onClick={() => handleApprovalDecision(false)}
+              className="px-3 py-1 text-[11px] rounded bg-[var(--vscode-button-secondaryBackground,#3a3d41)] hover:bg-[var(--vscode-button-secondaryHoverBackground,#45494e)] text-[var(--vscode-button-secondaryForeground,#cccccc)] transition-colors duration-100 focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--vscode-focusBorder)]"
+              aria-label="Reject action"
+            >
+              Reject
+            </button>
+            <button
+              type="button"
+              onClick={() => handleApprovalDecision(true)}
+              className="px-3 py-1 text-[11px] rounded bg-[var(--vscode-button-background,#0e639c)] hover:bg-[var(--vscode-button-hoverBackground,#1177bb)] text-[var(--vscode-button-foreground,#ffffff)] font-medium transition-colors duration-100 focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--vscode-focusBorder)]"
+              aria-label="Approve action"
+            >
+              Approve
+            </button>
+          </div>
+        </div>
+      )}
       <div className={"relative shrink-0"}>
         <KODRAInputBox
           isMainInput
