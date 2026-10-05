@@ -68,6 +68,9 @@ export type WebviewToExtensionMessage = {
     type: 'closeSettings';
 };
 export type ExtensionToWebviewMessage = {
+    type: 'agentStarted';
+    executionId: string;
+} | {
     type: 'streamContent';
     content: string;
 } | {
@@ -81,11 +84,18 @@ export type ExtensionToWebviewMessage = {
     type: 'toolCall';
     toolName: string;
     args: Record<string, unknown>;
+    toolCallId?: string;
+} | {
+    type: 'toolStarted';
+    toolName: string;
+    toolCallId: string;
 } | {
     type: 'toolResult';
     toolName: string;
     content: string;
     success: boolean;
+    toolCallId?: string;
+    durationMs?: number;
 } | {
     type: 'approvalRequest';
     toolName: string;

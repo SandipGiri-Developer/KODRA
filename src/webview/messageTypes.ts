@@ -37,12 +37,14 @@ export type WebviewToExtensionMessage =
 // ─── Messages from Extension to Webview ────────────────────────────────────
 
 export type ExtensionToWebviewMessage =
+  | { type: 'agentStarted'; executionId: string }
   | { type: 'streamContent'; content: string }
   | { type: 'streamDone' }
   | { type: 'streamError'; error: string }
   | { type: 'streamCancelled' }
-  | { type: 'toolCall'; toolName: string; args: Record<string, unknown> }
-  | { type: 'toolResult'; toolName: string; content: string; success: boolean }
+  | { type: 'toolCall'; toolName: string; args: Record<string, unknown>; toolCallId?: string }
+  | { type: 'toolStarted'; toolName: string; toolCallId: string }
+  | { type: 'toolResult'; toolName: string; content: string; success: boolean; toolCallId?: string; durationMs?: number }
   | { type: 'approvalRequest'; toolName: string; description: string; command?: string; diff?: string; filepath?: string }
   | { type: 'config'; provider: string; model: string; hasApiKey: boolean; availableProviders: string[] }
   | { type: 'connectionResult'; success: boolean; models?: string[]; error?: string }
