@@ -6,6 +6,7 @@
  */
 
 import { useEffect, useState } from "react";
+import { WrenchScrewdriverIcon, XMarkIcon, EllipsisHorizontalIcon } from "@heroicons/react/24/outline";
 
 // ─── Activity event types ────────────────────────────────────────────────────
 
@@ -89,7 +90,7 @@ function getInnerLabel(tool: ToolActivity): string {
   if (tool.toolName === "read_file" || tool.toolName === "view_file" || tool.toolName === "grep_search") {
     const start = (tool.metadata?.startLine ?? tool.args?.startLine ?? tool.args?.StartLine) as number | undefined;
     const end = (tool.metadata?.endLine ?? tool.args?.endLine ?? tool.args?.EndLine) as number | undefined;
-    const range = start && end ? ` #L${start}-${end}` : (start ? ` #L${start}-` : "");
+    const range = start && end ? `#L${start}-${end}` : (start ? `#L${start}-` : "");
     return `Analyzed ${target || "file"}${range}`;
   }
   if (tool.toolName === "list_directory" || tool.toolName === "list_dir") {
@@ -104,6 +105,20 @@ function getInnerLabel(tool: ToolActivity): string {
     return `Ran command`;
   }
   return `Ran ${tool.toolName}`;
+}
+
+// ─── Icons ───────────────────────────────────────────────────────────────────
+
+function ToolIcon() {
+  return <WrenchScrewdriverIcon style={{ width: 12, height: 12, flexShrink: 0 }} />;
+}
+
+function ErrorIcon() {
+  return <XMarkIcon style={{ width: 12, height: 12, flexShrink: 0 }} />;
+}
+
+function RunningIcon() {
+  return <EllipsisHorizontalIcon style={{ width: 12, height: 12, flexShrink: 0 }} />;
 }
 
 // ─── Chevron icon ────────────────────────────────────────────────────────────
@@ -129,41 +144,67 @@ function Chevron({ open }: { open: boolean }) {
 
 // ─── InnerToolRow ────────────────────────────────────────────────────────────
 
-function InnerToolRow({ tool, now }: { tool: ToolActivity; now: number }) {
+function InnerToolRow({ tool, now, hideLabel }: { tool: ToolActivity; now: number; hideLabel?: boolean }) {
   const endTime = tool.status === "running" ? now : tool.endTime;
   const durationSec = endTime ? ((endTime - tool.startTime) / 1000).toFixed(1) : null;
   const label = getInnerLabel(tool);
 
   return (
     <div style={{ marginBottom: 2 }}>
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 5,
-          padding: "1px 0",
-          width: "100%",
-          textAlign: "left",
-        }}
-      >
-        <span
+      {!hideLabel && (
+        <div
           style={{
-            fontSize: 11,
-            color: "var(--vscode-descriptionForeground, #9d9d9d)",
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            whiteSpace: "nowrap",
+            display: "flex",
+            alignItems: "center",
+            gap: 5,
+            padding: "1px 0",
+            width: "100%",
+            textAlign: "left",
           }}
         >
-          {label}
-        </span>
-        <div style={{ flex: 1 }} />
-        {durationSec && (
-          <span style={{ fontSize: 10, color: "var(--vscode-descriptionForeground, #9d9d9d)", opacity: 0.6, flexShrink: 0 }}>
-            {durationSec}s
+          <span
+            onClick={() => {
+              const { fullPath } = extractTarget(tool.args);
+              if (fullPath && tool.toolName !== 'list_directory' && tool.toolName !== 'list_dir') {
+                (window as any).vscode?.postMessage({ type: "openFile", filepath: fullPath });
+              }
+            }}
+            style={{
+              fontSize: 11,
+              color: "var(--vscode-descriptionForeground, #9d9d9d)",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+              cursor: (extractTarget(tool.args).fullPath && tool.toolName !== 'list_directory' && tool.toolName !== 'list_dir') ? "pointer" : "default",
+            }}
+            className={(extractTarget(tool.args).fullPath && tool.toolName !== 'list_directory' && tool.toolName !== 'list_dir') ? "hover:underline hover:text-[var(--vscode-foreground,#cccccc)] transition-colors" : ""}
+          >
+            {label}
           </span>
-        )}
-      </div>
+          <div style={{ flex: 1 }} />
+          {durationSec && (
+            <span style={{ fontSize: 10, color: "var(--vscode-descriptionForeground, #9d9d9d)", opacity: 0.6, flexShrink: 0 }}>
+              {durationSec}s
+            </span>
+          )}
+        </div>
+      )}
+      
+      {Array.isArray(tool.metadata?.entries) && (
+        <div style={{ paddingLeft: hideLabel ? 0 : 8, paddingTop: 2 }}>
+          {(tool.metadata!.entries as string[]).slice(0, 10).map((entry: string, idx: number) => (
+            <div key={idx} style={{ fontSize: 10, color: "var(--vscode-descriptionForeground, #9d9d9d)", opacity: 0.8, whiteSpace: "pre", overflow: "hidden", textOverflow: "ellipsis" }}>
+              {entry}
+            </div>
+          ))}
+          {(tool.metadata!.entries as string[]).length > 10 && (
+            <div style={{ fontSize: 10, color: "var(--vscode-descriptionForeground, #9d9d9d)", opacity: 0.5, paddingTop: 2 }}>
+              ... and {(tool.metadata!.entries as string[]).length - 10} more
+            </div>
+          )}
+        </div>
+      )}
+
       {tool.error && (
         <div style={{ paddingTop: 2, paddingBottom: 2, fontSize: 10, color: "var(--vscode-editorError-foreground, #f14c4c)" }}>
           Error: {tool.error}
@@ -186,11 +227,11 @@ function GroupRow({ group, now }: { group: ActivityGroup; now: number }) {
       ? "var(--vscode-editorError-foreground, #f14c4c)"
       : "var(--vscode-progressBar-background, #0e70c0)";
 
-  const statusSymbol = group.status === "completed" ? "✓" : group.status === "failed" ? "✗" : "…";
-
   // Label based on the first tool in the group (or just fallback to Explored)
   const firstTool = group.items.find((i) => i.type === "tool") as { type: "tool"; tool: ToolActivity } | undefined;
   const label = firstTool ? getGroupLabel(firstTool.tool.toolName, firstTool.tool.args) : `Explored ${group.target}`;
+
+  const statusIcon = group.status === "completed" ? <ToolIcon /> : group.status === "failed" ? <ErrorIcon /> : <RunningIcon />;
 
   const endTime = group.status === "running" ? now : group.endTime;
   const durationSec = endTime ? ((endTime - group.startTime) / 1000).toFixed(1) : null;
@@ -215,10 +256,22 @@ function GroupRow({ group, now }: { group: ActivityGroup; now: number }) {
         }}
         aria-expanded={open}
       >
-        <span style={{ color: statusColor, fontSize: 11, minWidth: 10, flexShrink: 0 }}>
-          {statusSymbol}
+        <span style={{ color: statusColor, display: "flex", alignItems: "center", minWidth: 14, flexShrink: 0 }}>
+          {statusIcon}
         </span>
         <span
+          onClick={(e) => {
+            const firstItem = group.items.find(i => i.type === 'tool' && i.tool.args);
+            if (firstItem && firstItem.type === 'tool') {
+              const { fullPath } = extractTarget(firstItem.tool.args);
+              const toolName = firstItem.tool.toolName;
+              if (fullPath && toolName !== 'list_directory' && toolName !== 'list_dir') {
+                e.stopPropagation();
+                (window as any).vscode?.postMessage({ type: "openFile", filepath: fullPath });
+              }
+            }
+          }}
+          className={(group.items.some(i => i.type === 'tool' && extractTarget(i.tool.args).fullPath && i.tool.toolName !== 'list_directory' && i.tool.toolName !== 'list_dir')) ? "hover:underline" : ""}
           style={{
             fontSize: 11,
             color: hover ? "var(--vscode-editor-foreground, #ffffff)" : "var(--vscode-descriptionForeground, #9d9d9d)",
@@ -266,8 +319,9 @@ function GroupRow({ group, now }: { group: ActivityGroup; now: number }) {
             } else {
               // Avoid redundant inner label if it's the only item and perfectly matches the parent
               const innerLabel = getInnerLabel(item.tool);
-              if (group.items.length === 1 && innerLabel === label && !item.tool.error) return null;
-              return <InnerToolRow key={item.tool.toolCallId} tool={item.tool} now={now} />;
+              const hideLabel = group.items.length === 1 && innerLabel === label;
+              if (hideLabel && !item.tool.error && !item.tool.metadata?.entries) return null;
+              return <InnerToolRow key={item.tool.toolCallId} tool={item.tool} now={now} hideLabel={hideLabel} />;
             }
           })}
         </div>

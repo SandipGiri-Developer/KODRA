@@ -3,6 +3,7 @@ import { OllamaProvider } from '../../providers/ollama';
 import { OpenAIProvider } from '../../providers/openai';
 import { AnthropicProvider } from '../../providers/anthropic';
 import { GeminiProvider } from '../../providers/gemini';
+import { GroqProvider } from '../../providers/groq';
 import * as vscode from 'vscode';
 
 // Remove local override so we use __mocks__/vscode.js
@@ -84,6 +85,19 @@ describe('ProviderRegistry', () => {
       const provider = await registry.getProvider();
       expect(provider).toBeInstanceOf(GeminiProvider);
     });
+
+    it('should return GroqProvider when configured', async () => {
+      mockGetConfiguration.mockReturnValue({
+        get: (key: string) => {
+          if (key === 'provider') return 'groq';
+          return undefined;
+        },
+      });
+      (registry as any).secretStorage = { get: jest.fn().mockResolvedValue('fake-key') };
+
+      const provider = await registry.getProvider();
+      expect(provider).toBeInstanceOf(GroqProvider);
+    });
   });
 
   describe('Dynamic Discovery', () => {
@@ -103,6 +117,16 @@ describe('ProviderRegistry', () => {
       ]);
 
       const models = await registry.discoverModels('openai', 'temp-key');
+      expect(models).toHaveLength(1);
+      expect(mockDiscoverModels).toHaveBeenCalled();
+    });
+
+    it('should discover models for groq with provided key', async () => {
+      const mockDiscoverModels = jest.spyOn(GroqProvider.prototype, 'discoverModels').mockResolvedValue([
+        { id: 'llama3-8b-8192', displayName: 'llama3-8b-8192', provider: 'groq', capabilities: { streaming: true, toolCalling: true, vision: false, reasoning: false } }
+      ]);
+
+      const models = await registry.discoverModels('groq', 'temp-key');
       expect(models).toHaveLength(1);
       expect(mockDiscoverModels).toHaveBeenCalled();
     });

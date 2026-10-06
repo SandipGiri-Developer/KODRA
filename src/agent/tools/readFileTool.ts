@@ -30,7 +30,7 @@ export class ReadFileTool implements ITool {
     'By default reads 120 lines per call starting from startLine (default: 1). ' +
     'Returns numbered lines plus metadata: totalLines, startLine, endLine, hasMore, nextStartLine. ' +
     'If hasMore is true, call again with startLine=nextStartLine to continue reading. ' +
-    'Always use this tool for file reading — do not request more than needed.';
+    'IMPORTANT: Do NOT guess file paths. If you do not know the exact path, use list_directory to find it first.';
 
   readonly parameters: ToolParameterSchema = {
     type: 'object',

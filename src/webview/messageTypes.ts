@@ -17,6 +17,7 @@ export type WebviewToExtensionMessage =
   | { type: 'newChat' }
   | { type: 'approveAction'; approved: boolean }
   | { type: 'getConfig' }
+  | { type: 'openFile'; filepath: string }
   | { type: 'setProvider'; provider: string }
   | { type: 'setModel'; model: string }
   | { type: 'setApiKey'; provider: string; key: string }
@@ -91,7 +92,7 @@ export function validateWebviewMessage(data: unknown): WebviewToExtensionMessage
     'sendMessage', 'cancelGeneration', 'newChat', 'approveAction',
     'getConfig', 'setProvider', 'setModel', 'setApiKey',
     'testConnection', 'discoverModels', 'startIndexing', 'cancelIndexing',
-    'getIndexStatus', 'executeCommand', 'webviewReady',
+    'getIndexStatus', 'executeCommand', 'webviewReady', 'openFile',
     'getSettings', 'saveProviderSetting', 'deleteProviderSetting', 'saveWorkspaceModels',
     'returnToChat', 'closeSettings'
   ]);
@@ -129,6 +130,11 @@ export function validateWebviewMessage(data: unknown): WebviewToExtensionMessage
       break;
     case 'executeCommand':
       if (typeof msg.command !== 'string') {
+        return null;
+      }
+      break;
+    case 'openFile':
+      if (typeof msg.filepath !== 'string') {
         return null;
       }
       break;

@@ -19,6 +19,7 @@
     "@floating-ui/dom": "^1.7.4",
     "@headlessui/react": "^2.2.0",
     "@heroicons/react": "^2.0.18",
+    "@lobehub/icons": "^5.23.0",
     "@modelcontextprotocol/ext-apps": "^1.0.1",
     "@panzoom/panzoom": "^4.6.0",
     "@reduxjs/toolkit": "^2.11.2",

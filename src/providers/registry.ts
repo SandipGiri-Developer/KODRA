@@ -12,8 +12,47 @@ import { AnthropicProvider } from './anthropic';
 import { GeminiProvider } from './gemini';
 import { OllamaProvider } from './ollama';
 import { OpenAIProvider } from './openai';
+import { GroqProvider } from './groq';
 import { DiscoveredModel, ILLMProvider, ProviderConfig, ModelCapabilities, ProviderFactory } from './types';
 import { SettingsManager } from '../utils/settingsManager';
+
+class RateLimitedProviderWrapper implements ILLMProvider {
+  constructor(private readonly provider: ILLMProvider) {}
+
+  get id() { return this.provider.id; }
+  get displayName() { return this.provider.displayName; }
+  get capabilities() { return this.provider.capabilities; }
+
+  private async delay() {
+    await new Promise(resolve => setTimeout(resolve, 1500));
+  }
+
+  async *streamChat(
+    messages: import('./types').ChatMessage[],
+    options: import('./types').CompletionOptions
+  ): AsyncGenerator<import('./types').StreamChunk> {
+    await this.delay();
+    yield* this.provider.streamChat(messages, options);
+  }
+
+  async discoverModels(): Promise<import('./types').DiscoveredModel[]> {
+    await this.delay();
+    return this.provider.discoverModels();
+  }
+
+  async testConnection(): Promise<string[]> {
+    await this.delay();
+    return this.provider.testConnection();
+  }
+
+  getDefaultModel(): string {
+    return this.provider.getDefaultModel();
+  }
+
+  dispose(): void {
+    this.provider.dispose();
+  }
+}
 
 export class ProviderRegistry {
   private currentProvider: ILLMProvider | null = null;
@@ -62,6 +101,16 @@ export class ProviderRegistry {
         );
       }
       return new GeminiProvider(config.apiKey, config.endpoint);
+    });
+
+    this.registerProvider('groq', (config) => {
+      if (!config.apiKey) {
+        throw new KodraError(
+          ErrorReason.ProviderNotConfigured,
+          'Groq API key not configured. Use "Kodra: Configure AI Provider" to set it up.',
+        );
+      }
+      return new GroqProvider(config.apiKey, config.endpoint);
     });
   }
 
@@ -162,6 +211,10 @@ export class ProviderRegistry {
         endpoint = settings.get<string>('gemini.endpoint', 'https://generativelanguage.googleapis.com/v1beta');
         apiKey = await this.secretStorage.get('KODRA.gemini.apiKey');
         break;
+      case 'groq':
+        endpoint = settings.get<string>('groq.baseUrl', 'https://api.groq.com/openai/v1');
+        apiKey = await this.secretStorage.get('KODRA.groq.apiKey');
+        break;
     }
 
     return { provider, modelName, endpoint, apiKey, maxTokens };
@@ -191,6 +244,7 @@ export class ProviderRegistry {
           if (providerName === 'ollama') endpoint = settings.get<string>('ollama.endpoint', 'http://127.0.0.1:11434');
           if (providerName === 'openai') endpoint = settings.get<string>('openai.baseUrl', 'https://api.openai.com/v1');
           if (providerName === 'gemini') endpoint = settings.get<string>('gemini.endpoint', 'https://generativelanguage.googleapis.com/v1beta');
+          if (providerName === 'groq') endpoint = settings.get<string>('groq.baseUrl', 'https://api.groq.com/openai/v1');
         }
       }
     }
@@ -299,6 +353,7 @@ export class ProviderRegistry {
       openai: 'OpenAI',
       anthropic: 'Anthropic',
       gemini: 'Google Gemini',
+      groq: 'Groq',
     };
 
     const key = await vscode.window.showInputBox({
@@ -341,7 +396,8 @@ export class ProviderRegistry {
         `Unknown provider: "${config.provider}". Supported providers: ${this.getSupportedProviders().join(', ')}.`,
       );
     }
-    return await factory(config);
+    const provider = await factory(config);
+    return new RateLimitedProviderWrapper(provider);
   }
 
   private configsMatch(a: ProviderConfig, b: ProviderConfig): boolean {

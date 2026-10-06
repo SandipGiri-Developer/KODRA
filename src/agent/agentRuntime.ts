@@ -168,7 +168,7 @@ export class AgentRuntime {
   ): AsyncGenerator<string, void, unknown> {
     const logger = Logger.getInstance();
     const maxIterations = options.maxIterations ?? 100;
-    const maxRuntimeMs = 30 * 1000;
+    const maxRuntimeMs = 1000 * 1000;
     const executionId = crypto.randomUUID ? crypto.randomUUID() : `exec_${Date.now()}`;
     const turnId = `turn_${Date.now()}`;
 
@@ -217,7 +217,7 @@ export class AgentRuntime {
         }
 
         if (Date.now() - this.currentExecution.startTime > maxRuntimeMs) {
-          const limitError = `Agent reached the maximum runtime of 30 seconds. Task stopped.`;
+          const limitError = `Agent reached the maximum runtime of ${maxRuntimeMs / 1000} seconds. Task stopped.`;
           this.handleFailed(limitError);
           yield `\n\n[Warning: ${limitError}]`;
           return;

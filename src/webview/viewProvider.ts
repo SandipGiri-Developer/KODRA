@@ -201,6 +201,28 @@ export class KodraViewProvider implements vscode.WebviewViewProvider, IWebviewMe
             vscode.commands.executeCommand(msg.command);
           }
           break;
+
+        case 'openFile':
+          if (msg.filepath) {
+            try {
+              let uri: vscode.Uri;
+              const cleanPath = msg.filepath.split('#')[0]; // Remove hash anchors like #L1-10
+              if (cleanPath.startsWith('file://')) {
+                uri = vscode.Uri.parse(cleanPath);
+              } else if (cleanPath.match(/^[a-zA-Z]:\\/) || cleanPath.startsWith('/')) {
+                uri = vscode.Uri.file(cleanPath);
+              } else if (vscode.workspace.workspaceFolders?.[0]) {
+                uri = vscode.Uri.joinPath(vscode.workspace.workspaceFolders[0].uri, cleanPath);
+              } else {
+                uri = vscode.Uri.file(cleanPath);
+              }
+              const doc = await vscode.workspace.openTextDocument(uri);
+              await vscode.window.showTextDocument(doc, { preview: true });
+            } catch (err) {
+              this.logger.error(`Failed to open file: ${msg.filepath}`, err);
+            }
+          }
+          break;
           
         case 'approveAction':
           if (this.agent) {

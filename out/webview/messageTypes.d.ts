@@ -21,6 +21,9 @@ export type WebviewToExtensionMessage = {
 } | {
     type: 'getConfig';
 } | {
+    type: 'openFile';
+    filepath: string;
+} | {
     type: 'setProvider';
     provider: string;
 } | {

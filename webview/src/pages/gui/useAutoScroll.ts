@@ -1,5 +1,9 @@
-import { useEffect, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { ChatHistoryItemWithMessageId } from "../../redux/slices/sessionSlice";
+
+function getNumUserMsgs(history: ChatHistoryItemWithMessageId[]) {
+  return history.filter((msg) => msg.message.role === "user").length;
+}
 
 export interface UseAutoScrollResult {
   /** True when the user has scrolled upward away from the bottom. */
@@ -12,21 +16,39 @@ export const useAutoScroll = (
   ref: React.RefObject<HTMLDivElement>,
   history: ChatHistoryItemWithMessageId[],
 ): UseAutoScrollResult => {
+  const [userHasScrolled, setUserHasScrolled] = useState(false);
+  const numUserMsgs = useMemo(() => getNumUserMsgs(history), [history.length]);
+
+  // Reset when a new user message appears
+  useEffect(() => {
+    setUserHasScrolled(false);
+  }, [numUserMsgs]);
+
   const scrollToBottom = useCallback(() => {
     if (ref.current) {
       ref.current.scrollTop = ref.current.scrollHeight;
+      setUserHasScrolled(false);
     }
   }, [ref]);
 
   useEffect(() => {
     if (!ref.current || history.length === 0) return;
 
-    const resizeObserver = new ResizeObserver(() => {
+    const handleScroll = () => {
       const elem = ref.current;
       if (!elem) return;
-      // Always auto-scroll relentlessly when content expands
+      
+      const isAtBottom = Math.abs(elem.scrollHeight - elem.scrollTop - elem.clientHeight) < 2;
+      setUserHasScrolled(!isAtBottom);
+    };
+
+    const resizeObserver = new ResizeObserver(() => {
+      const elem = ref.current;
+      if (!elem || userHasScrolled) return;
       elem.scrollTop = elem.scrollHeight;
     });
+
+    ref.current.addEventListener("scroll", handleScroll, { passive: true });
 
     // Observe the container and all immediate children for size changes
     resizeObserver.observe(ref.current);
@@ -36,8 +58,9 @@ export const useAutoScroll = (
 
     return () => {
       resizeObserver.disconnect();
+      ref.current?.removeEventListener("scroll", handleScroll);
     };
-  }, [ref, history.length]);
+  }, [ref, history.length, userHasScrolled]);
 
-  return { userHasScrolled: false, scrollToBottom };
+  return { userHasScrolled, scrollToBottom };
 };
