@@ -1,16 +1,18 @@
 version: 2
+
 updates:
   - package-ecosystem: "npm"
     directory: "/"
     schedule:
       interval: "daily"
-      time : "10:00"
-      days: "sun-sat"
-      time-zone: "Asia/Kolkata"
+      time: "10:00"
+      timezone: "Asia/Kolkata"
     open-pull-requests-limit: 10
 
   - package-ecosystem: "npm"
     directory: "/webview"
     schedule:
       interval: "daily"
-      time : "10:00"
+      time: "10:00"
+      timezone: "Asia/Kolkata"
+    open-pull-requests-limit: 10
