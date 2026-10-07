@@ -27,7 +27,7 @@ jobs:
         run: npm ci
         
       - name: Install Webview Dependencies
-        run: cd webview && npm ci
+        run: cd webview && npm ci --legacy-peer-deps
         
       - name: Build Webview
         run: npm run build:webview
