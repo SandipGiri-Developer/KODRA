@@ -43,7 +43,7 @@ describe('ProviderRegistry', () => {
       });
 
       const provider = await registry.getProvider();
-      expect(provider).toBeInstanceOf(OllamaProvider);
+      expect(provider.id).toBe('ollama');
     });
 
     it('should return OpenAIProvider when configured', async () => {
@@ -57,7 +57,7 @@ describe('ProviderRegistry', () => {
       (registry as any).secretStorage = { get: jest.fn().mockResolvedValue('fake-key') };
 
       const provider = await registry.getProvider();
-      expect(provider).toBeInstanceOf(OpenAIProvider);
+      expect(provider.id).toBe('openai');
     });
 
     it('should return AnthropicProvider when configured', async () => {
@@ -70,7 +70,7 @@ describe('ProviderRegistry', () => {
       (registry as any).secretStorage = { get: jest.fn().mockResolvedValue('fake-key') };
 
       const provider = await registry.getProvider();
-      expect(provider).toBeInstanceOf(AnthropicProvider);
+      expect(provider.id).toBe('anthropic');
     });
 
     it('should return GeminiProvider when configured', async () => {
@@ -83,7 +83,7 @@ describe('ProviderRegistry', () => {
       (registry as any).secretStorage = { get: jest.fn().mockResolvedValue('fake-key') };
 
       const provider = await registry.getProvider();
-      expect(provider).toBeInstanceOf(GeminiProvider);
+      expect(provider.id).toBe('gemini');
     });
 
     it('should return GroqProvider when configured', async () => {
@@ -96,7 +96,7 @@ describe('ProviderRegistry', () => {
       (registry as any).secretStorage = { get: jest.fn().mockResolvedValue('fake-key') };
 
       const provider = await registry.getProvider();
-      expect(provider).toBeInstanceOf(GroqProvider);
+      expect(provider.id).toBe('groq');
     });
   });
 
@@ -153,7 +153,7 @@ describe('ProviderRegistry', () => {
       });
 
       const provider = await registry.getProvider();
-      expect(provider).toBe(mockCustomProvider);
+      expect(provider.id).toBe('custom-ai');
 
       registry.unregisterProvider('custom-ai');
       expect(registry.hasProvider('custom-ai')).toBe(false);

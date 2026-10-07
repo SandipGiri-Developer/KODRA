@@ -15,6 +15,10 @@ import { ITool } from './types';
 import { IWorkspaceService, VSCodeWorkspaceService } from './workspaceService';
 import { ReadFileTool } from './tools/readFileTool';
 import { ListDirectoryTool } from './tools/listDirectoryTool';
+import { SearchCodeTool } from './tools/searchCodeTool';
+import { EditFileTool } from './tools/editFileTool';
+import { CreateFileTool } from './tools/createFileTool';
+import { TerminalTool } from './tools/terminalTool';
 
 // Re-export all tool implementations so callers can import them without
 // reaching into the internal tools/ directory.
@@ -36,5 +40,9 @@ export function getAllTools(workspaceService: IWorkspaceService = new VSCodeWork
   return [
     new ReadFileTool(workspaceService),
     new ListDirectoryTool(workspaceService),
+    new SearchCodeTool(workspaceService),
+    new EditFileTool(workspaceService),
+    new CreateFileTool(workspaceService),
+    new TerminalTool('terminal', workspaceService),
   ];
 }
