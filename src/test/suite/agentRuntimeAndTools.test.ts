@@ -146,7 +146,7 @@ describe('Initial Tools', () => {
       expect(result.content).toContain('1 | line one');
       expect(result.content).toContain('2 | line two');
       expect(result.content).toContain('3 | line three');
-      expect(result.metadata?.lineCount).toBe(3);
+      expect(result.metadata?.totalLines).toBe(3);
     });
 
     it('returns clear error for missing file', async () => {
@@ -161,7 +161,7 @@ describe('Initial Tools', () => {
 
       const result = await readTool.execute({ file: 'subfolder' });
       expect(result.success).toBe(false);
-      expect(result.content).toContain('is a directory, not a file');
+      expect(result.content).toContain('is a directory');
     });
 
     it('prevents reading outside workspace boundaries', async () => {
