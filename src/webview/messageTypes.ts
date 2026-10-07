@@ -17,6 +17,7 @@ export type WebviewToExtensionMessage =
   | { type: 'newChat' }
   | { type: 'approveAction'; approved: boolean }
   | { type: 'getConfig' }
+  | { type: 'openFile'; filepath: string }
   | { type: 'setProvider'; provider: string }
   | { type: 'setModel'; model: string }
   | { type: 'setApiKey'; provider: string; key: string }
@@ -52,7 +53,26 @@ export type ExtensionToWebviewMessage =
   | { type: 'indexingProgress'; progress: IndexingProgress }
   | { type: 'indexStatus'; indexed: boolean; entryCount: number; fileCount: number; inProgress: boolean }
   | { type: 'addContext'; filepath: string; content?: string; selection?: string }
-  | { type: 'settingsData'; providers: ProviderSettings[]; workspaceModels: WorkspaceModel[] };
+  | { type: 'settingsData'; providers: ProviderSettings[]; workspaceModels: WorkspaceModel[] }
+  /**
+   * Real-time agent activity event for the "Worked" panel.
+   * Emitted by the extension host for each meaningful runtime event so
+   * the webview can build the activity timeline without a second event bus.
+   */
+  | {
+      type: 'agentActivity';
+      executionId: string;
+      event:
+        | { kind: 'started'; timestamp: number }
+        | { kind: 'thinking'; timestamp: number }
+        | { kind: 'tool_started'; toolName: string; args: Record<string, unknown>; toolCallId: string; timestamp: number }
+        | { kind: 'tool_completed'; toolName: string; toolCallId: string; durationMs: number; success: boolean; metadata?: Record<string, unknown>; timestamp: number }
+        | { kind: 'tool_failed'; toolName: string; toolCallId: string; error: string; durationMs: number; timestamp: number }
+        | { kind: 'completed'; durationMs: number; timestamp: number }
+        | { kind: 'failed'; error: string; timestamp: number }
+        | { kind: 'cancelled'; timestamp: number };
+    };
+
 
 /**
  * Validate that a message from the webview is well-formed.
@@ -72,7 +92,7 @@ export function validateWebviewMessage(data: unknown): WebviewToExtensionMessage
     'sendMessage', 'cancelGeneration', 'newChat', 'approveAction',
     'getConfig', 'setProvider', 'setModel', 'setApiKey',
     'testConnection', 'discoverModels', 'startIndexing', 'cancelIndexing',
-    'getIndexStatus', 'executeCommand', 'webviewReady',
+    'getIndexStatus', 'executeCommand', 'webviewReady', 'openFile',
     'getSettings', 'saveProviderSetting', 'deleteProviderSetting', 'saveWorkspaceModels',
     'returnToChat', 'closeSettings'
   ]);
@@ -110,6 +130,11 @@ export function validateWebviewMessage(data: unknown): WebviewToExtensionMessage
       break;
     case 'executeCommand':
       if (typeof msg.command !== 'string') {
+        return null;
+      }
+      break;
+    case 'openFile':
+      if (typeof msg.filepath !== 'string') {
         return null;
       }
       break;

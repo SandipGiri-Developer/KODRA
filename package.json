@@ -197,13 +197,15 @@
             "ollama",
             "openai",
             "anthropic",
-            "gemini"
+            "gemini",
+            "groq"
           ],
           "enumDescriptions": [
             "Local Ollama instance (free, private)",
             "OpenAI API (requires API key)",
             "Anthropic Claude API (requires API key)",
-            "Google Gemini API (requires API key)"
+            "Google Gemini API (requires API key)",
+            "Groq API (requires API key)"
           ],
           "description": "Legacy fallback provider setting."
         },
@@ -226,6 +228,11 @@
           "type": "string",
           "default": "https://generativelanguage.googleapis.com/v1beta",
           "description": "Google Gemini API endpoint URL."
+        },
+        "KODRA.groq.baseUrl": {
+          "type": "string",
+          "default": "https://api.groq.com/openai/v1",
+          "description": "Groq-compatible API base URL."
         },
         "KODRA.maxTokens": {
           "type": "number",

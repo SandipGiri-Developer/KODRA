@@ -45,7 +45,8 @@ import {
 } from "../../redux/slices/sessionSlice";
 import { isJetBrains, isMetaEquivalentKeyPressed } from "../../util";
 import { ToolCallDiv } from "./ToolCallDiv";
-import { submitEditorAndInitAtIndex, streamUpdate, setInactive } from "../../redux/slices/sessionSlice";
+import { submitEditorAndInitAtIndex, streamUpdate, setInactive, addAgentActivity } from "../../redux/slices/sessionSlice";
+import { AgentActivityPanel } from "../../components/gui/AgentActivityPanel";
 
 export interface PendingApproval {
   toolName: string;
@@ -85,8 +86,8 @@ window.addEventListener('message', (event: MessageEvent) => {
     _toolActivityListeners.forEach((listener) => listener(msg));
   }
 
-  // Only route stream messages. Anything else is handled by useWebviewListener or tool listeners.
-  if (!['streamContent', 'streamDone', 'streamError', 'streamCancelled'].includes(msg.type)) return;
+  // Only route stream messages and agent activity.
+  if (!['streamContent', 'streamDone', 'streamError', 'streamCancelled', 'agentActivity'].includes(msg.type)) return;
 
   if (_activeStreamDispatch) {
     _activeStreamDispatch(msg);
@@ -118,6 +119,10 @@ const streamResponseThunk = (payload: any): any => (dispatch: any, getState: any
       case 'streamCancelled':
         dispatch(setInactive());
         _activeStreamDispatch = null;
+        break;
+      case 'agentActivity':
+        // The assistant message is at index + 1 relative to the user message index
+        dispatch(addAgentActivity({ index: index + 1, activity: msg }));
         break;
     }
   };
@@ -414,7 +419,7 @@ export function Chat() {
       if (message.role === "assistant") {
         return (
           <>
-            {/* Always render assistant content through normal path */}
+            <AgentActivityPanel activities={item.agentActivities || []} />
             <div className="thread-message">
               <TimelineItem
                 item={item}
@@ -498,8 +503,9 @@ export function Chat() {
       {widget}
 
 
-      <StepsDiv
-        ref={stepsDivRef}
+      <div className="relative flex-1 min-h-0 flex flex-col">
+        <StepsDiv
+          ref={stepsDivRef}
         className={`pt-[8px] flex flex-col ${showScrollbar ? "thin-scrollbar" : "no-scrollbar"} min-h-0 flex-1 overflow-y-scroll`}
       >
         <DeprecationBanner dismissable={true} />
@@ -534,22 +540,22 @@ export function Chat() {
           ))}
       </StepsDiv>
 
-      {/* Jump to latest — appears when user scrolled up and streaming is active */}
-      {userHasScrolled && isStreaming && (
-        <div className="flex justify-center pb-1">
+      {/* Floating down arrow to jump to latest */}
+      {userHasScrolled && (
+        <div className="absolute bottom-4 left-0 right-0 flex justify-center z-50 pointer-events-none">
           <button
             type="button"
             onClick={scrollToBottom}
             aria-label="Jump to latest"
-            className="flex items-center gap-1 px-2.5 py-1 text-[11px] rounded border border-[var(--vscode-widget-border,rgba(128,128,128,0.2))] bg-[var(--vscode-editor-background,#1e1e1e)] text-[var(--vscode-descriptionForeground,#9d9d9d)] hover:text-[var(--vscode-foreground,#cccccc)] hover:border-[var(--vscode-focusBorder,#007fd4)] transition-colors duration-100 shadow-sm"
+            className="pointer-events-auto flex items-center justify-center w-8 h-8 rounded-full border border-[var(--vscode-widget-border,rgba(128,128,128,0.2))] bg-[var(--vscode-editor-background,#1e1e1e)] text-[var(--vscode-descriptionForeground,#9d9d9d)] hover:text-[var(--vscode-foreground,#cccccc)] hover:border-[var(--vscode-focusBorder,#007fd4)] transition-colors duration-100 shadow-md"
           >
-            <svg className="w-3 h-3" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-              <path d="M2 4l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" aria-hidden="true" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M6 9l6 6 6-6" />
             </svg>
-            Jump to latest
           </button>
         </div>
       )}
+      </div>
 
       {pendingApproval && (
         <div

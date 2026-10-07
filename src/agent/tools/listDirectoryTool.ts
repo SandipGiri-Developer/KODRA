@@ -166,6 +166,7 @@ export class ListDirectoryTool implements ITool {
         metadata: {
           entryCount: lines.length,
           path: relativePath,
+          entries: lines,
         },
       };
     } catch (err: any) {

@@ -140,6 +140,7 @@ export type AgentNormalizedEvent = {
     executionId: string;
     toolCallId: string;
     toolName: string;
+    args: Record<string, unknown>;
     timestamp: number;
 } | {
     type: 'tool.completed';

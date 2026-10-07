@@ -201,6 +201,28 @@ export class KodraViewProvider implements vscode.WebviewViewProvider, IWebviewMe
             vscode.commands.executeCommand(msg.command);
           }
           break;
+
+        case 'openFile':
+          if (msg.filepath) {
+            try {
+              let uri: vscode.Uri;
+              const cleanPath = msg.filepath.split('#')[0]; // Remove hash anchors like #L1-10
+              if (cleanPath.startsWith('file://')) {
+                uri = vscode.Uri.parse(cleanPath);
+              } else if (cleanPath.match(/^[a-zA-Z]:\\/) || cleanPath.startsWith('/')) {
+                uri = vscode.Uri.file(cleanPath);
+              } else if (vscode.workspace.workspaceFolders?.[0]) {
+                uri = vscode.Uri.joinPath(vscode.workspace.workspaceFolders[0].uri, cleanPath);
+              } else {
+                uri = vscode.Uri.file(cleanPath);
+              }
+              const doc = await vscode.workspace.openTextDocument(uri);
+              await vscode.window.showTextDocument(doc, { preview: true });
+            } catch (err) {
+              this.logger.error(`Failed to open file: ${msg.filepath}`, err);
+            }
+          }
+          break;
           
         case 'approveAction':
           if (this.agent) {
@@ -228,6 +250,7 @@ export class KodraViewProvider implements vscode.WebviewViewProvider, IWebviewMe
   private async handleUserMessage(text: string, contextFiles?: string[]) {
     const t0 = Date.now();
     const logger = this.logger;
+    let unsubscribeActivity: (() => void) | undefined;
 
     try {
       // ─── Phase 1: Config (single read — eliminates 3x duplicate readConfig) ───
@@ -285,6 +308,100 @@ export class KodraViewProvider implements vscode.WebviewViewProvider, IWebviewMe
         this.agent.cancel();
       }
       this.agent = new AgentLoop(this.indexer, requireApproval);
+
+      // ── Bridge AgentEventBus → agentActivity IPC messages ────────────────────
+      // These drive the "Worked" panel in the webview via real runtime events.
+      const agentStartTime = Date.now();
+      unsubscribeActivity = this.agent.getRuntime().onEvent((normalizedEvent) => {
+        const executionId = (normalizedEvent as any).executionId as string;
+        switch (normalizedEvent.type) {
+          case 'agent.started':
+            this.postMessage({
+              type: 'agentActivity',
+              executionId,
+              event: { kind: 'started', timestamp: normalizedEvent.timestamp },
+            });
+            break;
+
+          case 'tool.started':
+            this.postMessage({
+              type: 'agentActivity',
+              executionId,
+              event: {
+                kind: 'tool_started',
+                toolName: normalizedEvent.toolName,
+                toolCallId: normalizedEvent.toolCallId,
+                args: normalizedEvent.args,
+                timestamp: normalizedEvent.timestamp,
+              },
+            });
+            break;
+
+          case 'tool.requested':
+            // tool_started covers the user-visible event; requested is internal routing.
+            break;
+
+          case 'tool.completed':
+            this.postMessage({
+              type: 'agentActivity',
+              executionId,
+              event: {
+                kind: 'tool_completed',
+                toolName: normalizedEvent.toolName,
+                toolCallId: normalizedEvent.toolCallId,
+                durationMs: normalizedEvent.durationMs,
+                success: normalizedEvent.result.success,
+                metadata: normalizedEvent.result.metadata,
+                timestamp: normalizedEvent.timestamp,
+              },
+            });
+            break;
+
+          case 'tool.failed':
+            this.postMessage({
+              type: 'agentActivity',
+              executionId,
+              event: {
+                kind: 'tool_failed',
+                toolName: normalizedEvent.toolName,
+                toolCallId: normalizedEvent.toolCallId,
+                error: normalizedEvent.error,
+                durationMs: normalizedEvent.durationMs,
+                timestamp: normalizedEvent.timestamp,
+              },
+            });
+            break;
+
+          case 'agent.completed':
+            this.postMessage({
+              type: 'agentActivity',
+              executionId,
+              event: {
+                kind: 'completed',
+                durationMs: normalizedEvent.durationMs,
+                timestamp: normalizedEvent.timestamp,
+              },
+            });
+            break;
+
+          case 'agent.failed':
+            this.postMessage({
+              type: 'agentActivity',
+              executionId,
+              event: { kind: 'failed', error: normalizedEvent.error, timestamp: normalizedEvent.timestamp },
+            });
+            break;
+
+          case 'agent.cancelled':
+            this.postMessage({
+              type: 'agentActivity',
+              executionId,
+              event: { kind: 'cancelled', timestamp: normalizedEvent.timestamp },
+            });
+            break;
+        }
+      });
+
 
       const historyToPass = [...this.chatHistory];
       historyToPass.pop(); // remove last user message (passed separately)
@@ -379,6 +496,7 @@ export class KodraViewProvider implements vscode.WebviewViewProvider, IWebviewMe
         error: error instanceof Error ? error.message : String(error)
       });
     } finally {
+      unsubscribeActivity?.();
       this.agent = null;
     }
   }

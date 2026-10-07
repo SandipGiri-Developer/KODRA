@@ -282,9 +282,17 @@ const StyledMarkdownPreview = memo(function StyledMarkdownPreview(
     rehypeReactOptions: {
       components: {
         a: ({ ...aProps }) => {
+          const handleClick = (e: React.MouseEvent) => {
+            const href = aProps.href;
+            if (href && (href.startsWith('file://') || href.startsWith('/') || href.startsWith('.') || !href.startsWith('http'))) {
+              e.preventDefault();
+              (window as any).vscode?.postMessage({ type: "openFile", filepath: href });
+            }
+          };
+
           return (
             <ToolTip place="top" className="m-0 p-0" content={aProps.href}>
-              <a href={aProps.href} target="_blank" className="hover:underline">
+              <a href={aProps.href} target="_blank" className="hover:underline cursor-pointer" onClick={handleClick}>
                 {aProps.children}
               </a>
             </ToolTip>

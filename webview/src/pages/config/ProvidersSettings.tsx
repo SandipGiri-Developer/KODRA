@@ -17,9 +17,10 @@ import {
 } from "@heroicons/react/24/outline";
 import {
   Anthropic,
-  OpenAI,
   Gemini,
   Ollama,
+  OpenAI,
+  Groq,
 } from "@lobehub/icons";
 import {
   DiscoveredModel,
@@ -27,7 +28,7 @@ import {
   WorkspaceModel,
 } from "../../../../src/providers/types";
 
-type ProviderType = "ollama" | "openai" | "anthropic" | "gemini";
+type ProviderType = "ollama" | "openai" | "anthropic" | "gemini" | "groq";
 
 const PROVIDER_DISPLAY: Record<
   ProviderType,
@@ -37,6 +38,7 @@ const PROVIDER_DISPLAY: Record<
   openai: { label: "OpenAI" },
   anthropic: { label: "Anthropic" },
   gemini: { label: "Google Gemini" },
+  groq: { label: "Groq" },
 };
 
 const PROVIDER_OPTIONS: {
@@ -47,6 +49,7 @@ const PROVIDER_OPTIONS: {
   { value: "openai", label: "OpenAI" },
   { value: "anthropic", label: "Anthropic" },
   { value: "gemini", label: "Google Gemini" },
+  { value: "groq", label: "Groq" },
 ];
 
 const DEFAULT_ENDPOINTS: Record<ProviderType, string> = {
@@ -54,6 +57,7 @@ const DEFAULT_ENDPOINTS: Record<ProviderType, string> = {
   openai: "https://api.openai.com/v1",
   gemini: "https://generativelanguage.googleapis.com/v1beta",
   anthropic: "",
+  groq: "https://api.groq.com/openai/v1",
 };
 
 
@@ -71,6 +75,7 @@ export function ProviderIcon({
     openai: "bg-[#10241E] border-[#18483B]",
     anthropic: "bg-[#241C18] border-[#3B2C24]",
     gemini: "bg-[#141F33] border-[#223554]",
+    groq: "bg-[#1A1A1A] border-[#333333]",
   };
 
   const renderIcon = () => {
@@ -105,6 +110,15 @@ export function ProviderIcon({
 
     if (key.includes("gemini") || key.includes("google")) {
       return <Gemini.Color size={size} />;
+    }
+
+    if (key.includes("groq")) {
+      return (
+        <Groq
+          size={size}
+          className="text-[#F55036]"
+        />
+      );
     }
 
     return (
@@ -284,8 +298,17 @@ function ProviderCard({
       "
     >
       {/* Provider */}
-      <div className="flex flex-shrink-0 items-center">
+      <div className="flex min-w-[140px] flex-shrink-0 items-center gap-2">
         <ProviderIcon provider={provider.provider} />
+        <span
+          title={provider.name}
+          className="truncate text-[13px] font-semibold text-[#E7ECF3]"
+        >
+          {provider.name ||
+            PROVIDER_DISPLAY[provider.provider.toLowerCase() as ProviderType]
+              ?.label ||
+            provider.provider}
+        </span>
       </div>
 
       {/* Connection */}

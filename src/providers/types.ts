@@ -101,7 +101,7 @@ export interface DiscoveredModel {
  * All providers must implement this to work with KODRA's agent loop.
  */
 export interface ILLMProvider {
-  /** Unique provider identifier (e.g., 'ollama', 'openai', 'anthropic', 'gemini') */
+  /** Unique provider identifier (e.g., 'ollama', 'openai', 'anthropic', 'gemini', 'groq') */
   readonly id: string;
   /** Human-readable provider name */
   readonly displayName: string;
@@ -166,7 +166,7 @@ export interface ProviderConfig {
 export interface ProviderSettings {
   id: string; // unique ID for this configuration (e.g. 'gemini-1')
   name: string; // user-friendly name (e.g. 'My Gemini Key')
-  provider: string; // 'ollama', 'gemini', 'openai', 'anthropic'
+  provider: string; // 'ollama', 'gemini', 'openai', 'anthropic', 'groq'
   endpoint?: string;
   apiKeySecret?: boolean; // Indicates if an API key is stored in SecretStorage for this config
 }

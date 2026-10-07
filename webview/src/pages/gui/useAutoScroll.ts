@@ -1,10 +1,6 @@
-import { useEffect, useMemo, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { ChatHistoryItemWithMessageId } from "../../redux/slices/sessionSlice";
 
-/**
- * Only reset scroll state when a new user message is added to the chat.
- * We don't want to auto-scroll on new tool response messages.
- */
 function getNumUserMsgs(history: ChatHistoryItemWithMessageId[]) {
   return history.filter((msg) => msg.message.role === "user").length;
 }
@@ -23,7 +19,7 @@ export const useAutoScroll = (
   const [userHasScrolled, setUserHasScrolled] = useState(false);
   const numUserMsgs = useMemo(() => getNumUserMsgs(history), [history.length]);
 
-  // Reset when a new user message appears (new conversation turn)
+  // Reset when a new user message appears
   useEffect(() => {
     setUserHasScrolled(false);
   }, [numUserMsgs]);
@@ -41,14 +37,8 @@ export const useAutoScroll = (
     const handleScroll = () => {
       const elem = ref.current;
       if (!elem) return;
-
-      const isAtBottom =
-        Math.abs(elem.scrollHeight - elem.scrollTop - elem.clientHeight) < 1;
-
-      /**
-       * Stop auto scrolling if the user manually scrolled up.
-       * Resume auto scrolling if the user scrolls back to the bottom.
-       */
+      
+      const isAtBottom = Math.abs(elem.scrollHeight - elem.scrollTop - elem.clientHeight) < 2;
       setUserHasScrolled(!isAtBottom);
     };
 
@@ -58,7 +48,7 @@ export const useAutoScroll = (
       elem.scrollTop = elem.scrollHeight;
     });
 
-    ref.current.addEventListener("scroll", handleScroll);
+    ref.current.addEventListener("scroll", handleScroll, { passive: true });
 
     // Observe the container and all immediate children for size changes
     resizeObserver.observe(ref.current);

@@ -96,7 +96,7 @@ export interface DiscoveredModel {
  * All providers must implement this to work with KODRA's agent loop.
  */
 export interface ILLMProvider {
-    /** Unique provider identifier (e.g., 'ollama', 'openai', 'anthropic', 'gemini') */
+    /** Unique provider identifier (e.g., 'ollama', 'openai', 'anthropic', 'gemini', 'groq') */
     readonly id: string;
     /** Human-readable provider name */
     readonly displayName: string;
