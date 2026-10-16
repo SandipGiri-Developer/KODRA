@@ -38,7 +38,7 @@
     "@tiptap/suggestion": "^3.31.4",
     "@types/diff": "^7.0.2",
     "@types/uuid": "^10.0.0",
-    "anser": "^2.3.2",
+    "anser": "^2.3.5",
     "clsx": "^2.1.1",
     "core": "file:../core",
     "diff": "^8.0.2",
