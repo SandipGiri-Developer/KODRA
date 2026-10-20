@@ -29,6 +29,7 @@ export class WebviewSettingsBridge {
     try {
       const config = await this.providerRegistry.readConfig();
       const hasApiKey = Boolean(config.apiKey && config.apiKey.length > 0);
+      const activeProviderConfigId = vscode.workspace.getConfiguration('KODRA').get<string>('activeProviderConfigId', '');
 
       poster.postMessage({
         type: 'config',
@@ -36,6 +37,7 @@ export class WebviewSettingsBridge {
         model: config.modelName,
         hasApiKey,
         availableProviders: this.providerRegistry.getSupportedProviders(),
+        ...(activeProviderConfigId ? { providerConfigId: activeProviderConfigId } : {}),
       });
 
       // Warm capabilities cache non-critically
@@ -82,11 +84,20 @@ export class WebviewSettingsBridge {
 
       case 'setProvider':
         await vscode.workspace.getConfiguration('KODRA').update('provider', msg.provider, true);
+        if ('providerConfigId' in msg && typeof msg.providerConfigId === 'string') {
+          await vscode.workspace.getConfiguration('KODRA').update('activeProviderConfigId', msg.providerConfigId, true);
+        }
         await this.sendConfig(poster);
         return true;
 
       case 'setModel':
         await vscode.workspace.getConfiguration('KODRA').update('modelName', msg.model, true);
+        if ('provider' in msg && typeof msg.provider === 'string') {
+          await vscode.workspace.getConfiguration('KODRA').update('provider', msg.provider, true);
+        }
+        if ('providerConfigId' in msg && typeof msg.providerConfigId === 'string') {
+          await vscode.workspace.getConfiguration('KODRA').update('activeProviderConfigId', msg.providerConfigId, true);
+        }
         await this.sendConfig(poster);
         return true;
 

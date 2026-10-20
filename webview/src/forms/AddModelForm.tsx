@@ -10,7 +10,10 @@ const PROVIDERS = [
   { id: "ollama", name: "Ollama (Local)" },
   { id: "openai", name: "OpenAI" },
   { id: "anthropic", name: "Anthropic Claude" },
-  { id: "gemini", name: "Google Gemini" }
+  { id: "gemini", name: "Google Gemini" },
+  { id: "groq", name: "Groq" },
+  { id: "deepseek", name: "DeepSeek" },
+  { id: "nvidia", name: "NVIDIA NIM" }
 ];
 
 export function AddModelForm({ onDone }: AddModelFormProps) {

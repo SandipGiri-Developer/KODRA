@@ -198,16 +198,25 @@
             "openai",
             "anthropic",
             "gemini",
-            "groq"
+            "groq",
+            "deepseek",
+            "nvidia"
           ],
           "enumDescriptions": [
             "Local Ollama instance (free, private)",
             "OpenAI API (requires API key)",
             "Anthropic Claude API (requires API key)",
             "Google Gemini API (requires API key)",
-            "Groq API (requires API key)"
+            "Groq API (requires API key)",
+            "DeepSeek API (requires API key)",
+            "NVIDIA NIM API (requires API key)"
           ],
           "description": "Legacy fallback provider setting."
+        },
+        "KODRA.activeProviderConfigId": {
+          "type": "string",
+          "default": "",
+          "description": "The active provider configuration identifier for disambiguating models with multiple providers."
         },
         "KODRA.modelName": {
           "type": "string",
@@ -233,6 +242,16 @@
           "type": "string",
           "default": "https://api.groq.com/openai/v1",
           "description": "Groq-compatible API base URL."
+        },
+        "KODRA.deepseek.baseUrl": {
+          "type": "string",
+          "default": "https://api.deepseek.com",
+          "description": "DeepSeek API base URL."
+        },
+        "KODRA.nvidia.baseUrl": {
+          "type": "string",
+          "default": "https://integrate.api.nvidia.com/v1",
+          "description": "NVIDIA NIM API base URL (supports cloud or self-hosted NIM)."
         },
         "KODRA.maxTokens": {
           "type": "number",

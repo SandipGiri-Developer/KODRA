@@ -256,4 +256,68 @@ describe("ProvidersSettings", () => {
       expect(screen.getByText("+1")).toBeDefined();
     });
   });
+
+  it("allows selecting DeepSeek provider from dropdown and discovering models", async () => {
+    renderComponent();
+    dispatchSettings([]);
+    clickAddProviderBtn();
+    await screen.findByText("Connect & Discover Models");
+
+    const select = screen.getByLabelText(/Provider/i) as HTMLSelectElement;
+    expect(screen.getByRole("option", { name: "DeepSeek" })).toBeDefined();
+
+    fireEvent.change(select, { target: { value: "deepseek" } });
+    expect(select.value).toBe("deepseek");
+
+    // Endpoint should default to DeepSeek API placeholder
+    const endpointInput = screen.getByPlaceholderText("https://api.deepseek.com");
+    expect(endpointInput).toBeDefined();
+
+    // API Key input should be present for DeepSeek
+    const apiKeyInput = screen.getByPlaceholderText("Enter API key");
+    expect(apiKeyInput).toBeDefined();
+    fireEvent.change(apiKeyInput, { target: { value: "sk-test-deepseek" } });
+
+    fireEvent.click(screen.getByText("Connect & Discover Models"));
+    expect(mockPostMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "discoverModels",
+        provider: "deepseek",
+        endpoint: "https://api.deepseek.com",
+        apiKey: "sk-test-deepseek",
+      })
+    );
+  });
+
+  it("allows selecting NVIDIA NIM provider from dropdown and discovering models", async () => {
+    renderComponent();
+    dispatchSettings([]);
+    clickAddProviderBtn();
+    await screen.findByText("Connect & Discover Models");
+
+    const select = screen.getByLabelText(/Provider/i) as HTMLSelectElement;
+    expect(screen.getByRole("option", { name: "NVIDIA NIM" })).toBeDefined();
+
+    fireEvent.change(select, { target: { value: "nvidia" } });
+    expect(select.value).toBe("nvidia");
+
+    // Endpoint should default to NVIDIA NIM API placeholder
+    const endpointInput = screen.getByPlaceholderText("https://integrate.api.nvidia.com/v1");
+    expect(endpointInput).toBeDefined();
+
+    // API Key input should be present for NVIDIA
+    const apiKeyInput = screen.getByPlaceholderText("Enter API key");
+    expect(apiKeyInput).toBeDefined();
+    fireEvent.change(apiKeyInput, { target: { value: "nvapi-test-key" } });
+
+    fireEvent.click(screen.getByText("Connect & Discover Models"));
+    expect(mockPostMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "discoverModels",
+        provider: "nvidia",
+        endpoint: "https://integrate.api.nvidia.com/v1",
+        apiKey: "nvapi-test-key",
+      })
+    );
+  });
 });

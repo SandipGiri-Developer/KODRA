@@ -18,8 +18,8 @@ export type WebviewToExtensionMessage =
   | { type: 'approveAction'; approved: boolean }
   | { type: 'getConfig' }
   | { type: 'openFile'; filepath: string }
-  | { type: 'setProvider'; provider: string }
-  | { type: 'setModel'; model: string }
+  | { type: 'setProvider'; provider: string; providerConfigId?: string }
+  | { type: 'setModel'; model: string; provider?: string; providerConfigId?: string }
   | { type: 'setApiKey'; provider: string; key: string }
   | { type: 'testConnection' }
   | { type: 'discoverModels'; provider: string; apiKey?: string; endpoint?: string }
@@ -47,7 +47,7 @@ export type ExtensionToWebviewMessage =
   | { type: 'toolStarted'; toolName: string; toolCallId: string }
   | { type: 'toolResult'; toolName: string; content: string; success: boolean; toolCallId?: string; durationMs?: number }
   | { type: 'approvalRequest'; toolName: string; description: string; command?: string; diff?: string; filepath?: string }
-  | { type: 'config'; provider: string; model: string; hasApiKey: boolean; availableProviders: string[] }
+  | { type: 'config'; provider: string; model: string; hasApiKey: boolean; availableProviders: string[]; providerConfigId?: string }
   | { type: 'connectionResult'; success: boolean; models?: string[]; error?: string }
   | { type: 'modelsDiscovered'; provider: string; models?: DiscoveredModel[]; error?: string }
   | { type: 'indexingProgress'; progress: IndexingProgress }
