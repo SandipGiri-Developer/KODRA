@@ -83,7 +83,6 @@ const router = createMemoryRouter(
   ParallelListeners prevents entire app from rerendering on any change in the listeners,
   most of which interact with redux etc.
 */
-// Test command
 function App() {
   return (
     <VscThemeProvider>
