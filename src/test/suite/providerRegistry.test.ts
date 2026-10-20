@@ -4,6 +4,8 @@ import { OpenAIProvider } from '../../providers/openai';
 import { AnthropicProvider } from '../../providers/anthropic';
 import { GeminiProvider } from '../../providers/gemini';
 import { GroqProvider } from '../../providers/groq';
+import { DeepSeekProvider } from '../../providers/deepseek';
+import { NvidiaProvider } from '../../providers/nvidia';
 import * as vscode from 'vscode';
 
 // Remove local override so we use __mocks__/vscode.js
@@ -98,6 +100,32 @@ describe('ProviderRegistry', () => {
       const provider = await registry.getProvider();
       expect(provider.id).toBe('groq');
     });
+
+    it('should return DeepSeekProvider when configured', async () => {
+      mockGetConfiguration.mockReturnValue({
+        get: (key: string) => {
+          if (key === 'provider') return 'deepseek';
+          return undefined;
+        },
+      });
+      (registry as any).secretStorage = { get: jest.fn().mockResolvedValue('fake-key') };
+
+      const provider = await registry.getProvider();
+      expect(provider.id).toBe('deepseek');
+    });
+
+    it('should return NvidiaProvider when configured', async () => {
+      mockGetConfiguration.mockReturnValue({
+        get: (key: string) => {
+          if (key === 'provider') return 'nvidia';
+          return undefined;
+        },
+      });
+      (registry as any).secretStorage = { get: jest.fn().mockResolvedValue('fake-key') };
+
+      const provider = await registry.getProvider();
+      expect(provider.id).toBe('nvidia');
+    });
   });
 
   describe('Dynamic Discovery', () => {
@@ -130,6 +158,26 @@ describe('ProviderRegistry', () => {
       expect(models).toHaveLength(1);
       expect(mockDiscoverModels).toHaveBeenCalled();
     });
+
+    it('should discover models for deepseek with provided key', async () => {
+      const mockDiscoverModels = jest.spyOn(DeepSeekProvider.prototype, 'discoverModels').mockResolvedValue([
+        { id: 'deepseek-chat', displayName: 'DeepSeek-V3 (Chat)', provider: 'deepseek', capabilities: { streaming: true, toolCalling: true, vision: false, reasoning: false } }
+      ]);
+
+      const models = await registry.discoverModels('deepseek', 'temp-key');
+      expect(models).toHaveLength(1);
+      expect(mockDiscoverModels).toHaveBeenCalled();
+    });
+
+    it('should discover models for nvidia with provided key', async () => {
+      const mockDiscoverModels = jest.spyOn(NvidiaProvider.prototype, 'discoverModels').mockResolvedValue([
+        { id: 'meta/llama-3.3-70b-instruct', displayName: 'meta/llama-3.3-70b-instruct', provider: 'nvidia', capabilities: { streaming: true, toolCalling: true, vision: false, reasoning: false } }
+      ]);
+
+      const models = await registry.discoverModels('nvidia', 'temp-key');
+      expect(models).toHaveLength(1);
+      expect(mockDiscoverModels).toHaveBeenCalled();
+    });
   });
 
   describe('Extensibility & Provider Factory Registration', () => {
@@ -158,6 +206,64 @@ describe('ProviderRegistry', () => {
       registry.unregisterProvider('custom-ai');
       expect(registry.hasProvider('custom-ai')).toBe(false);
       expect(registry.getSupportedProviders()).not.toContain('custom-ai');
+    });
+  });
+
+  describe('Multi-provider Model Disambiguation', () => {
+    it('resolves the correct provider and endpoint when multiple providers share the same model ID', async () => {
+      const mockManager = SettingsManager.getInstance();
+      (mockManager.getWorkspaceModels as jest.Mock).mockResolvedValueOnce([
+        {
+          id: 'gpt-20b',
+          displayName: 'GPT 20B',
+          provider: 'groq',
+          providerConfigId: 'groq-1',
+        },
+        {
+          id: 'gpt-20b',
+          displayName: 'GPT 20B',
+          provider: 'nvidia',
+          providerConfigId: 'nvidia-1',
+        },
+      ]);
+
+      (mockManager.getProviders as jest.Mock).mockResolvedValueOnce([
+        {
+          id: 'groq-1',
+          name: 'Groq Cloud',
+          provider: 'groq',
+          endpoint: 'https://api.groq.com/openai/v1',
+          apiKeySecret: true,
+        },
+        {
+          id: 'nvidia-1',
+          name: 'NVIDIA NIM',
+          provider: 'nvidia',
+          endpoint: 'https://integrate.api.nvidia.com/v1',
+          apiKeySecret: true,
+        },
+      ]);
+
+      (mockManager.getApiKey as jest.Mock).mockImplementation((providerId: string) => {
+        if (providerId === 'nvidia-1') return Promise.resolve('nvapi-test-key');
+        if (providerId === 'groq-1') return Promise.resolve('gsk-test-key');
+        return Promise.resolve(undefined);
+      });
+
+      mockGetConfiguration.mockReturnValue({
+        get: (key: string, defaultValue?: any) => {
+          if (key === 'provider') return 'nvidia';
+          if (key === 'modelName') return 'gpt-20b';
+          if (key === 'activeProviderConfigId') return 'nvidia-1';
+          return defaultValue;
+        },
+      });
+
+      const config = await registry.readConfig();
+      expect(config.provider).toBe('nvidia');
+      expect(config.endpoint).toBe('https://integrate.api.nvidia.com/v1');
+      expect(config.apiKey).toBe('nvapi-test-key');
+      expect(config.modelName).toBe('gpt-20b');
     });
   });
 });

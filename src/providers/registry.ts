@@ -13,6 +13,8 @@ import { GeminiProvider } from './gemini';
 import { OllamaProvider } from './ollama';
 import { OpenAIProvider } from './openai';
 import { GroqProvider } from './groq';
+import { DeepSeekProvider } from './deepseek';
+import { NvidiaProvider } from './nvidia';
 import { DiscoveredModel, ILLMProvider, ProviderConfig, ModelCapabilities, ProviderFactory } from './types';
 import { SettingsManager } from '../utils/settingsManager';
 
@@ -112,6 +114,26 @@ export class ProviderRegistry {
       }
       return new GroqProvider(config.apiKey, config.endpoint);
     });
+
+    this.registerProvider('deepseek', (config) => {
+      if (!config.apiKey) {
+        throw new KodraError(
+          ErrorReason.ProviderNotConfigured,
+          'DeepSeek API key not configured. Use "Kodra: Configure AI Provider" to set it up.',
+        );
+      }
+      return new DeepSeekProvider(config.apiKey, config.endpoint);
+    });
+
+    this.registerProvider('nvidia', (config) => {
+      if (!config.apiKey) {
+        throw new KodraError(
+          ErrorReason.ProviderNotConfigured,
+          'NVIDIA API key not configured. Use "Kodra: Configure AI Provider" to set it up.',
+        );
+      }
+      return new NvidiaProvider(config.apiKey, config.endpoint);
+    });
   }
 
   /**
@@ -168,6 +190,7 @@ export class ProviderRegistry {
     const modelName = settings.get<string>('modelName', '');
     const maxTokens = settings.get<number>('maxTokens', 4096);
     let provider = settings.get<string>('provider', 'ollama');
+    const activeProviderConfigId = settings.get<string>('activeProviderConfigId', '');
 
     let endpoint: string | undefined;
     let apiKey: string | undefined;
@@ -176,7 +199,16 @@ export class ProviderRegistry {
     try {
       const manager = SettingsManager.getInstance();
       const workspaceModels = await manager.getWorkspaceModels();
-      const activeModel = workspaceModels.find(m => m.id === modelName);
+      // Match active model by both modelName and activeProviderConfigId / provider
+      const activeModel = 
+        workspaceModels.find(m => 
+          m.id === modelName && 
+          (activeProviderConfigId ? m.providerConfigId === activeProviderConfigId : true) &&
+          m.provider === provider
+        ) || workspaceModels.find(m => 
+          m.id === modelName && (activeProviderConfigId ? m.providerConfigId === activeProviderConfigId : m.provider === provider)
+        ) || workspaceModels.find(m => m.id === modelName && m.provider === provider)
+          || workspaceModels.find(m => m.id === modelName);
 
       if (activeModel) {
         const providers = await manager.getProviders();
@@ -215,6 +247,14 @@ export class ProviderRegistry {
         endpoint = settings.get<string>('groq.baseUrl', 'https://api.groq.com/openai/v1');
         apiKey = await this.secretStorage.get('KODRA.groq.apiKey');
         break;
+      case 'deepseek':
+        endpoint = settings.get<string>('deepseek.baseUrl', 'https://api.deepseek.com');
+        apiKey = await this.secretStorage.get('KODRA.deepseek.apiKey');
+        break;
+      case 'nvidia':
+        endpoint = settings.get<string>('nvidia.baseUrl', 'https://integrate.api.nvidia.com/v1');
+        apiKey = await this.secretStorage.get('KODRA.nvidia.apiKey');
+        break;
     }
 
     return { provider, modelName, endpoint, apiKey, maxTokens };
@@ -245,6 +285,8 @@ export class ProviderRegistry {
           if (providerName === 'openai') endpoint = settings.get<string>('openai.baseUrl', 'https://api.openai.com/v1');
           if (providerName === 'gemini') endpoint = settings.get<string>('gemini.endpoint', 'https://generativelanguage.googleapis.com/v1beta');
           if (providerName === 'groq') endpoint = settings.get<string>('groq.baseUrl', 'https://api.groq.com/openai/v1');
+          if (providerName === 'deepseek') endpoint = settings.get<string>('deepseek.baseUrl', 'https://api.deepseek.com');
+          if (providerName === 'nvidia') endpoint = settings.get<string>('nvidia.baseUrl', 'https://integrate.api.nvidia.com/v1');
         }
       }
     }
@@ -354,6 +396,8 @@ export class ProviderRegistry {
       anthropic: 'Anthropic',
       gemini: 'Google Gemini',
       groq: 'Groq',
+      deepseek: 'DeepSeek',
+      nvidia: 'NVIDIA NIM',
     };
 
     const key = await vscode.window.showInputBox({

@@ -105,4 +105,30 @@ describe('AddModelForm', () => {
       });
     }, { timeout: 1000 });
   });
+
+  it('submits correctly for DeepSeek with API key', async () => {
+    renderComponent();
+
+    const providerSelect = screen.getByRole('combobox');
+    fireEvent.change(providerSelect, { target: { value: 'deepseek' } });
+
+    const apiKeyInput = screen.getByPlaceholderText('Enter your DeepSeek API key');
+    fireEvent.change(apiKeyInput, { target: { value: 'sk-deepseek-key' } });
+
+    const connectButton = screen.getByRole('button', { name: 'Connect' });
+    fireEvent.click(connectButton);
+
+    expect(mockPostMessage).toHaveBeenCalledWith({
+      type: 'setProvider',
+      provider: 'deepseek'
+    });
+
+    expect(mockPostMessage).toHaveBeenCalledWith({
+      type: 'setApiKey',
+      provider: 'deepseek',
+      key: 'sk-deepseek-key'
+    });
+
+    expect(onDoneMock).toHaveBeenCalled();
+  });
 });

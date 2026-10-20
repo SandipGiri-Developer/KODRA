@@ -8,7 +8,7 @@ import {
   LightBulbIcon,
   TrashIcon
 } from "@heroicons/react/24/outline";
-import { Anthropic, OpenAI, Gemini, Ollama } from "@lobehub/icons";
+import { Anthropic, OpenAI, Gemini, Ollama, Groq, DeepSeek, Nvidia } from "@lobehub/icons";
 import React, { useState, useEffect, useContext } from "react";
 import { Listbox, ListboxButton, ListboxOption, ListboxOptions } from "../ui/Listbox";
 import { Divider } from "../ui/Divider";
@@ -26,6 +26,9 @@ function ProviderMiniIcon({ provider, className = "h-3.5 w-3.5 flex-shrink-0" }:
   if (p.includes("openai")) return <OpenAI size={14} className={`text-[#10A37F] ${className}`} />;
   if (p.includes("anthropic") || p.includes("claude")) return <Anthropic size={14} className={`text-[#D4A373] ${className}`} />;
   if (p.includes("gemini") || p.includes("google")) return <Gemini.Color size={14} className={className} />;
+  if (p.includes("groq")) return <Groq size={14} className={`text-[#F55036] ${className}`} />;
+  if (p.includes("deepseek")) return <DeepSeek.Color size={14} className={className} />;
+  if (p.includes("nvidia")) return <Nvidia.Color size={14} className={className} />;
   return <CubeIcon className={className} />;
 }
 
@@ -42,6 +45,9 @@ interface WorkspaceModel {
   };
 }
 
+const getModelKey = (m: { id: string; provider?: string; providerConfigId?: string }) =>
+  `${m.providerConfigId || m.provider || ''}:::${m.id}`;
+
 export function ModelSelectDropdown() {
   const ideMessenger = useContext(IdeMessengerContext);
   const dispatch = useAppDispatch();
@@ -49,8 +55,9 @@ export function ModelSelectDropdown() {
   // In the real system, config would be fetched, but we're mimicking it or reading from backend
   const [currentProvider, setCurrentProvider] = useState<string>("ollama");
   const [currentModel, setCurrentModel] = useState<string>("Select model");
+  const [currentProviderConfigId, setCurrentProviderConfigId] = useState<string>("");
   
-  const [models, setModels] = useState<DiscoveredModel[]>([]);
+  const [models, setModels] = useState<WorkspaceModel[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showAddModelDialog, setShowAddModelDialog] = useState(false);
@@ -70,6 +77,7 @@ export function ModelSelectDropdown() {
       if (data.type === 'config') {
         if (data.provider) setCurrentProvider(data.provider);
         if (data.model) setCurrentModel(data.model);
+        if (data.providerConfigId) setCurrentProviderConfigId(data.providerConfigId);
       } else if (data.type === 'settingsData') {
         if (Array.isArray(data.workspaceModels)) {
           setModels(data.workspaceModels);
@@ -88,6 +96,16 @@ export function ModelSelectDropdown() {
     }
   };
 
+  const selectedWorkspaceModel = models.find(m => 
+    m.id === currentModel && 
+    (currentProviderConfigId ? m.providerConfigId === currentProviderConfigId : true) &&
+    (currentProvider ? m.provider === currentProvider : true)
+  ) || models.find(m => m.id === currentModel && (currentProvider ? m.provider === currentProvider : true))
+    || models.find(m => m.id === currentModel);
+
+  const selectedKey = selectedWorkspaceModel ? getModelKey(selectedWorkspaceModel) : currentModel;
+  const displayTitle = selectedWorkspaceModel ? selectedWorkspaceModel.displayName : currentModel;
+
   const handleSelect = (val: string) => {
     if (val === "CONFIGURE_MODELS") {
       if ((window as any).vscode) {
@@ -98,26 +116,48 @@ export function ModelSelectDropdown() {
       }
       return;
     }
-    setCurrentModel(val);
-    const selected = models.find((m) => m.id === val);
-    if ((window as any).vscode) {
-      if (selected) {
-        (window as any).vscode.postMessage({ type: "setProvider", provider: selected.provider });
+
+    const selected = models.find((m) => getModelKey(m) === val) || models.find((m) => m.id === val);
+    if (selected) {
+      setCurrentModel(selected.id);
+      setCurrentProvider(selected.provider);
+      if (selected.providerConfigId) {
+        setCurrentProviderConfigId(selected.providerConfigId);
       }
-      (window as any).vscode.postMessage({ type: "setModel", model: val });
+      if ((window as any).vscode) {
+        (window as any).vscode.postMessage({ 
+          type: "setProvider", 
+          provider: selected.provider,
+          ...(selected.providerConfigId ? { providerConfigId: selected.providerConfigId } : {})
+        });
+        (window as any).vscode.postMessage({ type: "setModel", model: selected.id });
+      }
+    } else {
+      setCurrentModel(val);
+      if ((window as any).vscode) {
+        (window as any).vscode.postMessage({ type: "setModel", model: val });
+      }
     }
   };
 
-  const handleDeleteModel = (e: React.MouseEvent, modelId: string) => {
+  const handleDeleteModel = (e: React.MouseEvent, targetModel: WorkspaceModel) => {
     e.stopPropagation();
     e.preventDefault();
+    const targetKey = getModelKey(targetModel);
     setModels(prev => {
-      const newModels = prev.filter(m => m.id !== modelId);
-      if (currentModel === modelId && newModels.length > 0) {
-        setCurrentModel(newModels[0].id);
+      const newModels = prev.filter(m => getModelKey(m) !== targetKey);
+      if (selectedWorkspaceModel && getModelKey(selectedWorkspaceModel) === targetKey && newModels.length > 0) {
+        const next = newModels[0];
+        setCurrentModel(next.id);
+        setCurrentProvider(next.provider);
+        setCurrentProviderConfigId(next.providerConfigId || "");
         if ((window as any).vscode) {
-          (window as any).vscode.postMessage({ type: "setModel", model: newModels[0].id });
-          (window as any).vscode.postMessage({ type: "setProvider", provider: newModels[0].provider });
+          (window as any).vscode.postMessage({ 
+            type: "setProvider", 
+            provider: next.provider,
+            ...(next.providerConfigId ? { providerConfigId: next.providerConfigId } : {})
+          });
+          (window as any).vscode.postMessage({ type: "setModel", model: next.id });
         }
       }
       
@@ -129,11 +169,8 @@ export function ModelSelectDropdown() {
     });
   };
 
-  const selectedWorkspaceModel = models.find(m => m.id === currentModel);
-  const displayTitle = selectedWorkspaceModel ? selectedWorkspaceModel.displayName : currentModel;
-
   return (
-    <Listbox value={currentModel} onChange={handleSelect}>
+    <Listbox value={selectedKey} onChange={handleSelect}>
       <ListboxButton 
         onClick={handleOpenDropdown}
         className="border-none bg-transparent hover:bg-transparent shadow-none px-1 py-0 hover:brightness-125 flex items-center gap-1.5 cursor-pointer"
@@ -165,36 +202,46 @@ export function ModelSelectDropdown() {
           <div className="px-3 py-2 text-xs text-gray-500 italic">No models found.</div>
         )}
 
-        {!isLoading && models.map((model, idx) => (
-          <ListboxOption
-            key={idx}
-            value={model.id}
-            className={`group cursor-pointer px-3 py-1.5 flex items-center gap-2 hover:bg-list-active hover:text-list-active-foreground ${currentModel === model.id ? "bg-list-active text-list-active-foreground" : ""}`}
-          >
-            <ProviderMiniIcon provider={model.provider} />
-            <div className="flex-1 flex flex-col overflow-hidden">
-              <span className="truncate text-xs">{model.displayName}</span>
-              <div className="flex gap-1 mt-0.5">
-                {model.capabilities?.toolCalling && (
-                  <WrenchScrewdriverIcon className="h-3 w-3 text-blue-400" title="Supports tool calling" />
-                )}
-                {model.capabilities?.vision && (
-                  <PhotoIcon className="h-3 w-3 text-green-400" title="Supports vision" />
-                )}
-                {model.capabilities?.reasoning && (
-                  <LightBulbIcon className="h-3 w-3 text-yellow-400" title="Advanced reasoning" />
-                )}
-              </div>
-            </div>
-            <div 
-              className="opacity-0 group-hover:opacity-100 p-1 hover:bg-vsc-editor-background rounded transition-opacity"
-              onClick={(e) => handleDeleteModel(e, model.id)}
-              title="Remove from Workspace"
+        {!isLoading && models.map((model, idx) => {
+          const modelKey = getModelKey(model);
+          const isSelected = selectedWorkspaceModel 
+            ? getModelKey(selectedWorkspaceModel) === modelKey
+            : (currentModel === model.id && currentProvider === model.provider);
+
+          return (
+            <ListboxOption
+              key={`${model.providerConfigId || model.provider}_${model.id}_${idx}`}
+              value={modelKey}
+              className={`group cursor-pointer px-3 py-1.5 flex items-center gap-2 hover:bg-list-active hover:text-list-active-foreground ${isSelected ? "bg-list-active text-list-active-foreground" : ""}`}
             >
-              <TrashIcon className="h-3.5 w-3.5 text-red-400 hover:text-red-500" />
-            </div>
-          </ListboxOption>
-        ))}
+              <ProviderMiniIcon provider={model.provider} />
+              <div className="flex-1 flex flex-col overflow-hidden">
+                <div className="flex items-center gap-1.5">
+                  <span className="truncate text-xs font-medium">{model.displayName}</span>
+                  <span className="text-[10px] text-gray-400 capitalize">({model.provider})</span>
+                </div>
+                <div className="flex gap-1 mt-0.5">
+                  {model.capabilities?.toolCalling && (
+                    <WrenchScrewdriverIcon className="h-3 w-3 text-blue-400" title="Supports tool calling" />
+                  )}
+                  {model.capabilities?.vision && (
+                    <PhotoIcon className="h-3 w-3 text-green-400" title="Supports vision" />
+                  )}
+                  {model.capabilities?.reasoning && (
+                    <LightBulbIcon className="h-3 w-3 text-yellow-400" title="Advanced reasoning" />
+                  )}
+                </div>
+              </div>
+              <div 
+                className="opacity-0 group-hover:opacity-100 p-1 hover:bg-vsc-editor-background rounded transition-opacity"
+                onClick={(e) => handleDeleteModel(e, model)}
+                title="Remove from Workspace"
+              >
+                <TrashIcon className="h-3.5 w-3.5 text-red-400 hover:text-red-500" />
+              </div>
+            </ListboxOption>
+          );
+        })}
         </div>
         
         <Divider className="my-1" />

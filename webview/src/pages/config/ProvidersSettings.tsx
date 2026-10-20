@@ -21,6 +21,8 @@ import {
   Ollama,
   OpenAI,
   Groq,
+  DeepSeek,
+  Nvidia,
 } from "@lobehub/icons";
 import {
   DiscoveredModel,
@@ -28,7 +30,7 @@ import {
   WorkspaceModel,
 } from "../../../../src/providers/types";
 
-type ProviderType = "ollama" | "openai" | "anthropic" | "gemini" | "groq";
+type ProviderType = "ollama" | "openai" | "anthropic" | "gemini" | "groq" | "deepseek" | "nvidia";
 
 const PROVIDER_DISPLAY: Record<
   ProviderType,
@@ -39,6 +41,8 @@ const PROVIDER_DISPLAY: Record<
   anthropic: { label: "Anthropic" },
   gemini: { label: "Google Gemini" },
   groq: { label: "Groq" },
+  deepseek: { label: "DeepSeek" },
+  nvidia: { label: "NVIDIA NIM" },
 };
 
 const PROVIDER_OPTIONS: {
@@ -50,6 +54,8 @@ const PROVIDER_OPTIONS: {
   { value: "anthropic", label: "Anthropic" },
   { value: "gemini", label: "Google Gemini" },
   { value: "groq", label: "Groq" },
+  { value: "deepseek", label: "DeepSeek" },
+  { value: "nvidia", label: "NVIDIA NIM" },
 ];
 
 const DEFAULT_ENDPOINTS: Record<ProviderType, string> = {
@@ -58,6 +64,8 @@ const DEFAULT_ENDPOINTS: Record<ProviderType, string> = {
   gemini: "https://generativelanguage.googleapis.com/v1beta",
   anthropic: "",
   groq: "https://api.groq.com/openai/v1",
+  deepseek: "https://api.deepseek.com",
+  nvidia: "https://integrate.api.nvidia.com/v1",
 };
 
 
@@ -76,6 +84,8 @@ export function ProviderIcon({
     anthropic: "bg-[#241C18] border-[#3B2C24]",
     gemini: "bg-[#141F33] border-[#223554]",
     groq: "bg-[#1A1A1A] border-[#333333]",
+    deepseek: "bg-[#0B1C36] border-[#1D3B6A]",
+    nvidia: "bg-[#11240A] border-[#224814]",
   };
 
   const renderIcon = () => {
@@ -119,6 +129,14 @@ export function ProviderIcon({
           className="text-[#F55036]"
         />
       );
+    }
+
+    if (key.includes("deepseek")) {
+      return <DeepSeek.Color size={size} />;
+    }
+
+    if (key.includes("nvidia")) {
+      return <Nvidia.Color size={size} />;
     }
 
     return (

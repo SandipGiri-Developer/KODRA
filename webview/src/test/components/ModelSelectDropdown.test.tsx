@@ -142,4 +142,50 @@ describe('ModelSelectDropdown', () => {
       command: 'KODRA.openSettings'
     });
   });
+
+  it('correctly selects the specific provider when multiple providers provide the same model ID', async () => {
+    renderComponent();
+
+    window.dispatchEvent(new MessageEvent('message', {
+      data: {
+        type: 'settingsData',
+        workspaceModels: [
+          {
+            id: 'llama-3.1-8b',
+            displayName: 'Llama 3.1 8B',
+            provider: 'groq',
+            providerConfigId: 'groq-1',
+            capabilities: { toolCalling: true, vision: false }
+          },
+          {
+            id: 'llama-3.1-8b',
+            displayName: 'Llama 3.1 8B',
+            provider: 'nvidia',
+            providerConfigId: 'nvidia-1',
+            capabilities: { toolCalling: true, vision: false }
+          }
+        ]
+      }
+    }));
+
+    fireEvent.click(screen.getByText('Select model'));
+    await waitFor(() => {
+      expect(screen.getByText('(groq)')).toBeDefined();
+      expect(screen.getByText('(nvidia)')).toBeDefined();
+    });
+
+    // Click on the NVIDIA one
+    fireEvent.click(screen.getByText('(nvidia)'));
+
+    // Verify it sent provider: 'nvidia' and providerConfigId: 'nvidia-1' instead of groq
+    expect(mockPostMessage).toHaveBeenCalledWith({
+      type: 'setProvider',
+      provider: 'nvidia',
+      providerConfigId: 'nvidia-1',
+    });
+    expect(mockPostMessage).toHaveBeenCalledWith({
+      type: 'setModel',
+      model: 'llama-3.1-8b',
+    });
+  });
 });
