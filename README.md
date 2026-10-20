@@ -6,7 +6,7 @@ Kodra lives directly inside your editor and supercharges your development workfl
 
 ---
 
-## Features
+---
 
 - **Context-Aware Conversations:** Chat with your AI assistant using deep context from your open files, current selections, and entire workspace.
 - **Agentic Tool Loop:** Kodra isn't just a chatbot—it's an agent. It can autonomously read your files, inspect directory structures, perform semantic searches, and propose targeted code edits.
@@ -20,15 +20,16 @@ Kodra lives directly inside your editor and supercharges your development workfl
   - **Groq** (Blazing fast inference)
 - **Beautiful Settings UI:** Easily configure multiple AI providers, discover supported models dynamically via APIs, and toggle capabilities directly from the custom settings interface.
 
-## Getting Started
+Kodra runs directly inside Visual Studio Code and integrates into daily development workflows through two main layers:
 
-### Prerequisites
+1. **Extension Host**: A Node.js and TypeScript backend that manages workspace files, language model integrations, semantic indexing, agent tool loops, and secure key storage.
+2. **Webview GUI**: A React, Redux Toolkit, and Vite interface rendering the chat window, model selection dropdowns, diff viewers, and provider settings.
 
 - **Node.js** v18 or later
 - **VS Code** v1.85 or later
 - *(Optional)* **Ollama** installed and running (if you plan to use local offline models).
 
-### Installation from Source
+---
 
 1. Clone the repository and install the core dependencies:
 
@@ -56,7 +57,7 @@ npm run compile
 4. Press `F5` in VS Code to launch a new **Extension Development Host** window.
 5. Open the Kodra chat panel using the sidebar icon or press `Ctrl+L` (`Cmd+L` on macOS).
 
-## Configuration
+---
 
 Kodra is highly customizable. You can configure your setup either through the native Kodra UI or via VS Code's built-in settings (`Ctrl+,` or `Cmd+,` and search for `KODRA`).
 
@@ -73,7 +74,7 @@ To set up API keys for cloud providers like **OpenAI, Anthropic, Gemini, or Groq
 - `KODRA.ollama.endpoint`: Override your local Ollama address if it differs from the default `http://127.0.0.1:11434`.
 - `KODRA.agent.requireApproval`: Ask for manual approval before applying any file modifications (Enabled by default for safety).
 
-## Development
+In a second terminal:
 
 Kodra is built with TypeScript, React, and the VS Code Extension API. 
 
@@ -89,6 +90,7 @@ npm run lint
 
 **Build production package:**
 ```bash
+npm run build:webview
 npm run package
 ```
 
@@ -96,6 +98,63 @@ npm run package
 ```bash
 npm run package:vsix
 ```
+
+This creates a file named `kodra-<version>.vsix` in the project root.
+
+### Install VSIX Locally
+
+Install the generated `.vsix` file into your local VS Code:
+
+```bash
+code --install-extension kodra-0.1.3.vsix
+```
+
+---
+
+## Troubleshooting
+
+### Webview Dependency Resolution Errors
+If `npm install` in `webview/` encounters peer dependency conflicts, use the `--legacy-peer-deps` flag:
+```bash
+cd webview && npm install --legacy-peer-deps
+```
+
+### Webview Does Not Load in Development Host
+1. Confirm that the webview assets are built:
+   ```bash
+   npm run build:webview
+   ```
+2. Verify that `webview/dist/index.html` exists.
+3. Open Developer Tools inside the Extension Development Host window via **Help > Toggle Developer Tools** to inspect console logs.
+
+### Ollama Connection Refused
+Ensure the Ollama daemon is running locally:
+```bash
+ollama serve
+```
+Test that it responds to HTTP requests:
+```bash
+curl http://127.0.0.1:11434/api/tags
+```
+
+---
+
+## Contributing
+
+1. Create a feature branch from `main`:
+   ```bash
+   git checkout -b feature/your-feature-name
+   ```
+2. Write modular, clean code following existing project patterns.
+3. Run tests and type checks:
+   ```bash
+   npm test
+   npx tsc --noEmit
+   cd webview && npm test && npm run tsc:check
+   ```
+4. Submit a Pull Request with a clear description of changes.
+
+---
 
 ## License
 

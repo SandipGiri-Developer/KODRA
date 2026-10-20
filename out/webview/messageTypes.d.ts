@@ -26,9 +26,12 @@ export type WebviewToExtensionMessage = {
 } | {
     type: 'setProvider';
     provider: string;
+    providerConfigId?: string;
 } | {
     type: 'setModel';
     model: string;
+    provider?: string;
+    providerConfigId?: string;
 } | {
     type: 'setApiKey';
     provider: string;
@@ -112,6 +115,7 @@ export type ExtensionToWebviewMessage = {
     model: string;
     hasApiKey: boolean;
     availableProviders: string[];
+    providerConfigId?: string;
 } | {
     type: 'connectionResult';
     success: boolean;
