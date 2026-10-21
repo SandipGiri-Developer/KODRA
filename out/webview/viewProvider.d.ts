@@ -9,6 +9,7 @@ import { CodebaseIndexer } from '../indexing/indexer';
 import { ProviderRegistry } from '../providers/registry';
 import { ExtensionToWebviewMessage } from './messageTypes';
 import { WebviewSettingsBridge, IWebviewMessagePoster } from './webviewSettingsBridge';
+import { ArtifactManager, ConversationRepository, ExecutionJournal, WorkspaceRegistry } from '../storage';
 export declare class KodraViewProvider implements vscode.WebviewViewProvider, IWebviewMessagePoster {
     private readonly extensionUri;
     private readonly providerRegistry;
@@ -16,10 +17,17 @@ export declare class KodraViewProvider implements vscode.WebviewViewProvider, IW
     static readonly viewType = "KODRA.chatView";
     private view?;
     private chatHistory;
+    private currentSessionHistory;
+    private currentSessionId;
     private agent;
     private readonly logger;
     private readonly settingsBridge;
-    constructor(extensionUri: vscode.Uri, providerRegistry: ProviderRegistry, indexer: CodebaseIndexer, settingsBridge?: WebviewSettingsBridge);
+    private conversationRepository?;
+    private executionJournal?;
+    private artifactManager?;
+    private workspaceRegistry?;
+    constructor(extensionUri: vscode.Uri, providerRegistry: ProviderRegistry, indexer: CodebaseIndexer, settingsBridge?: WebviewSettingsBridge, conversationRepository?: ConversationRepository, executionJournal?: ExecutionJournal, artifactManager?: ArtifactManager, workspaceRegistry?: WorkspaceRegistry);
+    private ensureStorageServices;
     resolveWebviewView(webviewView: vscode.WebviewView, context: vscode.WebviewViewResolveContext, _token: vscode.CancellationToken): void;
     /**
      * Start a new chat session.
@@ -47,6 +55,10 @@ export declare class KodraViewProvider implements vscode.WebviewViewProvider, IW
     sendIndexStatus(): void;
     postMessage(message: ExtensionToWebviewMessage): Thenable<boolean> | undefined;
     private handleMessage;
+    private handleIdeMessengerMessage;
+    private respondToIdeMessenger;
+    private generateTitleFromText;
+    private formatSessionAsMarkdown;
     private handleUserMessage;
     private getHtmlForWebview;
 }

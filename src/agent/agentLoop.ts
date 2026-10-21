@@ -128,6 +128,8 @@ export class AgentLoop {
       maxTokens?: number;
       contextFiles?: string[];
       toolCalling?: boolean;
+      firstTokenTimeoutMs?: number;
+      idleChunkTimeoutMs?: number;
     } = {},
   ): AsyncGenerator<AgentEvent> {
     const logger = Logger.getInstance();
@@ -219,6 +221,8 @@ export class AgentLoop {
           model: options.model,
           maxTokens: options.maxTokens,
           toolCalling: options.toolCalling,
+          firstTokenTimeoutMs: options.firstTokenTimeoutMs,
+          idleChunkTimeoutMs: options.idleChunkTimeoutMs,
         });
 
         for await (const chunk of textStream) {

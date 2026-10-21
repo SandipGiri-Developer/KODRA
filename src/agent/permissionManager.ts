@@ -11,7 +11,7 @@ export type ApprovalHandler = (request: PermissionRequest) => Promise<boolean>;
 
 export interface IPermissionManager {
   /** Request user approval for a tool invocation */
-  requestPermission(request: PermissionRequest): Promise<boolean>;
+  requestPermission(request: PermissionRequest, signal?: AbortSignal): Promise<boolean>;
   /** Resolve a pending permission request (e.g. from webview IPC) */
   resolveRequest(requestId: string, approved: boolean): boolean;
   /** Set custom approval handler (e.g. UI bridge or test mock) */
@@ -32,10 +32,14 @@ export class PermissionManager implements IPermissionManager {
     this.customHandler = handler;
   }
 
-  async requestPermission(request: PermissionRequest): Promise<boolean> {
+  async requestPermission(request: PermissionRequest, signal?: AbortSignal): Promise<boolean> {
     // If auto-approve is explicitly enabled (e.g. in headless tests), approve immediately
     if (this.defaultAutoApprove) {
       return true;
+    }
+
+    if (signal?.aborted) {
+      return false;
     }
 
     // If an external approval handler is provided, delegate to it
@@ -49,7 +53,23 @@ export class PermissionManager implements IPermissionManager {
 
     // Default: Wait for explicit resolution via resolveRequest(requestId, approved)
     return new Promise<boolean>((resolve) => {
-      this.pendingRequests.set(request.requestId, resolve);
+      let abortHandler: (() => void) | undefined;
+      const onResolve = (approved: boolean) => {
+        if (abortHandler && signal) {
+          signal.removeEventListener('abort', abortHandler);
+        }
+        resolve(approved);
+      };
+
+      if (signal) {
+        abortHandler = () => {
+          this.pendingRequests.delete(request.requestId);
+          resolve(false);
+        };
+        signal.addEventListener('abort', abortHandler, { once: true });
+      }
+
+      this.pendingRequests.set(request.requestId, onResolve);
     });
   }
 
