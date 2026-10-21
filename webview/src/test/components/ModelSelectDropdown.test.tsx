@@ -188,4 +188,97 @@ describe('ModelSelectDropdown', () => {
       model: 'llama-3.1-8b',
     });
   });
+
+  it('filters models when search query is entered', async () => {
+    renderComponent();
+
+    window.dispatchEvent(new MessageEvent('message', {
+      data: {
+        type: 'settingsData',
+        workspaceModels: [
+          {
+            id: 'gpt-4o',
+            displayName: 'GPT-4o',
+            provider: 'openai',
+            providerConfigId: 'openai-1',
+            capabilities: { toolCalling: true, vision: true }
+          },
+          {
+            id: 'claude-3-5-sonnet',
+            displayName: 'Claude 3.5 Sonnet',
+            provider: 'anthropic',
+            providerConfigId: 'anthropic-1',
+            capabilities: { toolCalling: true, vision: true }
+          },
+          {
+            id: 'llama-3.3-70b',
+            displayName: 'Llama 3.3 70B',
+            provider: 'groq',
+            providerConfigId: 'groq-1',
+            capabilities: { toolCalling: true, vision: false }
+          }
+        ]
+      }
+    }));
+
+    fireEvent.click(screen.getByText('Select model'));
+    await waitFor(() => {
+      expect(screen.getByText('GPT-4o')).toBeDefined();
+      expect(screen.getByText('Claude 3.5 Sonnet')).toBeDefined();
+      expect(screen.getByText('Llama 3.3 70B')).toBeDefined();
+    });
+
+    const searchInput = screen.getByTestId('model-search-input');
+    fireEvent.change(searchInput, { target: { value: 'claude' } });
+
+    await waitFor(() => {
+      expect(screen.getByText('Claude 3.5 Sonnet')).toBeDefined();
+      expect(screen.queryByText('GPT-4o')).toBeNull();
+      expect(screen.queryByText('Llama 3.3 70B')).toBeNull();
+      expect(screen.getByText('1 of 3')).toBeDefined();
+    });
+
+    // Clear search
+    const clearBtn = screen.getByTestId('clear-model-search');
+    fireEvent.click(clearBtn);
+
+    await waitFor(() => {
+      expect(screen.getByText('GPT-4o')).toBeDefined();
+      expect(screen.getByText('Claude 3.5 Sonnet')).toBeDefined();
+      expect(screen.getByText('Llama 3.3 70B')).toBeDefined();
+    });
+  });
+
+  it('shows empty state message when no models match search query', async () => {
+    renderComponent();
+
+    window.dispatchEvent(new MessageEvent('message', {
+      data: {
+        type: 'settingsData',
+        workspaceModels: [
+          {
+            id: 'gpt-4o',
+            displayName: 'GPT-4o',
+            provider: 'openai',
+            providerConfigId: 'openai-1',
+            capabilities: { toolCalling: true, vision: true }
+          }
+        ]
+      }
+    }));
+
+    fireEvent.click(screen.getByText('Select model'));
+    await waitFor(() => {
+      expect(screen.getByText('GPT-4o')).toBeDefined();
+    });
+
+    const searchInput = screen.getByTestId('model-search-input');
+    fireEvent.change(searchInput, { target: { value: 'nonexistent-model' } });
+
+    await waitFor(() => {
+      expect(screen.getByText('No models found matching "nonexistent-model"')).toBeDefined();
+      expect(screen.queryByText('GPT-4o')).toBeNull();
+    });
+  });
 });
+

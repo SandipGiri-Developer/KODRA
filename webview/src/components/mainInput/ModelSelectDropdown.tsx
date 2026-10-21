@@ -6,10 +6,12 @@ import {
   WrenchScrewdriverIcon,
   PhotoIcon,
   LightBulbIcon,
-  TrashIcon
+  TrashIcon,
+  MagnifyingGlassIcon,
+  XMarkIcon,
 } from "@heroicons/react/24/outline";
 import { Anthropic, OpenAI, Gemini, Ollama, Groq, DeepSeek, Nvidia } from "@lobehub/icons";
-import React, { useState, useEffect, useContext } from "react";
+import React, { useState, useEffect, useContext, useRef } from "react";
 import { Listbox, ListboxButton, ListboxOption, ListboxOptions } from "../ui/Listbox";
 import { Divider } from "../ui/Divider";
 import { useAppSelector, useAppDispatch } from "../../redux/hooks";
@@ -61,6 +63,8 @@ export function ModelSelectDropdown() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showAddModelDialog, setShowAddModelDialog] = useState(false);
+  const [searchQuery, setSearchQuery] = useState<string>("");
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   // Listen for models discovered and config updates directly since IdeMessenger wraps them differently
   useEffect(() => {
@@ -94,6 +98,9 @@ export function ModelSelectDropdown() {
     if ((window as any).vscode) {
       (window as any).vscode.postMessage({ type: "getSettings" });
     }
+    setTimeout(() => {
+      searchInputRef.current?.focus();
+    }, 50);
   };
 
   const selectedWorkspaceModel = models.find(m => 
@@ -106,7 +113,18 @@ export function ModelSelectDropdown() {
   const selectedKey = selectedWorkspaceModel ? getModelKey(selectedWorkspaceModel) : currentModel;
   const displayTitle = selectedWorkspaceModel ? selectedWorkspaceModel.displayName : currentModel;
 
+  const filteredModels = models.filter((m) => {
+    if (!searchQuery.trim()) return true;
+    const q = searchQuery.toLowerCase().trim();
+    return (
+      (m.displayName && m.displayName.toLowerCase().includes(q)) ||
+      (m.id && m.id.toLowerCase().includes(q)) ||
+      (m.provider && m.provider.toLowerCase().includes(q))
+    );
+  });
+
   const handleSelect = (val: string) => {
+    setSearchQuery("");
     if (val === "CONFIGURE_MODELS") {
       if ((window as any).vscode) {
         (window as any).vscode.postMessage({
@@ -183,10 +201,48 @@ export function ModelSelectDropdown() {
       </ListboxButton>
       <ListboxOptions
         anchor="top start"
-        className="w-64 bg-vsc-background border border-vsc-commandCenter-inactiveBorder rounded-md shadow-xl z-50 mb-1"
+        className="w-72 bg-vsc-background border border-vsc-commandCenter-inactiveBorder rounded-md shadow-xl z-50 mb-1 flex flex-col"
       >
         <div className="flex justify-between items-center px-3 py-2 border-b border-vsc-commandCenter-inactiveBorder">
           <span className="text-xs font-semibold">Workspace Models</span>
+          {models.length > 0 && (
+            <span className="text-[10px] text-gray-400">
+              {searchQuery.trim() ? `${filteredModels.length} of ${models.length}` : `${models.length}`}
+            </span>
+          )}
+        </div>
+
+        {/* Search input bar */}
+        <div className="p-2 border-b border-vsc-commandCenter-inactiveBorder bg-vsc-input-background/30">
+          <div className="relative flex items-center">
+            <MagnifyingGlassIcon className="h-3.5 w-3.5 absolute left-2 text-gray-400 pointer-events-none" />
+            <input
+              ref={searchInputRef}
+              type="text"
+              data-testid="model-search-input"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={(e) => e.stopPropagation()}
+              onClick={(e) => e.stopPropagation()}
+              placeholder="Search models..."
+              className="w-full bg-vsc-input-background text-vsc-foreground text-xs rounded pl-7 pr-6 py-1 border border-vsc-commandCenter-inactiveBorder focus:outline-none focus:border-vsc-focusBorder placeholder:text-gray-400"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                data-testid="clear-model-search"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSearchQuery("");
+                  searchInputRef.current?.focus();
+                }}
+                className="absolute right-1.5 p-0.5 text-gray-400 hover:text-vsc-foreground rounded cursor-pointer"
+                title="Clear search"
+              >
+                <XMarkIcon className="h-3 w-3" />
+              </button>
+            )}
+          </div>
         </div>
         
         <div className="no-scrollbar max-h-[300px] overflow-y-auto">
@@ -202,7 +258,13 @@ export function ModelSelectDropdown() {
           <div className="px-3 py-2 text-xs text-gray-500 italic">No models found.</div>
         )}
 
-        {!isLoading && models.map((model, idx) => {
+        {!isLoading && !error && models.length > 0 && filteredModels.length === 0 && (
+          <div className="px-3 py-3 text-xs text-gray-400 italic text-center">
+            No models found matching "{searchQuery}"
+          </div>
+        )}
+
+        {!isLoading && filteredModels.map((model, idx) => {
           const modelKey = getModelKey(model);
           const isSelected = selectedWorkspaceModel 
             ? getModelKey(selectedWorkspaceModel) === modelKey
@@ -255,3 +317,4 @@ export function ModelSelectDropdown() {
     </Listbox>
   );
 }
+

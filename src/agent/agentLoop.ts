@@ -16,6 +16,7 @@ import { PermissionManager } from './permissionManager';
 import { IToolRegistry, ToolRegistry } from './toolRegistry';
 import { getAllTools } from './tools';
 import { AgentEvent, AgentNormalizedEvent, ITool } from './types';
+import { ContextEngine, IContextEngine } from './contextEngine';
 import { IWorkspaceService, VSCodeWorkspaceService } from './workspaceService';
 
 /**
@@ -65,24 +66,50 @@ export class AgentLoop {
   private readonly permissionManager: PermissionManager;
   private readonly contextManager: ContextManager;
   private readonly workspaceService: IWorkspaceService;
+  private readonly contextEngine: IContextEngine;
   private readonly eventBus: AgentEventBus;
+
+  private readonly pendingContextOps: Promise<void>[] = [];
 
   constructor(
     private readonly indexer?: CodebaseIndexer,
     private readonly requireApproval: boolean = true,
     initialTools?: ITool[],
     workspaceService?: IWorkspaceService,
+    contextEngine?: IContextEngine,
   ) {
     this.workspaceService = workspaceService ?? new VSCodeWorkspaceService();
+    this.contextEngine = contextEngine ?? ContextEngine.createForWorkspace(this.workspaceService);
     const toolsToRegister = initialTools ?? getAllTools(this.workspaceService);
     this.registry = new ToolRegistry(toolsToRegister);
     this.permissionManager = new PermissionManager(!this.requireApproval);
     this.eventBus = new AgentEventBus();
-    this.contextManager = new ContextManager(this.workspaceService);
+    this.contextManager = new ContextManager(this.workspaceService, this.contextEngine);
 
     this.runtime = new AgentRuntime(this.registry, this.permissionManager, {
       eventBus: this.eventBus,
       contextManager: this.contextManager,
+    });
+
+    // Update ContextEngine on tool completion and persist on agent completion
+    this.eventBus.on((event: AgentNormalizedEvent) => {
+      try {
+        if (event.type === 'tool.completed') {
+          const p = this.contextEngine
+            .recordToolCompletion(event.toolName, event.args || {}, event.result)
+            .catch((err) => {
+              Logger.getInstance().warn('ContextEngine event processing error (non-fatal)', err);
+            });
+          this.pendingContextOps.push(p);
+        } else if (event.type === 'agent.completed') {
+          const p = this.contextEngine.save().catch((err) => {
+            Logger.getInstance().warn('ContextEngine save error (non-fatal)', err);
+          });
+          this.pendingContextOps.push(p);
+        }
+      } catch (err) {
+        Logger.getInstance().warn('ContextEngine event dispatch error (non-fatal)', err);
+      }
     });
   }
 
@@ -105,6 +132,13 @@ export class AgentLoop {
    */
   getContextManager(): ContextManager {
     return this.contextManager;
+  }
+
+  /**
+   * Get the underlying ContextEngine.
+   */
+  getContextEngine(): IContextEngine {
+    return this.contextEngine;
   }
 
   /**
@@ -214,6 +248,7 @@ export class AgentLoop {
         const messages = await this.contextManager.buildMessages(userMessage, conversationHistory, {
           indexer: this.indexer,
           contextFiles: options.contextFiles,
+          contextEngine: this.contextEngine,
         });
 
         const textStream = this.runtime.run(userMessage, messages, provider, {
@@ -232,6 +267,11 @@ export class AgentLoop {
         logger.error('Error during agent execution in AgentLoop', err);
         eventQueue.push({ type: 'error', error: err.message || String(err) });
       } finally {
+        try {
+          await Promise.all(this.pendingContextOps);
+        } catch {
+          // non-fatal
+        }
         eventQueue.finish();
       }
     })();

@@ -11,6 +11,7 @@ import { AgentRuntime } from './agentRuntime';
 import { ContextManager } from './contextManager';
 import { IToolRegistry } from './toolRegistry';
 import { AgentEvent, ITool } from './types';
+import { IContextEngine } from './contextEngine';
 import { IWorkspaceService } from './workspaceService';
 export declare class AgentLoop {
     private readonly indexer?;
@@ -20,8 +21,10 @@ export declare class AgentLoop {
     private readonly permissionManager;
     private readonly contextManager;
     private readonly workspaceService;
+    private readonly contextEngine;
     private readonly eventBus;
-    constructor(indexer?: CodebaseIndexer | undefined, requireApproval?: boolean, initialTools?: ITool[], workspaceService?: IWorkspaceService);
+    private readonly pendingContextOps;
+    constructor(indexer?: CodebaseIndexer | undefined, requireApproval?: boolean, initialTools?: ITool[], workspaceService?: IWorkspaceService, contextEngine?: IContextEngine);
     /**
      * Get the underlying ToolRegistry.
      */
@@ -34,6 +37,10 @@ export declare class AgentLoop {
      * Get the underlying ContextManager.
      */
     getContextManager(): ContextManager;
+    /**
+     * Get the underlying ContextEngine.
+     */
+    getContextEngine(): IContextEngine;
     /**
      * Get the underlying WorkspaceService.
      */

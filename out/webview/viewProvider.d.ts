@@ -26,6 +26,7 @@ export declare class KodraViewProvider implements vscode.WebviewViewProvider, IW
     private executionJournal?;
     private artifactManager?;
     private workspaceRegistry?;
+    private contextEngine?;
     constructor(extensionUri: vscode.Uri, providerRegistry: ProviderRegistry, indexer: CodebaseIndexer, settingsBridge?: WebviewSettingsBridge, conversationRepository?: ConversationRepository, executionJournal?: ExecutionJournal, artifactManager?: ArtifactManager, workspaceRegistry?: WorkspaceRegistry);
     private ensureStorageServices;
     resolveWebviewView(webviewView: vscode.WebviewView, context: vscode.WebviewViewResolveContext, _token: vscode.CancellationToken): void;

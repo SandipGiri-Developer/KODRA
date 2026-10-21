@@ -7,6 +7,7 @@
 
 import * as vscode from 'vscode';
 import { AgentLoop } from '../agent/agentLoop';
+import { ContextEngine, IContextEngine } from '../agent/contextEngine';
 import { CodebaseIndexer } from '../indexing/indexer';
 import { ProviderRegistry } from '../providers/registry';
 import { Logger } from '../utils/logger';
@@ -43,6 +44,7 @@ export class KodraViewProvider implements vscode.WebviewViewProvider, IWebviewMe
   private executionJournal?: ExecutionJournal;
   private artifactManager?: ArtifactManager;
   private workspaceRegistry?: WorkspaceRegistry;
+  private contextEngine?: IContextEngine;
 
   constructor(
     private readonly extensionUri: vscode.Uri,
@@ -571,10 +573,21 @@ export class KodraViewProvider implements vscode.WebviewViewProvider, IWebviewMe
       const requireApproval = vscode.workspace.getConfiguration('KODRA').get<boolean>('agent.requireApproval', true);
       const maxIterations = vscode.workspace.getConfiguration('KODRA').get<number>('agent.maxIterations', 15);
 
+      if (!this.contextEngine) {
+        this.contextEngine = ContextEngine.createForWorkspace();
+        await this.contextEngine.load();
+      }
+
       if (this.agent) {
         this.agent.cancel();
       }
-      this.agent = new AgentLoop(this.indexer, requireApproval);
+      this.agent = new AgentLoop(
+        this.indexer,
+        requireApproval,
+        undefined,
+        undefined,
+        this.contextEngine,
+      );
 
       // ── Bridge AgentEventBus → agentActivity IPC messages ────────────────────
       const agentStartTime = Date.now();

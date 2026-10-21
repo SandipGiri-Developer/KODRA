@@ -229,6 +229,94 @@ describe("ProvidersSettings", () => {
     });
   });
 
+  it("filters discovered models using search input and clears search", async () => {
+    renderComponent();
+    dispatchSettings([]);
+    clickAddProviderBtn();
+    await screen.findByText("Connect & Discover Models");
+    fireEvent.click(screen.getByText("Connect & Discover Models"));
+    dispatchModelsDiscovered([
+      { id: "llama3", displayName: "Llama 3", capabilities: { toolCalling: true, vision: false, reasoning: false, streaming: true } },
+      { id: "codellama", displayName: "Code Llama", capabilities: { toolCalling: true, vision: false, reasoning: false, streaming: true } },
+      { id: "mistral", displayName: "Mistral 7B", capabilities: { toolCalling: true, vision: false, reasoning: false, streaming: true } },
+    ]);
+    await waitFor(() => {
+      expect(screen.getByText("Llama 3")).toBeDefined();
+      expect(screen.getByText("Code Llama")).toBeDefined();
+      expect(screen.getByText("Mistral 7B")).toBeDefined();
+    });
+
+    const searchInput = screen.getByTestId("provider-model-search");
+    fireEvent.change(searchInput, { target: { value: "mistral" } });
+
+    await waitFor(() => {
+      expect(screen.getByText("Mistral 7B")).toBeDefined();
+      expect(screen.queryByText("Llama 3")).toBeNull();
+      expect(screen.queryByText("Code Llama")).toBeNull();
+      expect(screen.getByText(/Showing 1 of 3 models/i)).toBeDefined();
+    });
+
+    // Clear search
+    const clearBtn = screen.getByTestId("clear-provider-model-search");
+    fireEvent.click(clearBtn);
+
+    await waitFor(() => {
+      expect(screen.getByText("Llama 3")).toBeDefined();
+      expect(screen.getByText("Code Llama")).toBeDefined();
+      expect(screen.getByText("Mistral 7B")).toBeDefined();
+    });
+  });
+
+  it("shows empty state when discovered models search has no match", async () => {
+    renderComponent();
+    dispatchSettings([]);
+    clickAddProviderBtn();
+    await screen.findByText("Connect & Discover Models");
+    fireEvent.click(screen.getByText("Connect & Discover Models"));
+    dispatchModelsDiscovered([
+      { id: "llama3", displayName: "Llama 3", capabilities: { toolCalling: true, vision: false, reasoning: false, streaming: true } },
+    ]);
+    await screen.findByText("Llama 3");
+
+    const searchInput = screen.getByTestId("provider-model-search");
+    fireEvent.change(searchInput, { target: { value: "claude-opus" } });
+
+    await waitFor(() => {
+      expect(screen.getByText('No models found matching "claude-opus"')).toBeDefined();
+      expect(screen.queryByText("Llama 3")).toBeNull();
+    });
+  });
+
+  it("allows selecting and deselecting matching models", async () => {
+    renderComponent();
+    dispatchSettings([]);
+    clickAddProviderBtn();
+    await screen.findByText("Connect & Discover Models");
+    fireEvent.click(screen.getByText("Connect & Discover Models"));
+    dispatchModelsDiscovered([
+      { id: "llama3", displayName: "Llama 3", capabilities: { toolCalling: true, vision: false, reasoning: false, streaming: true } },
+      { id: "codellama", displayName: "Code Llama", capabilities: { toolCalling: true, vision: false, reasoning: false, streaming: true } },
+      { id: "mistral", displayName: "Mistral 7B", capabilities: { toolCalling: true, vision: false, reasoning: false, streaming: true } },
+    ]);
+    await screen.findByText("Llama 3");
+
+    const searchInput = screen.getByTestId("provider-model-search");
+    fireEvent.change(searchInput, { target: { value: "llama" } });
+
+    await waitFor(() => {
+      expect(screen.getByText("Select all matching")).toBeDefined();
+    });
+
+    fireEvent.click(screen.getByText("Select all matching"));
+
+    // Check that selected count reflects 2 selected
+    expect(await screen.findByText(/2 selected/i)).toBeDefined();
+
+    // Now deselect all matching
+    fireEvent.click(screen.getByText("Deselect all matching"));
+    expect(await screen.findByText(/0 selected/i)).toBeDefined();
+  });
+
   it("hides form and returns to Add Provider button on cancel", async () => {
     renderComponent();
     dispatchSettings([]);

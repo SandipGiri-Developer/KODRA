@@ -9,12 +9,14 @@
 import { CodebaseIndexer } from '../indexing/indexer';
 import { SearchResult } from '../indexing/types';
 import { ChatMessage } from '../providers/types';
+import { IContextEngine } from './contextEngine';
 import { IWorkspaceService, VSCodeWorkspaceService } from './workspaceService';
 
 export interface BuildMessagesOptions {
   contextFiles?: string[];
   customInstructions?: string;
   indexer?: CodebaseIndexer;
+  contextEngine?: IContextEngine;
 }
 
 export interface IContextManager {
@@ -27,7 +29,10 @@ export interface IContextManager {
 }
 
 export class ContextManager implements IContextManager {
-  constructor(private readonly workspaceService: IWorkspaceService = new VSCodeWorkspaceService()) {}
+  constructor(
+    private readonly workspaceService: IWorkspaceService = new VSCodeWorkspaceService(),
+    private readonly contextEngine?: IContextEngine,
+  ) {}
 
   buildSystemPrompt(options: { customInstructions?: string } = {}): string {
     const ws = this.workspaceService.getActiveWorkspaceFolder();
@@ -58,19 +63,13 @@ export class ContextManager implements IContextManager {
       '- `edit_file`: Replace specific target text with new text in existing files.',
       '- `terminal`: Execute shell commands (e.g., tests, build, git). Requires explicit user permission.',
       '',
-      'CRITICAL INSTRUCTION FOR AUTONOMOUS PROJECT UNDERSTANDING:',
-      'When the user asks questions about the current project or repository (for example:',
-      '  - "tell me something about the project"',
-      '  - "what files are in this project?"',
-      '  - "find where the main application starts"',
-      '  - "explain how this project is structured"',
-      '  - "read the package/configuration file and summarize it"',
-      '  or any other repository-level questions):',
+      'CRITICAL INSTRUCTION FOR AUTONOMOUS PROJECT UNDERSTANDING & EXPLORATION EFFICIENCY:',
+      'When addressing repository-level questions, code analysis, or modification tasks:',
       '1. NEVER state that you lack information about the project or ask the user to explain it manually.',
-      '2. You MUST autonomously inspect the workspace using your registered tools!',
-      '3. Use `list_directory` to explore the project structure and discover files in the root or subfolders.',
-      '4. Use `read_file` to read relevant project files such as package.json, README, configuration, or entry point files.',
-      '5. Use `search_code` to locate key functions, exports, or startup logic.',
+      '2. Start with the available verified context and evidence provided in this prompt. If verified knowledge already provides the required information, synthesize the answer directly without redundant directory listing or re-reading unchanged files.',
+      '3. When specific details, files, or symbols are missing or stale, perform targeted discovery using `search_code` or `read_file`.',
+      '4. Avoid repeatedly listing directory structures when the contents are already known and unchanged.',
+      '5. ALWAYS inspect the current source lines of a file with `read_file` before applying modifications with `edit_file`. Context memory is an optimization, not a replacement for verifying current source before code changes.',
       '6. Dynamically choose what information you need and synthesize a clear, helpful, accurate answer based directly on the actual repository.',
       '',
       'General Guidelines:',
@@ -94,8 +93,26 @@ export class ContextManager implements IContextManager {
 
     const messages: ChatMessage[] = [
       { role: 'system', content: systemPrompt },
-      ...conversationHistory,
     ];
+
+    // Gather verified context from ContextEngine if available
+    const engine = options.contextEngine ?? this.contextEngine;
+    if (engine) {
+      try {
+        const verifiedContext = await engine.getVerifiedContext(userMessage);
+        if (verifiedContext && verifiedContext.trim().length > 0) {
+          messages.push({
+            role: 'system',
+            content: verifiedContext,
+          });
+        }
+      } catch {
+        // Non-fatal
+      }
+    }
+
+    // Include conversation history
+    messages.push(...conversationHistory);
 
     // Gather codebase context via indexer if available
     if (options.indexer) {

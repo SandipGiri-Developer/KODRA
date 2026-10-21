@@ -208,6 +208,7 @@ export class ToolExecutor implements IToolExecutor {
         executionId,
         toolCallId: callId,
         toolName: tool.name,
+        args: parsedArgs,
         result,
         durationMs,
         timestamp: Date.now(),

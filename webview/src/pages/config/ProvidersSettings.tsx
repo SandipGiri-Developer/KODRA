@@ -14,6 +14,8 @@ import {
   PencilIcon,
   EyeIcon,
   EyeSlashIcon,
+  MagnifyingGlassIcon,
+  XMarkIcon,
 } from "@heroicons/react/24/outline";
 import {
   Anthropic,
@@ -570,6 +572,8 @@ function AddProviderForm({
   const [status, setStatus] =
     useState<DiscoveryStatus>("idle");
 
+  const [modelSearchQuery, setModelSearchQuery] = useState("");
+
   useEffect(() => {
     const handler = (event: MessageEvent) => {
       const data = event.data;
@@ -596,6 +600,7 @@ function AddProviderForm({
       );
 
       setDiscoveredModels(chatModels);
+      setModelSearchQuery("");
 
       if (editingProvider) {
         const existingProviderModels =
@@ -633,6 +638,7 @@ function AddProviderForm({
     setStatus("idle");
     setDiscoveredModels([]);
     setSelectedIds([]);
+    setModelSearchQuery("");
     setConnectionError(null);
     setEndpoint("");
     setApiKey("");
@@ -644,6 +650,7 @@ function AddProviderForm({
     setStatus("loading");
     setDiscoveredModels([]);
     setSelectedIds([]);
+    setModelSearchQuery("");
 
     const finalEndpoint =
       endpoint.trim() ||
@@ -1078,9 +1085,113 @@ function AddProviderForm({
               </span>
             </div>
 
-            <p className="mt-1.5 mb-2 text-[11.5px] leading-relaxed text-[#94A3B8]">
+            <p className="mt-1.5 mb-1 text-[11.5px] leading-relaxed text-[#94A3B8]">
               <span className="font-medium text-[#A3ADC2]">Note:</span> Please select only the models that are accessible with your provided API key.
             </p>
+
+            {/* Search Bar & Quick Select */}
+            {discoveredModels.length > 0 && (
+              <div className="flex flex-col gap-2">
+                <div className="relative flex items-center">
+                  <MagnifyingGlassIcon className="pointer-events-none absolute left-3 h-4 w-4 text-[#667085]" />
+                  <input
+                    type="text"
+                    data-testid="provider-model-search"
+                    value={modelSearchQuery}
+                    onChange={(e) => setModelSearchQuery(e.target.value)}
+                    placeholder="Search discovered models..."
+                    className="
+                      w-full
+                      rounded-[7px]
+                      border
+                      border-[#1E2333]
+                      bg-[#0C0E14]
+                      py-2
+                      pr-8
+                      pl-9
+                      text-[12px]
+                      text-[#E5EAF1]
+                      placeholder-[#5F6979]
+                      transition-colors
+                      focus:border-[#6366F1]
+                      focus:outline-none
+                    "
+                  />
+                  {modelSearchQuery && (
+                    <button
+                      type="button"
+                      data-testid="clear-provider-model-search"
+                      onClick={() => setModelSearchQuery("")}
+                      className="absolute right-2.5 p-0.5 text-[#5F6979] hover:text-[#E5EAF1] rounded cursor-pointer"
+                      title="Clear search"
+                    >
+                      <XMarkIcon className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
+
+                <div className="flex items-center justify-between text-[11px] text-[#7D8798] px-0.5">
+                  <span>
+                    {modelSearchQuery.trim()
+                      ? `Showing ${discoveredModels.filter((m) => {
+                          const q = modelSearchQuery.toLowerCase().trim();
+                          return (
+                            (m.displayName && m.displayName.toLowerCase().includes(q)) ||
+                            (m.id && m.id.toLowerCase().includes(q))
+                          );
+                        }).length} of ${discoveredModels.length} models (${selectedIds.length} selected)`
+                      : `${discoveredModels.length} models found (${selectedIds.length} selected)`}
+                  </span>
+                  {discoveredModels.filter((m) => {
+                    const q = modelSearchQuery.toLowerCase().trim();
+                    return (
+                      (m.displayName && m.displayName.toLowerCase().includes(q)) ||
+                      (m.id && m.id.toLowerCase().includes(q))
+                    );
+                  }).length > 0 && (
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const q = modelSearchQuery.toLowerCase().trim();
+                          const matching = discoveredModels.filter((m) => {
+                            if (!q) return true;
+                            return (
+                              (m.displayName && m.displayName.toLowerCase().includes(q)) ||
+                              (m.id && m.id.toLowerCase().includes(q))
+                            );
+                          });
+                          const idsToAdd = matching.map((m) => m.id);
+                          setSelectedIds((prev) => Array.from(new Set([...prev, ...idsToAdd])));
+                        }}
+                        className="text-[#818CF8] hover:text-[#A5B4FC] cursor-pointer hover:underline"
+                      >
+                        Select all {modelSearchQuery.trim() ? "matching" : ""}
+                      </button>
+                      <span>•</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const q = modelSearchQuery.toLowerCase().trim();
+                          const matching = discoveredModels.filter((m) => {
+                            if (!q) return true;
+                            return (
+                              (m.displayName && m.displayName.toLowerCase().includes(q)) ||
+                              (m.id && m.id.toLowerCase().includes(q))
+                            );
+                          });
+                          const idsToRemove = new Set(matching.map((m) => m.id));
+                          setSelectedIds((prev) => prev.filter((id) => !idsToRemove.has(id)));
+                        }}
+                        className="text-[#7D8798] hover:text-[#94A3B8] cursor-pointer hover:underline"
+                      >
+                        Deselect all {modelSearchQuery.trim() ? "matching" : ""}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
 
             {discoveredModels.length === 0 ? (
               <div
@@ -1097,73 +1208,104 @@ function AddProviderForm({
               >
                 No chat-capable models found.
               </div>
-            ) : (
-              <div
-                className="
-                  flex
-                  max-h-[280px]
-                  flex-col
-                  gap-1
-                  overflow-y-auto
-                  rounded-[8px]
-                  border
-                  border-[#1E2333]
-                  bg-[#0C0E14]
-                  p-2
-                "
-              >
-                {discoveredModels.map((model) => {
-                  const selected =
-                    selectedIds.includes(model.id);
+            ) : (() => {
+              const q = modelSearchQuery.toLowerCase().trim();
+              const filtered = discoveredModels.filter((m) => {
+                if (!q) return true;
+                return (
+                  (m.displayName && m.displayName.toLowerCase().includes(q)) ||
+                  (m.id && m.id.toLowerCase().includes(q))
+                );
+              });
 
-                  return (
-                    <label
-                      key={model.id}
-                      className={`
-                        flex
-                        cursor-pointer
-                        items-start
-                        gap-3
-                        rounded-[7px]
-                        border
-                        p-3
-                        transition-colors
-                        ${
-                          selected
-                            ? "border-[#6366F1]/45 bg-[#181C2A]"
-                            : "border-transparent hover:bg-[#151924]"
-                        }
-                      `}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={selected}
-                        onChange={() =>
-                          handleToggleModel(model.id)
-                        }
-                        className="
-                          mt-1
-                          h-4
-                          w-4
-                          flex-shrink-0
-                          accent-[#6366F1]
-                        "
-                      />
+              if (filtered.length === 0) {
+                return (
+                  <div
+                    className="
+                      rounded-[7px]
+                      border
+                      border-[#1E2333]
+                      bg-[#0C0E14]
+                      px-4
+                      py-4
+                      text-center
+                      text-[12px]
+                      text-[#7D8798]
+                    "
+                  >
+                    No models found matching "{modelSearchQuery}"
+                  </div>
+                );
+              }
 
-                      <div className="min-w-0">
-                        <div className="truncate text-[12px] font-medium leading-5 text-[#E5EAF1]">
-                          {model.displayName}
-                        </div>
+              return (
+                <div
+                  className="
+                    flex
+                    max-h-[280px]
+                    flex-col
+                    gap-1
+                    overflow-y-auto
+                    rounded-[8px]
+                    border
+                    border-[#1E2333]
+                    bg-[#0C0E14]
+                    p-2
+                  "
+                >
+                  {filtered.map((model) => {
+                    const selected =
+                      selectedIds.includes(model.id);
 
-                        <CapabilityChips
-                          capabilities={model.capabilities}
+                    return (
+                      <label
+                        key={model.id}
+                        className={`
+                          flex
+                          cursor-pointer
+                          items-start
+                          gap-3
+                          rounded-[7px]
+                          border
+                          p-3
+                          transition-colors
+                          ${
+                            selected
+                              ? "border-[#6366F1]/45 bg-[#181C2A]"
+                              : "border-transparent hover:bg-[#151924]"
+                          }
+                        `}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selected}
+                          onChange={() =>
+                            handleToggleModel(model.id)
+                          }
+                          className="
+                            mt-1
+                            h-4
+                            w-4
+                            flex-shrink-0
+                            accent-[#6366F1]
+                          "
                         />
-                      </div>
-                    </label>
-                  );
-                })}
-              </div>
-            )}
+
+                        <div className="min-w-0">
+                          <div className="truncate text-[12px] font-medium leading-5 text-[#E5EAF1]">
+                            {model.displayName}
+                          </div>
+
+                          <CapabilityChips
+                            capabilities={model.capabilities}
+                          />
+                        </div>
+                      </label>
+                    );
+                  })}
+                </div>
+              );
+            })()}
           </div>
         )}
 
