@@ -244,6 +244,13 @@ export class AgentLoop {
     // Start background runtime execution
     (async () => {
       try {
+        // Automatically ensure ContextEngine state is loaded before message construction
+        try {
+          await this.contextEngine.ensureLoaded();
+        } catch {
+          // non-fatal
+        }
+
         // Build initial messages with ContextManager
         const messages = await this.contextManager.buildMessages(userMessage, conversationHistory, {
           indexer: this.indexer,
