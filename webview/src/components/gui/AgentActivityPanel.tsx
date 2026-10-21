@@ -5,8 +5,15 @@
  * Groups tools and thoughts by the resource they explore.
  */
 
-import { useEffect, useState } from "react";
-import { WrenchScrewdriverIcon, XMarkIcon, EllipsisHorizontalIcon } from "@heroicons/react/24/outline";
+import { useEffect, useRef, useState } from "react";
+import {
+  WrenchScrewdriverIcon,
+  XMarkIcon,
+  EllipsisHorizontalIcon,
+  SparklesIcon,
+  ExclamationCircleIcon,
+  StopIcon,
+} from "@heroicons/react/24/outline";
 import { formatDuration } from "../../util/time";
 
 // ─── Activity event types ────────────────────────────────────────────────────
@@ -341,9 +348,17 @@ interface AgentActivityPanelProps {
 }
 
 export function AgentActivityPanel({ activities, isStreaming = false }: AgentActivityPanelProps) {
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(() => Boolean(isStreaming));
   const [hover, setHover] = useState(false);
   const [now, setNow] = useState(Date.now());
+  const prevStreamingRef = useRef(isStreaming);
+
+  useEffect(() => {
+    if (prevStreamingRef.current && !isStreaming) {
+      setOpen(false);
+    }
+    prevStreamingRef.current = isStreaming;
+  }, [isStreaming]);
 
   // 1. Process flat list of root events
   let startTs: number | null = null;
@@ -487,50 +502,108 @@ export function AgentActivityPanel({ activities, isStreaming = false }: AgentAct
   }
 
   return (
-    <div role="region" aria-label="Agent activity" style={{ marginBottom: 8, userSelect: "text" }}>
-      {/* ── Collapsible header ─────────────────────────────────────── */}
+    <div
+      role="region"
+      aria-label="Agent activity"
+      style={{
+        marginTop: 2,
+        marginBottom: open ? 6 : 2,
+        marginLeft: 8,
+        marginRight: 8,
+        userSelect: "text",
+      }}
+    >
+      {/* ── Collapsible header pill ─────────────────────────────────────── */}
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
         onMouseEnter={() => setHover(true)}
         onMouseLeave={() => setHover(false)}
         style={{
-          display: "flex",
+          display: "inline-flex",
           alignItems: "center",
-          gap: 5,
-          background: "none",
-          border: "none",
+          gap: 6,
+          background: hover
+            ? "var(--vscode-toolbar-hoverBackground, rgba(255, 255, 255, 0.08))"
+            : "var(--vscode-badge-background, rgba(255, 255, 255, 0.04))",
+          border: "1px solid",
+          borderColor: hover
+            ? "var(--vscode-focusBorder, rgba(255, 255, 255, 0.2))"
+            : "var(--vscode-widget-border, rgba(255, 255, 255, 0.08))",
+          borderRadius: 14,
           cursor: "pointer",
-          padding: "2px 0",
-          fontSize: 12,
+          padding: "2.5px 9px 2.5px 7px",
+          fontSize: 11.5,
           fontWeight: 500,
+          color: hover
+            ? "var(--vscode-editor-foreground, #ffffff)"
+            : "var(--vscode-descriptionForeground, #9d9d9d)",
+          transition: "all 0.15s ease",
+          boxShadow: hover ? "0 1px 3px rgba(0, 0, 0, 0.15)" : "none",
         }}
         aria-expanded={open}
+        title={open ? "Click to collapse agent activity" : "Click to view agent activity"}
       >
-        <span
-          style={{
-            color: hover ? "var(--vscode-editor-foreground, #ffffff)" : "var(--vscode-descriptionForeground, #9d9d9d)",
-            transition: "color 0.1s ease",
-          }}
-        >
-          {statusVerb} for {durationText}
-        </span>
-        <span style={{ color: "var(--vscode-descriptionForeground, #9d9d9d)", opacity: hover ? 0.8 : 0.5, display: "inline-flex", alignItems: "center", transition: "opacity 0.1s ease" }}>
-          <Chevron open={open} />
-        </span>
-        {runStatus === "running" && (
-          <span
+        {/* Status indicator icon */}
+        {runStatus === "running" ? (
+          <svg
             style={{
-              display: "inline-block",
-              width: 6,
-              height: 6,
-              borderRadius: "50%",
-              backgroundColor: "var(--vscode-progressBar-background, #0e70c0)",
-              marginLeft: 2,
-              animation: "pulse 1.4s ease-in-out infinite",
+              width: 12,
+              height: 12,
+              animation: "activity-spin 0.9s linear infinite",
+              color: "var(--vscode-progressBar-background, #3b82f6)",
+              flexShrink: 0,
+            }}
+            viewBox="0 0 16 16"
+            fill="none"
+          >
+            <circle cx="8" cy="8" r="6" stroke="currentColor" strokeOpacity="0.25" strokeWidth="2" />
+            <path d="M8 2a6 6 0 0 1 6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+          </svg>
+        ) : runStatus === "completed" ? (
+          <SparklesIcon
+            style={{
+              width: 12,
+              height: 12,
+              color: "#a78bfa",
+              flexShrink: 0,
+            }}
+          />
+        ) : runStatus === "failed" ? (
+          <ExclamationCircleIcon
+            style={{
+              width: 12,
+              height: 12,
+              color: "var(--vscode-editorError-foreground, #f14c4c)",
+              flexShrink: 0,
+            }}
+          />
+        ) : (
+          <StopIcon
+            style={{
+              width: 12,
+              height: 12,
+              color: "var(--vscode-descriptionForeground, #9d9d9d)",
+              flexShrink: 0,
             }}
           />
         )}
+
+        <span>
+          {statusVerb} for {durationText}
+        </span>
+
+        <span
+          style={{
+            color: "var(--vscode-descriptionForeground, #9d9d9d)",
+            opacity: hover ? 0.9 : 0.6,
+            display: "inline-flex",
+            alignItems: "center",
+            transition: "opacity 0.15s ease",
+          }}
+        >
+          <Chevron open={open} />
+        </span>
       </button>
 
       {/* ── Expanded content ───────────────────────────────────────── */}
@@ -540,10 +613,11 @@ export function AgentActivityPanel({ activities, isStreaming = false }: AgentAct
           maxHeight: open ? 2000 : 0,
           opacity: open ? 1 : 0,
           transition: "max-height 200ms ease, opacity 150ms ease",
+          marginTop: open ? 4 : 0,
         }}
         aria-hidden={!open}
       >
-        <div style={{ paddingLeft: 15, paddingTop: 4, paddingBottom: 4 }}>
+        <div style={{ paddingLeft: 10, paddingTop: open ? 4 : 0, paddingBottom: open ? 4 : 0 }}>
           {groups.length === 0 && runStatus === "running" && isStreaming && (
             <div
               style={{
@@ -554,6 +628,19 @@ export function AgentActivityPanel({ activities, isStreaming = false }: AgentAct
               }}
             >
               Thinking…
+            </div>
+          )}
+
+          {groups.length === 0 && runStatus === "completed" && (
+            <div
+              style={{
+                fontSize: 11,
+                color: "var(--vscode-descriptionForeground, #9d9d9d)",
+                opacity: 0.6,
+                fontStyle: "italic",
+              }}
+            >
+              Direct response (no tool calls)
             </div>
           )}
 
@@ -579,8 +666,12 @@ export function AgentActivityPanel({ activities, isStreaming = false }: AgentAct
         </div>
       </div>
 
-      {/* Inline keyframe for the running pulse dot */}
+      {/* Inline keyframes */}
       <style>{`
+        @keyframes activity-spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
         @keyframes pulse {
           0%, 100% { opacity: 1; }
           50% { opacity: 0.35; }
