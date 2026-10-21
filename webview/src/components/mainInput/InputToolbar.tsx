@@ -426,27 +426,6 @@ function InputToolbar(props: InputToolbarProps) {
             }
           >
             {isStreaming ? (
-              // <button
-              //   type="button"
-              //   data-testid="stop-generation-button"
-              //   title="Stop generation"
-              //   aria-label="Stop generating response"
-              //   onClick={() => {
-              //     ideMessenger.post(
-              //       "cancelGeneration",
-              //       undefined,
-              //     );
-
-              //     if ((window as any).vscode) {
-              //       (window as any).vscode.postMessage({
-              //         type: "cancelGeneration",
-              //       });
-              //     }
-              //   }}
-              //   className="p-2 rounded-xl bg-gray-800 hover:bg-gray-700 text-white transition-all duration-150 active:scale-95 flex items-center justify-center cursor-pointer shadow-sm"
-              // >
-              //   <StopIcon className="h-3.5 w-3.5 fill-current" />
-              // </button>
               <button
                 type="button"
                 data-testid="stop-generation-button"
@@ -471,35 +450,6 @@ function InputToolbar(props: InputToolbarProps) {
                 <StopIcon className="h-3 w-3 fill-current transition-transform duration-300 ease-out group-hover:scale-110" />
               </button>
             ) : (
-              // <button
-              //   type="button"
-              //   data-testid="submit-input-button"
-              //   title="Send message"
-              //   aria-label="Send message"
-              //   onClick={async (e) => {
-              //     if (props.onEnter && !isEnterDisabled) {
-              //       props.onEnter({
-              //         useCodebase: false,
-              //         noContext: useActiveFile
-              //           ? isMetaEquivalentKeyPressed(e as any) ||
-              //             e.altKey
-              //           : !(
-              //               isMetaEquivalentKeyPressed(
-              //                 e as any,
-              //               ) || e.altKey
-              //             ),
-              //       });
-              //     }
-              //   }}
-              //   disabled={isEnterDisabled}
-              //   className={`p-2 rounded-xl transition-all duration-150 active:scale-95 flex items-center justify-center ${
-              //     !isEnterDisabled
-              //       ? "bg-blue-600 hover:bg-blue-500 text-white shadow-md shadow-blue-600/20 hover:shadow-blue-600/30 cursor-pointer"
-              //       : "bg-gray-800/40 text-gray-600 cursor-not-allowed"
-              //   }`}
-              // >
-              //   <ArrowUpIcon className="h-4 w-4" />
-              // </button>
               <button
                 type="button"
                 data-testid="submit-input-button"
