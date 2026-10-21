@@ -15,12 +15,27 @@
  */
 
 import * as path from 'path';
+import { SearchResult } from '../indexing/types';
 import { StorageManager } from '../storage/storageManager';
 import { WorkspaceRegistry } from '../storage/workspaceRegistry';
 import { Logger } from '../utils/logger';
-import { IWorkspaceService, VSCodeWorkspaceService } from './workspaceService';
+import { IWorkspaceService, VSCodeWorkspaceService, SearchMatch } from './workspaceService';
 
 export type FileStatus = 'fresh' | 'stale' | 'deleted';
+
+export type EvidenceProvenance =
+  | 'verified_finding'    // Verified against current fresh source
+  | 'inspected_excerpt'   // Inspected from source file in current or recent turn
+  | 'search_candidate'    // Matched by exact or semantic search, not yet inspected
+  | 'stale_finding';      // Previously verified, but underlying source modified
+
+export type TaskIntent =
+  | 'explain'
+  | 'bugfix'
+  | 'interface_change'
+  | 'refactor'
+  | 'doc_change'
+  | 'general';
 
 export interface FileObservation {
   filePath: string;
@@ -72,6 +87,81 @@ export interface VerifiedContextOptions {
   maxDirectories?: number;
 }
 
+export interface RetrievalCandidate {
+  id: string;
+  source: 'memory' | 'exact_search' | 'vector_index';
+  provenance: EvidenceProvenance;
+  filePath: string;
+  startLine?: number;
+  endLine?: number;
+  symbols?: string[];
+  content: string;
+  matchQuality: number; // 0-100
+  freshness: FileStatus; // 'fresh' | 'stale' | 'deleted'
+  relevanceScore: number;
+  conflictNotice?: string;
+}
+
+export interface HybridRetrievalOptions {
+  taskIntent?: TaskIntent;
+  maxCandidates?: number;
+  maxExactMatches?: number;
+  maxSemanticMatches?: number;
+  indexer?: { search(query: string, topK?: number): Promise<SearchResult[]> };
+  forceRefresh?: boolean;
+}
+
+export interface HybridRetrievalResult {
+  candidates: RetrievalCandidate[];
+  taskIntent: TaskIntent;
+  query: string;
+  exactMatchCount: number;
+  semanticMatchCount: number;
+  memoryHitCount: number;
+  conflicts: string[];
+}
+
+export interface DependencyDiscoveryResult {
+  targetPath: string;
+  targetSymbol?: string;
+  imports: string[];
+  callers: { filePath: string; line: number; snippet: string }[];
+  implementations: { filePath: string; line: number; snippet: string }[];
+  tests: string[];
+}
+
+export interface CombinedContextOptions {
+  maxCombinedCharacters?: number;
+  maxFindings?: number;
+  maxSemanticChunks?: number;
+  maxAttachedFiles?: number;
+  indexer?: { search(query: string, topK?: number): Promise<SearchResult[]> };
+  contextFiles?: string[];
+  contextFilesContent?: { filePath: string; content: string }[];
+  customInstructions?: string;
+}
+
+export interface FormattedCombinedContext {
+  contextText: string;
+  totalCharacters: number;
+  omittedItemsCount: number;
+  sectionsIncluded: string[];
+}
+
+export interface ContextEngineMetrics {
+  exactSearchCount: number;
+  semanticRetrievalCount: number;
+  repeatedSearchesAvoided: number;
+  repeatedReadsAvoided: number;
+  directoryListingsCount: number;
+  memoryReuseCount: number;
+  retrievalLatencyMs: number;
+  contextSizeBeforeDeduplication: number;
+  contextSizeAfterDeduplication: number;
+  filesDiscovered: number;
+  filesInspected: number;
+}
+
 export interface IContextEngine {
   /** Record directory contents discovered via list_directory or workspace exploration */
   recordDirectoryListing(dirPath: string, entries: string[]): void;
@@ -98,6 +188,24 @@ export interface IContextEngine {
   /** Get verified context formatted for inclusion in system instructions */
   getVerifiedContext(userTask?: string, options?: VerifiedContextOptions): Promise<string>;
 
+  /** Detect task intent based on query or user prompt */
+  detectTaskIntent(userTask?: string): TaskIntent;
+
+  /** Perform hybrid retrieval combining exact search, vector search, and memory */
+  performHybridRetrieval(query: string, options?: HybridRetrievalOptions): Promise<HybridRetrievalResult>;
+
+  /** Discover dependencies, callers, implementations, and tests for a file or symbol */
+  discoverDependencies(filePath: string, symbol?: string): Promise<DependencyDiscoveryResult>;
+
+  /** Format predictable combined context across attached files, verified findings, and search candidates */
+  getCombinedContext(userTask?: string, options?: CombinedContextOptions): Promise<FormattedCombinedContext>;
+
+  /** Get recorded exploration and retrieval metrics */
+  getMetrics(): ContextEngineMetrics;
+
+  /** Reset exploration and retrieval metrics */
+  resetMetrics(): void;
+
   /** Check if any verified context exists */
   hasContext(): boolean;
 
@@ -113,6 +221,9 @@ export interface IContextEngine {
   /** Load persistent state from storage */
   load(): Promise<void>;
 
+  /** Ensure persistent state is loaded before operations */
+  ensureLoaded(): Promise<void>;
+
   /** Clear all in-memory and persistent context */
   clear(): Promise<void>;
 
@@ -124,6 +235,20 @@ export class ContextEngine implements IContextEngine {
   private readonly logger = Logger.getInstance();
   private state: ContextEngineState;
   private readonly customStoragePath?: string;
+  private isLoaded: boolean = false;
+  private metrics: ContextEngineMetrics = {
+    exactSearchCount: 0,
+    semanticRetrievalCount: 0,
+    repeatedSearchesAvoided: 0,
+    repeatedReadsAvoided: 0,
+    directoryListingsCount: 0,
+    memoryReuseCount: 0,
+    retrievalLatencyMs: 0,
+    contextSizeBeforeDeduplication: 0,
+    contextSizeAfterDeduplication: 0,
+    filesDiscovered: 0,
+    filesInspected: 0,
+  };
 
   constructor(
     private readonly workspaceService: IWorkspaceService = new VSCodeWorkspaceService(),
@@ -221,6 +346,11 @@ export class ContextEngine implements IContextEngine {
       entries: cleanEntries,
       lastDiscovered: Date.now(),
     };
+    this.metrics.directoryListingsCount++;
+    this.metrics.filesDiscovered = Math.max(
+      this.metrics.filesDiscovered,
+      Object.keys(this.state.files).length + Object.keys(this.state.directories).length,
+    );
   }
 
   /**
@@ -282,6 +412,11 @@ export class ContextEngine implements IContextEngine {
     // Replace any previous findings for this file to prevent duplicates
     this.state.findings = this.state.findings.filter((f) => f.sourceFile !== norm);
     this.state.findings.push(...findings);
+    this.metrics.filesInspected = Object.values(this.state.files).filter((f) => f.status === 'fresh').length;
+    this.metrics.filesDiscovered = Math.max(
+      this.metrics.filesDiscovered,
+      Object.keys(this.state.files).length + Object.keys(this.state.directories).length,
+    );
   }
 
   /**
@@ -899,6 +1034,7 @@ export class ContextEngine implements IContextEngine {
   public async load(): Promise<void> {
     const targetPath = this.getStoragePath();
     if (!targetPath) {
+      this.isLoaded = true;
       return;
     }
 
@@ -917,7 +1053,707 @@ export class ContextEngine implements IContextEngine {
       }
     } catch (err) {
       this.logger.warn('Failed to load ContextEngine state (non-fatal)', this.sanitizeError(err));
+    } finally {
+      this.isLoaded = true;
     }
+  }
+
+  /**
+   * Ensure persistent state is loaded before operations.
+   */
+  public async ensureLoaded(): Promise<void> {
+    if (!this.isLoaded) {
+      await this.load();
+    }
+  }
+
+  /**
+   * Detect task intent based on query or user prompt.
+   */
+  public detectTaskIntent(userTask?: string): TaskIntent {
+    if (!userTask || !userTask.trim()) {
+      return 'general';
+    }
+    const lower = userTask.toLowerCase();
+    if (/\b(bug|fix|issue|error|fail|crash|broken|exception|regression|defect|fault)\b/i.test(lower)) {
+      return 'bugfix';
+    }
+    if (/\b(explain|what does|how does|understand|trace|overview|describe|walkthrough)\b/i.test(lower)) {
+      return 'explain';
+    }
+    if (/\b(interface|contract|caller|callers|signature|export|breaking change|shared|api)\b/i.test(lower)) {
+      return 'interface_change';
+    }
+    if (/\b(refactor|clean up|restructure|extract|rename|simplify|modernize)\b/i.test(lower)) {
+      return 'refactor';
+    }
+    if (/\b(doc|docs|readme|comment|markdown|document|documentation)\b/i.test(lower)) {
+      return 'doc_change';
+    }
+    return 'general';
+  }
+
+  /**
+   * Perform hybrid retrieval combining exact search, vector search, and memory.
+   * Merges, deduplicates, and ranks candidates based on match quality, provenance,
+   * freshness, and task intent. Detects conflicting evidence and staleness.
+   */
+  public async performHybridRetrieval(
+    query: string,
+    options?: HybridRetrievalOptions,
+  ): Promise<HybridRetrievalResult> {
+    await this.ensureLoaded();
+    const startTime = Date.now();
+    const cleanQuery = query.trim();
+    const intent = options?.taskIntent || this.detectTaskIntent(cleanQuery);
+    const maxCandidates = options?.maxCandidates || 10;
+    const maxExactMatches = options?.maxExactMatches || 15;
+    const maxSemanticMatches = options?.maxSemanticMatches || 5;
+    const forceRefresh = options?.forceRefresh ?? false;
+
+    const rawCandidates: RetrievalCandidate[] = [];
+    const conflicts: string[] = [];
+    let exactMatchCount = 0;
+    let semanticMatchCount = 0;
+    let memoryHitCount = 0;
+
+    const queryTokens = cleanQuery
+      .toLowerCase()
+      .split(/[^a-zA-Z0-9_$]+/)
+      .filter((t) => t.length >= 3);
+
+    // 1. Persistent memory search (reuse verified findings before redundant searches)
+    if (cleanQuery) {
+      for (const finding of this.state.findings) {
+        const fileObs = this.state.files[finding.sourceFile];
+        const status = fileObs?.status || 'fresh';
+
+        // Check if query matches finding text or symbols
+        const textLower = finding.text.toLowerCase();
+        const fileLower = finding.sourceFile.toLowerCase();
+        const symbolMatch = (finding.symbols || []).some((sym) =>
+          sym.toLowerCase().includes(cleanQuery.toLowerCase()) || cleanQuery.toLowerCase().includes(sym.toLowerCase())
+        );
+        const textMatch = queryTokens.some((t) => textLower.includes(t) || fileLower.includes(t));
+
+        if (symbolMatch || textMatch) {
+          memoryHitCount++;
+          this.metrics.memoryReuseCount++;
+
+          let provenance: EvidenceProvenance = 'verified_finding';
+          let matchQuality = symbolMatch ? 95 : 85;
+          if (status === 'stale') {
+            provenance = 'stale_finding';
+            matchQuality = 65;
+          } else if (status === 'deleted') {
+            provenance = 'stale_finding';
+            matchQuality = 25;
+          }
+
+          rawCandidates.push({
+            id: `memory_${finding.id}`,
+            source: 'memory',
+            provenance,
+            filePath: finding.sourceFile,
+            content: finding.text,
+            symbols: finding.symbols,
+            matchQuality,
+            freshness: status,
+            relevanceScore: 0,
+          });
+        }
+      }
+    }
+
+    // 2. Exact code search (for identifiers, file paths, function names, error messages)
+    const looksLikeIdentifierOrPath =
+      cleanQuery.length > 2 &&
+      (/[._\-\/\\$]/.test(cleanQuery) || /^[a-zA-Z0-9_$]+$/.test(cleanQuery));
+
+    const stopWords = new Set([
+      'fix', 'the', 'and', 'when', 'is', 'for', 'with', 'from', 'what', 'how', 'does',
+      'explain', 'update', 'in', 'of', 'to', 'a', 'an', 'on', 'at', 'by',
+    ]);
+    const rawTokens = (cleanQuery.match(/[a-zA-Z0-9_$]+/g) || [])
+      .filter((t) => t.length >= 3 && !stopWords.has(t.toLowerCase()));
+
+    const queriesToSearch: string[] = [];
+    if (looksLikeIdentifierOrPath) {
+      queriesToSearch.push(cleanQuery);
+    } else if (cleanQuery) {
+      queriesToSearch.push(cleanQuery);
+      for (const tok of rawTokens.slice(0, 3)) {
+        if (!queriesToSearch.includes(tok)) {
+          queriesToSearch.push(tok);
+        }
+      }
+    }
+
+    if (queriesToSearch.length > 0 && (memoryHitCount === 0 || forceRefresh || looksLikeIdentifierOrPath || intent === 'bugfix')) {
+      const seenMatchKeys = new Set<string>();
+      for (const q of queriesToSearch) {
+        try {
+          const matches = await this.workspaceService.searchFiles(q, {
+            maxResults: Math.max(20, maxExactMatches),
+          });
+          if (matches.length > 0) {
+            this.metrics.exactSearchCount++;
+            exactMatchCount += matches.length;
+
+            for (let i = 0; i < matches.length; i++) {
+              const m = matches[i];
+              const normFile = this.normalizePath(m.file);
+              const matchKey = `${normFile}:${m.line}`;
+              if (seenMatchKeys.has(matchKey)) {
+                continue;
+              }
+              seenMatchKeys.add(matchKey);
+
+              const fileObs = this.state.files[normFile];
+              const status = fileObs?.status || 'fresh';
+
+              let provenance: EvidenceProvenance = 'search_candidate';
+              if (status === 'stale') {
+                provenance = 'stale_finding';
+              } else if (status === 'fresh' && fileObs?.lastInspected) {
+                provenance = 'inspected_excerpt';
+              }
+
+              // Extract symbol from line if present
+              const symMatch = m.content.match(/(?:export\s+)?(?:class|function|interface|type|const|var|let)\s+([a-zA-Z0-9_$]+)/);
+              const symbols = symMatch ? [symMatch[1]] : (/^[a-zA-Z0-9_$]+$/.test(q) ? [q] : undefined);
+
+              rawCandidates.push({
+                id: `exact_${normFile}_${m.line}_${i}`,
+                source: 'exact_search',
+                provenance,
+                filePath: normFile,
+                startLine: m.line,
+                endLine: m.line,
+                content: m.content.trim(),
+                symbols,
+                matchQuality: 92,
+                freshness: status,
+                relevanceScore: 0,
+              });
+            }
+          }
+        } catch (err) {
+          this.logger.warn('Exact search failed during hybrid retrieval (non-fatal)', this.sanitizeError(err));
+        }
+      }
+    } else if (memoryHitCount > 0 && !forceRefresh) {
+      this.metrics.repeatedSearchesAvoided++;
+    }
+
+    // 3. Semantic / Vector Index Retrieval (for conceptual queries)
+    if (options?.indexer && cleanQuery) {
+      try {
+        const results = await options.indexer.search(cleanQuery, maxSemanticMatches);
+        semanticMatchCount = results.length;
+        this.metrics.semanticRetrievalCount++;
+
+        for (let i = 0; i < results.length; i++) {
+          const res = results[i];
+          const normFile = this.normalizePath(res.chunk.filepath);
+          const fileObs = this.state.files[normFile];
+          const status = fileObs?.status || 'fresh';
+
+          const score = res.score ?? 0.75;
+          const matchQuality = Math.min(100, Math.max(10, Math.round(score * 100)));
+
+          rawCandidates.push({
+            id: `vector_${normFile}_${res.chunk.startLine}_${i}`,
+            source: 'vector_index',
+            provenance: 'search_candidate',
+            filePath: normFile,
+            startLine: res.chunk.startLine + 1,
+            endLine: res.chunk.endLine + 1,
+            content: res.chunk.content.trim(),
+            matchQuality,
+            freshness: status,
+            relevanceScore: 0,
+          });
+        }
+      } catch (err) {
+        this.logger.warn('Vector index search failed during hybrid retrieval (non-fatal)', this.sanitizeError(err));
+      }
+    }
+
+    // 4. Evidence Verification & Conflict Detection
+    // Check for conflicting definitions across files or stale vs fresh evidence
+    const symbolDefinitions = new Map<string, { file: string; line?: number; isStale: boolean; isDefinition: boolean }[]>();
+    for (const cand of rawCandidates) {
+      const syms = cand.symbols || (/^[a-zA-Z0-9_$]+$/.test(cleanQuery) ? [cleanQuery] : []);
+      for (const sym of syms) {
+        const isDef = new RegExp(`(?:export\\s+)?(?:async\\s+)?(?:class|function|interface|type|const|var|let)\\s+${sym}\\b`).test(cand.content);
+        const list = symbolDefinitions.get(sym) || [];
+        list.push({ file: cand.filePath, line: cand.startLine, isStale: cand.freshness === 'stale', isDefinition: isDef });
+        symbolDefinitions.set(sym, list);
+      }
+    }
+
+    for (const [sym, entries] of symbolDefinitions.entries()) {
+      const defFiles = Array.from(new Set(entries.filter((e) => e.isDefinition).map((e) => e.file)));
+      const staleEntries = entries.filter((e) => e.isStale);
+
+      if (defFiles.length > 1) {
+        const notice = `Conflicting definitions found for '${sym}' across multiple files: ${defFiles.join(', ')}. Inspect source with read_file before modifying.`;
+        conflicts.push(notice);
+        for (const cand of rawCandidates) {
+          if (!cand.symbols) {
+            cand.symbols = [sym];
+          }
+          cand.conflictNotice = notice;
+        }
+      } else if (staleEntries.length > 0) {
+        const file = staleEntries[0].file;
+        const notice = `Evidence for '${sym}' in ${file} is stale (file modified since inspection). Re-verify with read_file.`;
+        conflicts.push(notice);
+        for (const cand of rawCandidates) {
+          if (!cand.symbols) {
+            cand.symbols = [sym];
+          }
+          cand.conflictNotice = notice;
+        }
+      }
+    }
+
+    // 5. Deduplication: Merge candidates pointing to same file and overlapping content/lines
+    const deduplicatedMap = new Map<string, RetrievalCandidate>();
+    for (const cand of rawCandidates) {
+      const dedupeKey = `${cand.filePath}:${cand.startLine || 0}:${cand.content.slice(0, 60)}`;
+      const existing = deduplicatedMap.get(dedupeKey);
+      if (!existing) {
+        deduplicatedMap.set(dedupeKey, cand);
+      } else {
+        // Keep candidate with higher evidence quality/provenance
+        const provRank: Record<EvidenceProvenance, number> = {
+          verified_finding: 4,
+          inspected_excerpt: 3,
+          search_candidate: 2,
+          stale_finding: 1,
+        };
+        if (provRank[cand.provenance] > provRank[existing.provenance]) {
+          deduplicatedMap.set(dedupeKey, cand);
+        }
+      }
+    }
+
+    const deduplicated = Array.from(deduplicatedMap.values());
+
+    // 6. Ranking using match quality, provenance, freshness, definition priority, and task intent
+    for (const cand of deduplicated) {
+      let score = cand.matchQuality;
+
+      // Provenance weight
+      if (cand.provenance === 'verified_finding') {
+        score *= 1.25;
+      } else if (cand.provenance === 'inspected_excerpt') {
+        score *= 1.15;
+      } else if (cand.provenance === 'stale_finding') {
+        score *= 0.6;
+      }
+
+      // Freshness weight
+      if (cand.freshness === 'stale') {
+        score *= 0.7;
+      } else if (cand.freshness === 'deleted') {
+        score *= 0.2;
+      }
+
+      // Direct definition of queried symbol gets highest priority
+      const isDirectDefinition =
+        cleanQuery.length > 1 &&
+        new RegExp(`(?:export\\s+)?(?:async\\s+)?(?:function|class|interface|type|const|var|let)\\s+${cleanQuery}\\b`).test(cand.content);
+
+      if (isDirectDefinition) {
+        score += 35;
+      } else if (/export\s+(?:async\s+)?(?:class|function|interface|type|const)|class\s+|function\s+|interface\s+/.test(cand.content)) {
+        score += 10;
+      }
+
+      // Task-aware intent adjustment
+      const lowerFile = cand.filePath.toLowerCase();
+      const lowerContent = cand.content.toLowerCase();
+
+      // Give source files precedence over test files unless bugfix or refactor
+      if (intent !== 'bugfix' && intent !== 'refactor') {
+        if (!lowerFile.includes('test') && !lowerFile.includes('spec')) {
+          score += 10;
+        }
+      }
+
+      switch (intent) {
+        case 'bugfix':
+          if (lowerFile.includes('.test.') || lowerFile.includes('.spec.')) {
+            score += 25; // Tests are critical for bugfix regression checking
+          }
+          if (lowerContent.includes('error') || lowerContent.includes('throw') || lowerContent.includes('catch') || lowerContent.includes('fail') || lowerContent.includes('reject')) {
+            score += 20;
+          }
+          break;
+
+        case 'explain':
+          if (lowerFile.includes('readme') || lowerFile.includes('doc')) {
+            score += 15;
+          }
+          if (cand.symbols && cand.symbols.length > 0) {
+            score += 10;
+          }
+          break;
+
+        case 'interface_change':
+          if (lowerContent.includes('interface ') || lowerContent.includes('export ') || lowerContent.includes('type ')) {
+            score += 25;
+          }
+          if (lowerFile.includes('.test.') || lowerFile.includes('.spec.')) {
+            score += 10;
+          }
+          break;
+
+        case 'refactor':
+          if (cand.source === 'exact_search' || cand.symbols) {
+            score += 15;
+          }
+          if (lowerFile.includes('.test.') || lowerFile.includes('.spec.')) {
+            score += 15;
+          }
+          break;
+
+        case 'doc_change':
+          if (lowerFile.endsWith('.md') || lowerContent.includes('/**')) {
+            score += 30;
+          }
+          break;
+
+        case 'general':
+        default:
+          break;
+      }
+
+      cand.relevanceScore = Math.round(score);
+    }
+
+    // Sort descending by relevance score
+    deduplicated.sort((a, b) => b.relevanceScore - a.relevanceScore);
+    const topCandidates = deduplicated.slice(0, maxCandidates);
+
+    const latency = Date.now() - startTime;
+    this.metrics.retrievalLatencyMs += latency;
+
+    return {
+      candidates: topCandidates,
+      taskIntent: intent,
+      query: cleanQuery,
+      exactMatchCount,
+      semanticMatchCount,
+      memoryHitCount,
+      conflicts,
+    };
+  }
+
+  /**
+   * Discover dependencies, callers, implementations, and tests for a file or symbol.
+   * Uses existing searchFiles and file tools without repository-wide scans.
+   */
+  public async discoverDependencies(
+    filePath: string,
+    symbol?: string,
+  ): Promise<DependencyDiscoveryResult> {
+    await this.ensureLoaded();
+    const normPath = this.normalizePath(filePath);
+    const imports: string[] = [];
+    const callers: { filePath: string; line: number; snippet: string }[] = [];
+    const implementations: { filePath: string; line: number; snippet: string }[] = [];
+    const tests = new Set<string>();
+
+    // 1. Read target file to extract imports
+    let content = '';
+    try {
+      content = await this.workspaceService.readFile(normPath);
+    } catch {
+      // If reading fails, return empty structure gracefully
+      return {
+        targetPath: normPath,
+        targetSymbol: symbol,
+        imports: [],
+        callers: [],
+        implementations: [],
+        tests: [],
+      };
+    }
+
+    // Extract imports deterministically: import ... from '...' or require('...')
+    const importRegex = /(?:import\s+(?:[\s\S]*?from\s+)?['"]([^'"]+)['"]|require\(['"]([^'"]+)['"]\))/g;
+    let match: RegExpExecArray | null;
+    while ((match = importRegex.exec(content)) !== null) {
+      const imp = match[1] || match[2];
+      if (imp && !imports.includes(imp)) {
+        imports.push(imp);
+      }
+    }
+
+    // 2. Discover callers and implementations if symbol is provided
+    let targetSymbol = symbol;
+    if (!targetSymbol) {
+      // Try to find the primary exported symbol from findings or source
+      const exportMatch = content.match(/export\s+(?:default\s+)?(?:class|function|interface|type|const)\s+([a-zA-Z0-9_$]+)/);
+      if (exportMatch) {
+        targetSymbol = exportMatch[1];
+      }
+    }
+
+    if (targetSymbol) {
+      try {
+        const matches = await this.workspaceService.searchFiles(targetSymbol, {
+          maxResults: 20,
+        });
+        this.metrics.exactSearchCount++;
+
+        for (const m of matches) {
+          const matchNorm = this.normalizePath(m.file);
+          const isTest = matchNorm.includes('.test.') || matchNorm.includes('.spec.');
+          if (isTest) {
+            tests.add(matchNorm);
+          }
+
+          const snippet = m.content.trim();
+          const isDefinitionOrImpl =
+            snippet.includes(`class ${targetSymbol}`) ||
+            snippet.includes(`function ${targetSymbol}`) ||
+            snippet.includes(`interface ${targetSymbol}`) ||
+            snippet.includes(`type ${targetSymbol}`) ||
+            snippet.includes(`implements ${targetSymbol}`) ||
+            snippet.includes(`extends ${targetSymbol}`);
+
+          if (isDefinitionOrImpl) {
+            implementations.push({
+              filePath: matchNorm,
+              line: m.line,
+              snippet,
+            });
+          } else if (matchNorm !== normPath) {
+            // It's a caller in another file
+            callers.push({
+              filePath: matchNorm,
+              line: m.line,
+              snippet,
+            });
+          }
+        }
+      } catch (err) {
+        this.logger.warn('Dependency search failed (non-fatal)', this.sanitizeError(err));
+      }
+    }
+
+    // 3. Discover associated regression/unit tests by base name
+    const baseName = path.basename(normPath, path.extname(normPath));
+    try {
+      const testMatches = await this.workspaceService.searchFiles(baseName, {
+        maxResults: 10,
+      });
+      for (const tm of testMatches) {
+        const testNorm = this.normalizePath(tm.file);
+        if (testNorm.includes('.test.') || testNorm.includes('.spec.')) {
+          tests.add(testNorm);
+        }
+      }
+    } catch {
+      // non-fatal
+    }
+
+    return {
+      targetPath: normPath,
+      targetSymbol,
+      imports,
+      callers,
+      implementations,
+      tests: Array.from(tests),
+    };
+  }
+
+  /**
+   * Format predictable combined context across attached files, verified findings,
+   * and search candidates while strictly enforcing a total character budget and deduplicating.
+   */
+  public async getCombinedContext(
+    userTask?: string,
+    options?: CombinedContextOptions,
+  ): Promise<FormattedCombinedContext> {
+    await this.ensureLoaded();
+    const maxBudget = options?.maxCombinedCharacters || 8000;
+    const maxFindings = options?.maxFindings || 10;
+    const sectionsIncluded: string[] = [];
+    let omittedItemsCount = 0;
+
+    let totalCharsBeforeDedup = 0;
+    let totalCharsAfterDedup = 0;
+
+    const attachedFilePaths = new Set<string>();
+    const sections: string[] = [];
+
+    // Priority 1: User-attached context files
+    const attachedSections: string[] = [];
+    if (options?.contextFilesContent && options.contextFilesContent.length > 0) {
+      for (const item of options.contextFilesContent) {
+        const norm = this.normalizePath(item.filePath);
+        attachedFilePaths.add(norm);
+        const section = `Attached File (${norm}):\n${item.content}`;
+        totalCharsBeforeDedup += section.length;
+
+        if (totalCharsAfterDedup + section.length < maxBudget) {
+          attachedSections.push(section);
+          totalCharsAfterDedup += section.length;
+        } else {
+          omittedItemsCount++;
+        }
+      }
+    } else if (options?.contextFiles && options.contextFiles.length > 0) {
+      for (const filePath of options.contextFiles) {
+        const norm = this.normalizePath(filePath);
+        attachedFilePaths.add(norm);
+        try {
+          const content = await this.workspaceService.readFile(filePath);
+          const section = `Attached File (${norm}):\n${content}`;
+          totalCharsBeforeDedup += section.length;
+
+          if (totalCharsAfterDedup + section.length < maxBudget) {
+            attachedSections.push(section);
+            totalCharsAfterDedup += section.length;
+          } else {
+            omittedItemsCount++;
+          }
+        } catch {
+          // skip unreadable
+        }
+      }
+    }
+
+    if (attachedSections.length > 0) {
+      sections.push(attachedSections.join('\n\n'));
+      sectionsIncluded.push('attached_files');
+    }
+
+    // Priority 2: Verified workspace findings from persistent memory
+    const remainingForVerified = maxBudget - totalCharsAfterDedup;
+    if (remainingForVerified > 300) {
+      const verified = await this.getVerifiedContext(userTask, {
+        maxCharacters: remainingForVerified,
+        maxFindings,
+      });
+
+      if (verified && verified.trim().length > 0) {
+        totalCharsBeforeDedup += verified.length;
+
+        // Deduplicate: If all files mentioned in verified are already attached, we can omit redundant text
+        let isRedundant = false;
+        if (attachedFilePaths.size > 0) {
+          const relevantFindings = this.state.findings.filter((f) =>
+            this.state.files[f.sourceFile]?.status === 'fresh'
+          );
+          if (relevantFindings.length > 0 && relevantFindings.every((f) => attachedFilePaths.has(f.sourceFile))) {
+            isRedundant = true;
+          }
+        }
+
+        if (!isRedundant) {
+          if (totalCharsAfterDedup + verified.length < maxBudget) {
+            sections.push(verified);
+            totalCharsAfterDedup += verified.length;
+            sectionsIncluded.push('verified_findings');
+          } else {
+            const sliceLen = maxBudget - totalCharsAfterDedup - 50;
+            if (sliceLen > 150) {
+              sections.push(verified.slice(0, sliceLen) + '\n[...truncated to context budget]');
+              totalCharsAfterDedup += sliceLen;
+              sectionsIncluded.push('verified_findings_partial');
+            } else {
+              omittedItemsCount++;
+            }
+          }
+        }
+      }
+    }
+
+    // Priority 3: Vector / Semantic Search excerpts
+    const remainingForSearch = maxBudget - totalCharsAfterDedup;
+    if (options?.indexer && userTask && remainingForSearch > 300) {
+      try {
+        const results = await options.indexer.search(userTask, options.maxSemanticChunks || 5);
+        if (results && results.length > 0) {
+          const searchChunks: string[] = [];
+          for (const res of results) {
+            const normPath = this.normalizePath(res.chunk.filepath);
+            // Deduplicate: skip chunk if this file is already in attached files
+            if (attachedFilePaths.has(normPath)) {
+              continue;
+            }
+
+            const chunkText = `--- ${normPath} (lines ${res.chunk.startLine + 1}-${res.chunk.endLine + 1}) ---\n${res.chunk.content}`;
+            totalCharsBeforeDedup += chunkText.length;
+
+            if (totalCharsAfterDedup + chunkText.length < maxBudget) {
+              searchChunks.push(chunkText);
+              totalCharsAfterDedup += chunkText.length;
+            } else {
+              omittedItemsCount++;
+            }
+          }
+
+          if (searchChunks.length > 0) {
+            sections.push(`Relevant Codebase Context (from index):\n\n${searchChunks.join('\n\n')}`);
+            sectionsIncluded.push('search_excerpts');
+          }
+        }
+      } catch {
+        // non-fatal
+      }
+    }
+
+    this.metrics.contextSizeBeforeDeduplication += totalCharsBeforeDedup;
+    this.metrics.contextSizeAfterDeduplication += totalCharsAfterDedup;
+
+    const contextText = sections.join('\n\n');
+    return {
+      contextText,
+      totalCharacters: contextText.length,
+      omittedItemsCount,
+      sectionsIncluded,
+    };
+  }
+
+  /**
+   * Get recorded exploration and retrieval metrics.
+   */
+  public getMetrics(): ContextEngineMetrics {
+    return {
+      ...this.metrics,
+      filesDiscovered: Math.max(
+        this.metrics.filesDiscovered,
+        Object.keys(this.state.files).length + Object.keys(this.state.directories).length,
+      ),
+      filesInspected: Object.values(this.state.files).filter((f) => f.status === 'fresh').length,
+    };
+  }
+
+  /**
+   * Reset exploration and retrieval metrics.
+   */
+  public resetMetrics(): void {
+    this.metrics = {
+      exactSearchCount: 0,
+      semanticRetrievalCount: 0,
+      repeatedSearchesAvoided: 0,
+      repeatedReadsAvoided: 0,
+      directoryListingsCount: 0,
+      memoryReuseCount: 0,
+      retrievalLatencyMs: 0,
+      contextSizeBeforeDeduplication: 0,
+      contextSizeAfterDeduplication: 0,
+      filesDiscovered: 0,
+      filesInspected: 0,
+    };
   }
 
   /**
