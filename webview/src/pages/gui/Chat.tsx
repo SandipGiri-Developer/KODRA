@@ -45,7 +45,8 @@ import {
 } from "../../redux/slices/sessionSlice";
 import { isJetBrains, isMetaEquivalentKeyPressed } from "../../util";
 import { ToolCallDiv } from "./ToolCallDiv";
-import { submitEditorAndInitAtIndex, streamUpdate, setInactive, addAgentActivity } from "../../redux/slices/sessionSlice";
+import { submitEditorAndInitAtIndex, streamUpdate, setInactive, addAgentActivity, finalizeAgentActivity, addAgentActivityToLatestAssistant } from "../../redux/slices/sessionSlice";
+import { store } from "../../redux/store";
 import { AgentActivityPanel } from "../../components/gui/AgentActivityPanel";
 
 export interface PendingApproval {
@@ -86,8 +87,18 @@ window.addEventListener('message', (event: MessageEvent) => {
     _toolActivityListeners.forEach((listener) => listener(msg));
   }
 
-  // Only route stream messages and agent activity.
-  if (!['streamContent', 'streamDone', 'streamError', 'streamCancelled', 'agentActivity'].includes(msg.type)) return;
+  // Route agent activity even if active stream dispatch has already completed
+  if (msg.type === 'agentActivity') {
+    if (_activeStreamDispatch) {
+      _activeStreamDispatch(msg);
+    } else {
+      store.dispatch(addAgentActivityToLatestAssistant(msg));
+    }
+    return;
+  }
+
+  // Only route stream messages.
+  if (!['streamContent', 'streamDone', 'streamError', 'streamCancelled'].includes(msg.type)) return;
 
   if (_activeStreamDispatch) {
     _activeStreamDispatch(msg);
@@ -108,15 +119,18 @@ const streamResponseThunk = (payload: any): any => (dispatch: any, getState: any
         dispatch(streamUpdate([{ role: "assistant", content: msg.content }]));
         break;
       case 'streamDone':
+        dispatch(finalizeAgentActivity({ index: index + 1, status: 'completed' }));
         dispatch(setInactive());
         _activeStreamDispatch = null;
         break;
       case 'streamError':
         dispatch(streamUpdate([{ role: "assistant", content: `\n\nError: ${msg.error}` }]));
+        dispatch(finalizeAgentActivity({ index: index + 1, status: 'failed', error: msg.error }));
         dispatch(setInactive());
         _activeStreamDispatch = null;
         break;
       case 'streamCancelled':
+        dispatch(finalizeAgentActivity({ index: index + 1, status: 'cancelled' }));
         dispatch(setInactive());
         _activeStreamDispatch = null;
         break;
@@ -128,7 +142,11 @@ const streamResponseThunk = (payload: any): any => (dispatch: any, getState: any
   };
 
   if ((window as any).vscode) {
-    (window as any).vscode.postMessage({ type: 'sendMessage', text });
+    (window as any).vscode.postMessage({
+      type: 'sendMessage',
+      text,
+      sessionId: state.session.id,
+    });
   } else {
     setTimeout(() => {
       _activeStreamDispatch?.({ type: 'streamContent', content: 'Mock response from local dev (not running in VS Code)' });
@@ -419,7 +437,10 @@ export function Chat() {
       if (message.role === "assistant") {
         return (
           <>
-            <AgentActivityPanel activities={item.agentActivities || []} />
+            <AgentActivityPanel
+              activities={item.agentActivities || []}
+              isStreaming={isStreaming && index === history.length - 1}
+            />
             <div className="thread-message">
               <TimelineItem
                 item={item}

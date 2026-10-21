@@ -281,6 +281,84 @@ export const sessionSlice = createSlice({
         item.agentActivities.push(payload.activity);
       }
     },
+    finalizeAgentActivity: (
+      state,
+      {
+        payload,
+      }: PayloadAction<{
+        index?: number;
+        status: "completed" | "failed" | "cancelled";
+        error?: string;
+        durationMs?: number;
+      }>,
+    ) => {
+      let targetIndex = payload.index;
+      if (targetIndex === undefined) {
+        for (let i = state.history.length - 1; i >= 0; i--) {
+          if (state.history[i].message.role === "assistant") {
+            targetIndex = i;
+            break;
+          }
+        }
+      }
+      if (targetIndex === undefined || !state.history[targetIndex]) {
+        return;
+      }
+      const item = state.history[targetIndex];
+      if (!item.agentActivities) {
+        item.agentActivities = [];
+      }
+      const last = item.agentActivities[item.agentActivities.length - 1];
+      const getKind = (act: any) => act?.event?.kind || act?.type || act?.kind;
+      const hasTerminal =
+        last && ["completed", "failed", "cancelled"].includes(getKind(last));
+      if (!hasTerminal) {
+        const startEv = item.agentActivities.find(
+          (a: any) => getKind(a) === "started",
+        );
+        const startTs = startEv?.event?.timestamp || startEv?.timestamp || Date.now();
+        const duration = payload.durationMs ?? Math.max(0, Date.now() - startTs);
+
+        if (payload.status === "completed") {
+          item.agentActivities.push({
+            executionId: last?.executionId || "",
+            event: {
+              kind: "completed",
+              durationMs: duration,
+              timestamp: Date.now(),
+            },
+          });
+        } else if (payload.status === "failed") {
+          item.agentActivities.push({
+            executionId: last?.executionId || "",
+            event: {
+              kind: "failed",
+              error: payload.error || "Execution failed",
+              timestamp: Date.now(),
+            },
+          });
+        } else if (payload.status === "cancelled") {
+          item.agentActivities.push({
+            executionId: last?.executionId || "",
+            event: { kind: "cancelled", timestamp: Date.now() },
+          });
+        }
+      }
+    },
+    addAgentActivityToLatestAssistant: (
+      state,
+      { payload }: PayloadAction<any>,
+    ) => {
+      for (let i = state.history.length - 1; i >= 0; i--) {
+        if (state.history[i].message.role === "assistant") {
+          if (!state.history[i].agentActivities) {
+            state.history[i].agentActivities = [];
+          }
+          state.history[i].agentActivities!.push(payload);
+          break;
+        }
+      }
+    },
     setIsGatheringContext: (state, { payload }: PayloadAction<boolean>) => {
       const curMessage = state.history.at(-1);
       if (curMessage) {
@@ -522,6 +600,24 @@ export const sessionSlice = createSlice({
 
       if (curMessage) {
         curMessage.isGatheringContext = false;
+        if (curMessage.agentActivities && curMessage.agentActivities.length > 0) {
+          const lastAct = curMessage.agentActivities[curMessage.agentActivities.length - 1];
+          const getKind = (act: any) => act?.event?.kind || act?.type || act?.kind;
+          if (!["completed", "failed", "cancelled"].includes(getKind(lastAct))) {
+            const startEv = curMessage.agentActivities.find(
+              (a: any) => getKind(a) === "started",
+            );
+            const startTs = startEv?.event?.timestamp || startEv?.timestamp || Date.now();
+            curMessage.agentActivities.push({
+              executionId: lastAct.executionId || "",
+              event: {
+                kind: "completed",
+                durationMs: Math.max(0, Date.now() - startTs),
+                timestamp: Date.now(),
+              },
+            });
+          }
+        }
       }
 
       state.isStreaming = false;
@@ -1087,6 +1183,8 @@ export const {
   setToolGenerated,
   updateToolCallOutput,
   addAgentActivity,
+  finalizeAgentActivity,
+  addAgentActivityToLatestAssistant,
   setProcessedToolCallArgs,
   setMode,
   setIsSessionMetadataLoading,

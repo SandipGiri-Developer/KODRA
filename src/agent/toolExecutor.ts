@@ -8,6 +8,7 @@
 
 import { ToolCall } from '../providers/types';
 import { toError } from '../utils/errors';
+import { Logger } from '../utils/logger';
 import { IAgentEventBus } from './agentEventBus';
 import { IPermissionManager } from './permissionManager';
 import { IToolRegistry } from './toolRegistry';
@@ -132,7 +133,7 @@ export class ToolExecutor implements IToolExecutor {
         timestamp: Date.now(),
       });
 
-      const approved = await this.permissionManager.requestPermission(permReq);
+      const approved = await this.permissionManager.requestPermission(permReq, signal);
 
       if (signal?.aborted) {
         return {
@@ -185,6 +186,8 @@ export class ToolExecutor implements IToolExecutor {
       timestamp: Date.now(),
     });
 
+    Logger.getInstance().info(`[KODRA Lifecycle] Tool started tool=${tool.name} toolCallId=${callId} executionId=${executionId}`);
+
     const t0 = Date.now();
     let result: ToolResult;
     try {
@@ -197,6 +200,7 @@ export class ToolExecutor implements IToolExecutor {
       };
     }
     const durationMs = Date.now() - t0;
+    Logger.getInstance().info(`[KODRA Lifecycle] Tool ${result.success ? 'completed' : 'failed'} tool=${tool.name} toolCallId=${callId} duration=${durationMs}ms executionId=${executionId}`);
 
     if (result.success) {
       this.eventBus.emit({
