@@ -24,6 +24,18 @@ const execFileAsync = promisify(execFile);
 /** Maximum output characters returned to the model. */
 const MAX_OUTPUT_CHARS = 8000;
 
+function boundOutput(raw: string, maxChars: number = MAX_OUTPUT_CHARS): { content: string; truncated: boolean } {
+  if (raw.length <= maxChars) {
+    return { content: raw, truncated: false };
+  }
+  const marker = '\n... (truncated — output exceeded limit)';
+  const sliceLen = Math.max(0, maxChars - marker.length);
+  return {
+    content: raw.slice(0, sliceLen) + marker,
+    truncated: true,
+  };
+}
+
 type GitOperation = 'log' | 'blame' | 'diff' | 'status';
 
 export class GitContextTool implements ITool {
@@ -208,16 +220,17 @@ export class GitContextTool implements ITool {
       };
     }
 
-    const truncated = output.length > MAX_OUTPUT_CHARS ? output.slice(0, MAX_OUTPUT_CHARS) + '\n... (truncated)' : output;
-
     const header = file
       ? `Git log for "${file}" (last ${maxCommits} commits):`
       : `Git log for workspace (last ${maxCommits} commits):`;
 
+    const raw = `${header}\n\n${output}`;
+    const bounded = boundOutput(raw);
+
     return {
-      content: `${header}\n\n${truncated}`,
+      content: bounded.content,
       success: true,
-      metadata: { operation: 'log', file },
+      metadata: { operation: 'log', file, truncated: bounded.truncated },
     };
   }
 
@@ -283,13 +296,13 @@ export class GitContextTool implements ITool {
       }
     }
 
-    const output = result.join('\n');
-    const truncated = output.length > MAX_OUTPUT_CHARS ? output.slice(0, MAX_OUTPUT_CHARS) + '\n... (truncated)' : output;
+    const raw = result.join('\n');
+    const bounded = boundOutput(raw);
 
     return {
-      content: truncated,
+      content: bounded.content,
       success: true,
-      metadata: { operation: 'blame', file, linesShown: lineNumber },
+      metadata: { operation: 'blame', file, linesShown: lineNumber, truncated: bounded.truncated },
     };
   }
 
@@ -336,15 +349,17 @@ export class GitContextTool implements ITool {
       };
     }
 
-    const truncated = output.length > MAX_OUTPUT_CHARS ? output.slice(0, MAX_OUTPUT_CHARS) + '\n... (truncated)' : output;
     const header = file
       ? `Git diff for "${file}" (${diffMode}):`
       : `Git diff for workspace (${diffMode}):`;
 
+    const raw = `${header}\n\n${output}`;
+    const bounded = boundOutput(raw);
+
     return {
-      content: `${header}\n\n${truncated}`,
+      content: bounded.content,
       success: true,
-      metadata: { operation: 'diff', file, commit: safeRef, staged },
+      metadata: { operation: 'diff', file, commit: safeRef, staged, truncated: bounded.truncated },
     };
   }
 
@@ -410,13 +425,10 @@ export class GitContextTool implements ITool {
     }
 
     const rawOutput = lines.join('\n');
-    const truncatedOutput =
-      rawOutput.length > MAX_OUTPUT_CHARS
-        ? rawOutput.slice(0, MAX_OUTPUT_CHARS) + '\n... (truncated — output exceeded limit)'
-        : rawOutput;
+    const bounded = boundOutput(rawOutput);
 
     return {
-      content: truncatedOutput,
+      content: bounded.content,
       success: true,
       metadata: {
         operation: 'status',
@@ -424,7 +436,7 @@ export class GitContextTool implements ITool {
         staged: grouped.staged.length,
         unstaged: grouped.unstaged.length,
         untracked: grouped.untracked.length,
-        truncated: rawOutput.length > MAX_OUTPUT_CHARS,
+        truncated: bounded.truncated,
       },
     };
   }

@@ -9,6 +9,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs/promises';
+import * as fsSync from 'fs';
 
 /** Maximum number of search results to hold in the in-process cache. */
 const SEARCH_CACHE_MAX_ENTRIES = 20;
@@ -220,22 +221,53 @@ export function normalizePath(p: string): string {
 }
 
 /**
+ * Resolves the real canonical filesystem path, following any symlinks or junctions.
+ * If the path or a subsegment does not exist, climbs up to the nearest existing
+ * ancestor, resolves its realpath, and joins the remaining segments.
+ */
+export function toRealPath(p: string): string {
+  try {
+    return fsSync.realpathSync.native ? fsSync.realpathSync.native(p) : fsSync.realpathSync(p);
+  } catch {
+    let current = path.resolve(p);
+    const segments: string[] = [];
+    while (current && current !== path.dirname(current)) {
+      segments.unshift(path.basename(current));
+      current = path.dirname(current);
+      try {
+        const real = fsSync.realpathSync.native ? fsSync.realpathSync.native(current) : fsSync.realpathSync(current);
+        return path.join(real, ...segments);
+      } catch {
+        // continue climbing up
+      }
+    }
+    return path.resolve(p);
+  }
+}
+
+/**
  * Checks whether a given filesystem path lies within any of the workspace folders.
- * Uses path.relative() and normalizePath for cross-platform reliability on Windows.
- *
- * Symlink policy: containment is checked against the path AFTER path.resolve() (which
- * resolves symlinks on the call site via normalizePath). A symlink whose resolved real
- * path lies outside the workspace will therefore be rejected. This is the safe default.
+ * Uses path.relative(), toRealPath, and normalizePath for cross-platform reliability,
+ * symlink/junction containment, and Windows casing normalization.
  */
 export function isPathInWorkspace(targetFsPath: string, workspaceFolders: WorkspaceFolderInfo[]): boolean {
   if (!targetFsPath || workspaceFolders.length === 0) {
     return false;
   }
   const normTarget = normalizePath(targetFsPath);
+  const realTarget = normalizePath(toRealPath(targetFsPath));
+
   for (const ws of workspaceFolders) {
     const normRoot = normalizePath(ws.fsPath);
-    const rel = path.relative(normRoot, normTarget);
-    if (!rel.startsWith('..') && !path.isAbsolute(rel)) {
+    const realRoot = normalizePath(toRealPath(ws.fsPath));
+
+    const relLexical = path.relative(normRoot, normTarget);
+    const isLexicalInside = !relLexical.startsWith('..') && !path.isAbsolute(relLexical);
+
+    const relReal = path.relative(realRoot, realTarget);
+    const isRealInside = !relReal.startsWith('..') && !path.isAbsolute(relReal);
+
+    if (isLexicalInside && isRealInside) {
       return true;
     }
   }
@@ -645,8 +677,14 @@ export class VSCodeWorkspaceService implements IWorkspaceService {
               if (options.exclude && matchesPattern(relFromRoot, options.exclude)) {
                 continue;
               }
+              if (!isPathInWorkspace(fullPath, folders)) {
+                continue;
+              }
               dirQueue.push(fullPath);
             } else if (st.isFile()) {
+              if (!isPathInWorkspace(fullPath, folders)) {
+                continue;
+              }
               if (options.filePattern && !matchesPattern(relFromRoot, options.filePattern)) {
                 continue;
               }
@@ -695,7 +733,10 @@ export class VSCodeWorkspaceService implements IWorkspaceService {
           continue;
         }
 
-        const prevMatchCount = matches.length;
+        // Track every inspected candidate file for cache mtime invalidation
+        matchedAbsPaths.push(normalizePath(filePath));
+        matchedMtimes.push(fileMtime);
+
         const lines = content.split(/\r?\n/);
         for (let i = 0; i < lines.length; i++) {
           const line = lines[i];
@@ -710,12 +751,6 @@ export class VSCodeWorkspaceService implements IWorkspaceService {
               break;
             }
           }
-        }
-
-        // Track this file for cache mtime validation if it contributed matches
-        if (matches.length > prevMatchCount) {
-          matchedAbsPaths.push(normalizePath(filePath));
-          matchedMtimes.push(fileMtime);
         }
       }
     }
