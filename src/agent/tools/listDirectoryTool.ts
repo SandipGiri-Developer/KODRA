@@ -10,6 +10,8 @@ import { ToolDefinition } from '../../providers/types';
 import { ITool, ToolParameterSchema, ToolResult } from '../types';
 import { DEFAULT_IGNORED_DIRS, IWorkspaceService, VSCodeWorkspaceService } from '../workspaceService';
 
+const MAX_OUTPUT_CHARS = 8000;
+
 export class ListDirectoryTool implements ITool {
   readonly name = 'list_directory';
   readonly description =
@@ -23,6 +25,20 @@ export class ListDirectoryTool implements ITool {
       path: {
         type: 'string',
         description: 'The directory path to list (relative to workspace root). Defaults to the workspace root if empty.',
+      },
+      pattern: {
+        type: 'string',
+        description:
+          'Optional glob pattern to discover files matching across the workspace (e.g. "**/*.ts", "src/**/*.json"). ' +
+          'When provided, searches files matching the pattern instead of listing a single directory.',
+      },
+      exclude: {
+        type: 'string',
+        description: 'Optional glob pattern of files/directories to exclude when pattern is provided (e.g. "**/*.spec.ts").',
+      },
+      maxResults: {
+        type: 'number',
+        description: 'Maximum number of files to return when discovering files. Defaults to 50.',
       },
       recursive: {
         type: 'boolean',
@@ -48,6 +64,82 @@ export class ListDirectoryTool implements ITool {
   }
 
   async execute(args: Record<string, unknown>): Promise<ToolResult> {
+    const ws = this.workspaceService.getActiveWorkspaceFolder();
+    if (!ws) {
+      return {
+        content: 'Error: No workspace folder is currently open.',
+        success: false,
+      };
+    }
+
+    // Check for file discovery pattern mode
+    const pattern =
+      typeof args.pattern === 'string' && args.pattern.trim()
+        ? args.pattern.trim()
+        : typeof args.filePattern === 'string' && args.filePattern.trim()
+        ? args.filePattern.trim()
+        : typeof args.glob === 'string' && args.glob.trim()
+        ? args.glob.trim()
+        : undefined;
+
+    if (pattern) {
+      try {
+        const exclude =
+          typeof args.exclude === 'string' && args.exclude.trim()
+            ? args.exclude.trim()
+            : typeof args.excludePattern === 'string' && args.excludePattern.trim()
+            ? args.excludePattern.trim()
+            : undefined;
+
+        const maxResults =
+          typeof args.maxResults === 'number' ? Math.min(Math.max(args.maxResults, 1), 500) : 50;
+
+        const files = await this.workspaceService.findFiles(pattern, {
+          excludePattern: exclude,
+          maxResults,
+        });
+
+        if (files.length === 0) {
+          return {
+            content: `No files matching pattern "${pattern}"${exclude ? ` (excluding "${exclude}")` : ''} found in workspace.`,
+            success: true,
+            metadata: { itemCount: 0, pattern, exclude },
+          };
+        }
+
+        const lines = [
+          `Discovered ${files.length} file(s) matching "${pattern}"` +
+            (exclude ? ` (excluding "${exclude}")` : '') +
+            ':',
+          '',
+          ...files.map((f) => `[FILE] ${f}`),
+        ];
+
+        const rawContent = lines.join('\n');
+        const truncatedContent =
+          rawContent.length > MAX_OUTPUT_CHARS
+            ? rawContent.slice(0, MAX_OUTPUT_CHARS) + '\n... (truncated — output exceeded limit)'
+            : rawContent;
+
+        return {
+          content: truncatedContent,
+          success: true,
+          metadata: {
+            itemCount: files.length,
+            pattern,
+            exclude,
+            files,
+            truncated: rawContent.length > MAX_OUTPUT_CHARS,
+          },
+        };
+      } catch (err: any) {
+        return {
+          content: `Error discovering files with pattern "${pattern}": ${err.message || String(err)}`,
+          success: false,
+        };
+      }
+    }
+
     // Support argument aliases: path, dir, directory, folder
     const rawPath =
       typeof args.path === 'string'
@@ -61,14 +153,6 @@ export class ListDirectoryTool implements ITool {
         : '';
 
     const recursive = Boolean(args.recursive);
-
-    const ws = this.workspaceService.getActiveWorkspaceFolder();
-    if (!ws) {
-      return {
-        content: 'Error: No workspace folder is currently open.',
-        success: false,
-      };
-    }
 
     try {
       const { relativePath, inWorkspace } = this.workspaceService.resolvePath(rawPath);
@@ -105,19 +189,25 @@ export class ListDirectoryTool implements ITool {
           return `[FILE] ${e.name}`;
         });
 
-        const output = [
+        const rawOutput = [
           `Directory: ${displayPath}`,
           `Total items: ${filtered.length}`,
           '',
           formatted.length > 0 ? formatted.join('\n') : '(empty directory)',
         ].join('\n');
 
+        const truncatedContent =
+          rawOutput.length > MAX_OUTPUT_CHARS
+            ? rawOutput.slice(0, MAX_OUTPUT_CHARS) + '\n... (truncated — output exceeded limit)'
+            : rawOutput;
+
         return {
-          content: output,
+          content: truncatedContent,
           success: true,
           metadata: {
             itemCount: filtered.length,
             path: relativePath,
+            truncated: rawOutput.length > MAX_OUTPUT_CHARS,
           },
         };
       }
@@ -153,20 +243,26 @@ export class ListDirectoryTool implements ITool {
         }
       }
 
-      const output = [
+      const rawOutput = [
         `Directory (recursive): ${displayPath}`,
         `Total entries listed: ${lines.length}`,
         '',
         lines.length > 0 ? lines.join('\n') : '(empty directory)',
       ].join('\n');
 
+      const truncatedContent =
+        rawOutput.length > MAX_OUTPUT_CHARS
+          ? rawOutput.slice(0, MAX_OUTPUT_CHARS) + '\n... (truncated — output exceeded limit)'
+          : rawOutput;
+
       return {
-        content: output,
+        content: truncatedContent,
         success: true,
         metadata: {
           entryCount: lines.length,
           path: relativePath,
           entries: lines,
+          truncated: rawOutput.length > MAX_OUTPUT_CHARS,
         },
       };
     } catch (err: any) {
