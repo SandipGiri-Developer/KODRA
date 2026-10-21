@@ -11,6 +11,7 @@ export type WebviewToExtensionMessage = {
     type: 'sendMessage';
     text: string;
     contextFiles?: string[];
+    sessionId?: string;
 } | {
     type: 'cancelGeneration';
 } | {

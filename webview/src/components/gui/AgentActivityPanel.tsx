@@ -7,6 +7,7 @@
 
 import { useEffect, useState } from "react";
 import { WrenchScrewdriverIcon, XMarkIcon, EllipsisHorizontalIcon } from "@heroicons/react/24/outline";
+import { formatDuration } from "../../util/time";
 
 // ─── Activity event types ────────────────────────────────────────────────────
 
@@ -335,9 +336,11 @@ function GroupRow({ group, now }: { group: ActivityGroup; now: number }) {
 interface AgentActivityPanelProps {
   /** All activity messages for this turn. */
   activities: AgentActivityMessage[];
+  /** Whether the generation for this message is currently active. */
+  isStreaming?: boolean;
 }
 
-export function AgentActivityPanel({ activities }: AgentActivityPanelProps) {
+export function AgentActivityPanel({ activities, isStreaming = false }: AgentActivityPanelProps) {
   const [open, setOpen] = useState(true);
   const [hover, setHover] = useState(false);
   const [now, setNow] = useState(Date.now());
@@ -361,6 +364,15 @@ export function AgentActivityPanel({ activities }: AgentActivityPanelProps) {
     } else if (ev.kind === "cancelled") {
       runStatus = "cancelled";
       totalDurationMs = ev.timestamp - (startTs ?? ev.timestamp);
+    }
+  }
+
+  // If generation is no longer streaming and no terminal activity was recorded,
+  // reconcile state so panel does not stay stuck in "running" / "Thinking...".
+  if (!isStreaming && runStatus === "running") {
+    runStatus = "completed";
+    if (startTs) {
+      totalDurationMs = Math.max(0, now - startTs);
     }
   }
 
@@ -448,17 +460,17 @@ export function AgentActivityPanel({ activities }: AgentActivityPanelProps) {
     }
   }
 
-  // Live elapsed timer while running
+  // Live elapsed timer while genuinely running and streaming
   useEffect(() => {
-    if (runStatus !== "running" || !startTs) return;
+    if (runStatus !== "running" || !isStreaming || !startTs) return;
     const interval = setInterval(() => {
       setNow(Date.now());
-    }, 500);
+    }, 1000);
     return () => clearInterval(interval);
-  }, [runStatus, startTs]);
+  }, [runStatus, isStreaming, startTs]);
 
   const elapsed = runStatus === "running" && startTs ? now - startTs : totalDurationMs;
-  const elapsedSec = (elapsed / 1000).toFixed(elapsed >= 10000 ? 0 : 1);
+  const durationText = formatDuration(elapsed / 1000);
 
   // Compact summary line
   const statusVerb =
@@ -501,7 +513,7 @@ export function AgentActivityPanel({ activities }: AgentActivityPanelProps) {
             transition: "color 0.1s ease",
           }}
         >
-          {statusVerb} for {elapsedSec}s
+          {statusVerb} for {durationText}
         </span>
         <span style={{ color: "var(--vscode-descriptionForeground, #9d9d9d)", opacity: hover ? 0.8 : 0.5, display: "inline-flex", alignItems: "center", transition: "opacity 0.1s ease" }}>
           <Chevron open={open} />
@@ -532,7 +544,7 @@ export function AgentActivityPanel({ activities }: AgentActivityPanelProps) {
         aria-hidden={!open}
       >
         <div style={{ paddingLeft: 15, paddingTop: 4, paddingBottom: 4 }}>
-          {groups.length === 0 && runStatus === "running" && (
+          {groups.length === 0 && runStatus === "running" && isStreaming && (
             <div
               style={{
                 fontSize: 11,

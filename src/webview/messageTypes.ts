@@ -12,7 +12,7 @@ import { DiscoveredModel, ProviderSettings, WorkspaceModel } from '../providers/
 // ─── Messages from Webview to Extension ────────────────────────────────────
 
 export type WebviewToExtensionMessage =
-  | { type: 'sendMessage'; text: string; contextFiles?: string[] }
+  | { type: 'sendMessage'; text: string; contextFiles?: string[]; sessionId?: string }
   | { type: 'cancelGeneration' }
   | { type: 'newChat' }
   | { type: 'approveAction'; approved: boolean }
@@ -105,6 +105,9 @@ export function validateWebviewMessage(data: unknown): WebviewToExtensionMessage
   switch (msg.type) {
     case 'sendMessage':
       if (typeof msg.text !== 'string' || msg.text.trim().length === 0) {
+        return null;
+      }
+      if (msg.sessionId !== undefined && typeof msg.sessionId !== 'string') {
         return null;
       }
       break;

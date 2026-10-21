@@ -6,6 +6,13 @@ import { Logger } from './utils/logger';
 import { SettingsManager } from './utils/settingsManager';
 import { KodraViewProvider } from './webview/viewProvider';
 import { SettingsPanel, SettingsPanelSerializer } from './webview/settingsPanel';
+import {
+  StorageManager,
+  WorkspaceRegistry,
+  ExecutionJournal,
+  ArtifactManager,
+  ConversationRepository,
+} from './storage';
 
 let indexer: CodebaseIndexer;
 let providerRegistry: ProviderRegistry;
@@ -23,11 +30,35 @@ export async function activate(context: vscode.ExtensionContext) {
     ModelCacheManager.setGlobalStoragePath(context.globalStorageUri.fsPath);
     providerRegistry = new ProviderRegistry(context.secrets);
     
+    // Initialize persistent storage backend
+    const storageManager = StorageManager.initialize(context.globalStorageUri.fsPath);
+    await storageManager.initializeStorage();
+    const workspaceRegistry = new WorkspaceRegistry(context.globalStorageUri.fsPath);
+    await workspaceRegistry.initialize();
+    const executionJournal = new ExecutionJournal(storageManager);
+    const artifactManager = new ArtifactManager(storageManager);
+    const conversationRepository = new ConversationRepository(
+      storageManager,
+      workspaceRegistry,
+      executionJournal,
+      artifactManager
+    );
+    await conversationRepository.loadIndex();
+
     const indexerConfig = CodebaseIndexer.readConfig();
     indexer = new CodebaseIndexer(indexerConfig, context.storageUri?.fsPath);
     
     // Register webview provider
-    const viewProvider = new KodraViewProvider(context.extensionUri, providerRegistry, indexer);
+    const viewProvider = new KodraViewProvider(
+      context.extensionUri,
+      providerRegistry,
+      indexer,
+      undefined,
+      conversationRepository,
+      executionJournal,
+      artifactManager,
+      workspaceRegistry
+    );
     
     context.subscriptions.push(
       vscode.window.registerWebviewViewProvider(

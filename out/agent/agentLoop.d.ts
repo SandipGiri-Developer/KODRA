@@ -48,6 +48,8 @@ export declare class AgentLoop {
         maxTokens?: number;
         contextFiles?: string[];
         toolCalling?: boolean;
+        firstTokenTimeoutMs?: number;
+        idleChunkTimeoutMs?: number;
     }): AsyncGenerator<AgentEvent>;
     /**
      * Cancel the active agent run.
