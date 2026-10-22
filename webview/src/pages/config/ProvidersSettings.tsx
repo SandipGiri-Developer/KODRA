@@ -296,30 +296,31 @@ function ProviderCard({
 
   return (
     <div
-      className="
-        relative
-        flex
-        min-h-[52px]
-        w-full
-        items-center
-        gap-3
-        border-b
-        border-[#1E2333]
-        bg-transparent
-        px-2
-        py-2.5
-        transition-all
-        duration-150
-        hover:bg-[#11141C]
-        last:border-b-0
-      "
+      className={`
+    group/card relative grid w-full items-center
+    grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-3
+    rounded-xl border border-white/[0.06] bg-white/[0.02]
+    p-3 transition-all duration-200
+    hover:border-white/[0.12] hover:bg-white/[0.04]
+    sm:px-4 sm:py-3.5
+    md:grid-cols-[170px_190px_minmax(0,1fr)_auto] md:gap-x-4 md:py-3
+    ${menuOpen ? "z-30" : "z-0"}
+  `}
     >
       {/* Provider */}
-      <div className="flex min-w-[140px] flex-shrink-0 items-center gap-2">
-        <ProviderIcon provider={provider.provider} />
+      <div className="col-start-1 row-start-1 flex min-w-0 items-center gap-3 md:col-start-auto md:row-start-auto">
+        <div
+          className="
+        flex h-9 w-9 shrink-0 items-center justify-center rounded-lg
+        bg-white/[0.04] ring-1 ring-inset ring-white/[0.08]
+      "
+        >
+          <ProviderIcon provider={provider.provider} />
+        </div>
+
         <span
           title={provider.name}
-          className="truncate text-[13px] font-semibold text-[#E7ECF3]"
+          className="min-w-0 truncate text-[13px] font-semibold tracking-[-0.01em] text-[#F1F5F9]"
         >
           {provider.name ||
             PROVIDER_DISPLAY[provider.provider.toLowerCase() as ProviderType]
@@ -329,35 +330,33 @@ function ProviderCard({
       </div>
 
       {/* Connection */}
-      <div className="flex min-w-[150px] flex-shrink-0 flex-col">
-        <div className="flex items-center gap-2">
+      <div
+        className="
+      col-span-2 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1
+      md:col-span-1 md:flex-col md:items-start md:gap-1
+    "
+      >
+        <span
+          className="
+        inline-flex shrink-0 items-center gap-1.5 rounded-full
+        bg-emerald-500/10 px-2 py-0.5
+        text-[11px] font-medium text-emerald-300
+        ring-1 ring-inset ring-emerald-500/20
+      "
+        >
           <span
             className="
-              h-[6px]
-              w-[6px]
-              flex-shrink-0
-              rounded-full
-              bg-[#22C55E]
-              shadow-[0_0_6px_rgba(34,197,94,0.35)]
-            "
+          h-1.5 w-1.5 rounded-full bg-emerald-400
+          shadow-[0_0_6px_rgba(52,211,153,0.6)]
+        "
           />
-
-          <span className="text-[12px] font-medium text-[#B9C4D2]">
-            Connected
-          </span>
-        </div>
+          Connected
+        </span>
 
         {provider.endpoint && (
           <div
             title={provider.endpoint}
-            className="
-              mt-1
-              max-w-[190px]
-              truncate
-              text-[10px]
-              leading-4
-              text-[#667085]
-            "
+            className="min-w-0 max-w-full flex-1 truncate font-mono text-[10.5px] leading-4 text-[#728096] md:flex-none"
           >
             {provider.endpoint}
           </div>
@@ -368,33 +367,21 @@ function ProviderCard({
       <div
         title={modelTooltip}
         className="
-          flex
-          min-w-0
-        
-          items-center
-          gap-1.5
-          overflow-hidden
-        "
+      col-span-2 flex min-w-0 flex-wrap items-center gap-1.5
+      md:col-span-1 md:flex-nowrap md:overflow-hidden
+    "
       >
         {models.length === 0 ? (
-          <span className="text-[11px] text-[#5F6979]">
+          <span className="text-[11.5px] italic text-[#667286]">
             No models selected
           </span>
         ) : (
           <>
             {visibleModels.map((model) => (
-              <ModelChip
-                key={model.id}
-                name={model.displayName}
-              />
+              <ModelChip key={model.id} name={model.displayName} />
             ))}
 
-            {extraCount > 0 && (
-              <ModelChip
-                name={`+${extraCount}`}
-                muted
-              />
-            )}
+            {extraCount > 0 && <ModelChip name={`+${extraCount}`} muted />}
           </>
         )}
       </div>
@@ -403,108 +390,79 @@ function ProviderCard({
       <div
         ref={menuRef}
         className="
-          relative
-          z-20
-          flex
-          flex-shrink-0
-          items-center
-        "
+      relative z-20 col-start-2 row-start-1 flex items-center justify-self-end
+      md:col-start-auto md:row-start-auto
+    "
       >
         <button
           type="button"
           onClick={() => setMenuOpen((previous) => !previous)}
           aria-label="Provider actions"
+          aria-haspopup="menu"
           aria-expanded={menuOpen}
-          className="
-            flex
-            h-8
-            w-8
-            items-center
-            justify-center
-            rounded-[7px]
-            border
-            border-transparent
-            bg-transparent
-            text-[#778196]
-            transition-all
-            duration-150
-            hover:border-[#2D3548]
-            hover:bg-[#1A1F2B]
-            hover:text-[#D9E0EA]
-            focus:outline-none
-            focus-visible:border-[#4F46E5]
-            focus-visible:ring-2
-            focus-visible:ring-[#6366F1]/20
-          "
+          className={`
+        flex h-9 w-9 items-center justify-center rounded-lg border-0
+        transition-all duration-150
+        focus:outline-none
+        focus-visible:ring-2 focus-visible:ring-[#2F48A1]/60
+        md:h-8 md:w-8
+        ${menuOpen
+              ? "bg-[#2F48A1]/20 text-[#9DB0F0]"
+              : "bg-transparent text-[#8B96A9] hover:bg-white/[0.06] hover:text-[#F1F5F9]"
+            }
+      `}
         >
           <EllipsisHorizontalIcon className="h-[18px] w-[18px]" />
         </button>
 
         {menuOpen && (
           <div
+            role="menu"
             className="
-              absolute
-              right-0
-              top-[calc(100%+6px)]
-              z-[100]
-              w-[154px]
-              overflow-hidden
-              rounded-[8px]
-              border
-              border-[#2A3142]
-              bg-[#151923]
-              py-1
-              shadow-[0_12px_32px_rgba(0,0,0,.45)]
-            "
+          absolute right-0 top-[calc(100%+6px)] z-[100] w-44
+          overflow-hidden rounded-xl
+          border border-white/[0.1] bg-[#141823]
+          p-1 shadow-[0_16px_40px_rgba(0,0,0,0.5)]
+        "
           >
             <button
               autoFocus
               type="button"
+              role="menuitem"
               onClick={() => {
                 setMenuOpen(false);
                 onEdit(provider);
               }}
               className="
-                flex
-                w-full
-                items-center
-                gap-2.5
-                px-3
-                py-2
-                text-left
-                text-[12px]
-                text-[#CBD5E1]
-                transition-colors
-                hover:bg-[#1D2330]
-                hover:text-[#F1F5F9]
-              "
+            flex min-h-[40px] w-full items-center gap-2.5 rounded-lg border-0
+            bg-transparent px-2.5 text-left text-[12.5px]
+            text-[#CBD5E1] transition-colors duration-150
+            hover:bg-white/[0.06] hover:text-[#F1F5F9]
+            focus:outline-none focus-visible:bg-white/[0.06]
+            md:min-h-[34px]
+          "
             >
               <PencilIcon className="h-3.5 w-3.5" />
               Edit
             </button>
 
-            <div className="mx-2 border-t border-[#252B39]" />
+            <div className="mx-1 my-1 h-px bg-white/[0.06]" />
 
             <button
               type="button"
+              role="menuitem"
               onClick={() => {
                 setMenuOpen(false);
                 onDelete(provider.id);
               }}
               className="
-                flex
-                w-full
-                items-center
-                gap-2.5
-                px-3
-                py-2
-                text-left
-                text-[12px]
-                text-[#F87171]
-                transition-colors
-                hover:bg-[#24191F]
-                hover:text-[#FCA5A5]
-              "
+            flex min-h-[40px] w-full items-center gap-2.5 rounded-lg border-0
+            bg-transparent px-2.5 text-left text-[12.5px]
+            text-[#F87171] transition-colors duration-150
+            hover:bg-red-500/10 hover:text-[#FCA5A5]
+            focus:outline-none focus-visible:bg-red-500/10
+            md:min-h-[34px]
+          "
             >
               <TrashIcon className="h-3.5 w-3.5" />
               Delete
@@ -754,48 +712,46 @@ function AddProviderForm({
   const needsEndpoint =
     providerType !== "anthropic";
 
+  const labelClass =
+    "text-[11px] font-semibold uppercase tracking-[0.06em] text-[#8B96A9]";
+
+  const inputClass = `
+  h-10 w-full rounded-lg border border-white/[0.08] bg-[#0A0D13] px-3
+  text-[13px] text-[#F1F5F9] outline-none placeholder:text-[#5E6A7E]
+  transition-colors duration-150
+  hover:border-white/[0.16]
+  focus:border-[#2F48A1] focus:ring-2 focus:ring-[#2F48A1]/30
+`;
+
   return (
     <section
       className="
-        rounded-[10px]
-        border
-        border-[#1E2333]
-        bg-[#11141C]
-        p-5
-      "
+    rounded-2xl border border-white/[0.06] bg-white/[0.02]
+    p-4 sm:p-6
+  "
     >
       {/* Header */}
-      <div className="mb-6 flex items-start justify-between">
-        <div>
-          <div className="flex items-center gap-2.5">
-            <div
-              className="
-                flex
-                h-8
-                w-8
-                items-center
-                justify-center
-                rounded-[7px]
-                border
-                border-[#2A3142]
-                bg-[#171B26]
-              "
-            >
-              {isEditing ? (
-                <PencilIcon className="h-4 w-4 text-[#A5B4FC]" />
-              ) : (
-                <PlusIcon className="h-4 w-4 text-[#A5B4FC]" />
-              )}
-            </div>
+      <div className="mb-6 flex items-start gap-3.5 border-b border-white/[0.06] pb-5">
+        <div
+          className="
+        flex h-10 w-10 shrink-0 items-center justify-center rounded-xl
+        bg-[#2F48A1]/15 text-[#7C93E8]
+        ring-1 ring-inset ring-[#2F48A1]/30
+        shadow-[0_0_20px_-6px_rgba(47,72,161,0.6)]
+      "
+        >
+          {isEditing ? (
+            <PencilIcon className="h-5 w-5" />
+          ) : (
+            <PlusIcon className="h-5 w-5" />
+          )}
+        </div>
 
-            <h2 className="m-0 text-[17px] font-semibold leading-6 text-[#F1F5F9]">
-              {isEditing
-                ? "Edit AI Provider"
-                : "Add AI Provider"}
-            </h2>
-          </div>
-
-          <p className="mt-1.5 text-[12px] leading-[18px] text-[#7D8798]">
+        <div className="min-w-0">
+          <h2 className="m-0 text-[17px] font-semibold leading-6 tracking-[-0.015em] text-[#F1F5F9]">
+            {isEditing ? "Edit AI Provider" : "Add AI Provider"}
+          </h2>
+          <p className="mt-0.5 text-[12.5px] leading-5 text-[#8B96A9]">
             {isEditing
               ? "Update the connection and workspace models."
               : "Connect a provider and choose the models available in your workspace."}
@@ -806,50 +762,31 @@ function AddProviderForm({
       <div className="flex max-w-[760px] flex-col gap-5">
         {/* Provider Type */}
         <div className="flex flex-col gap-1.5">
-          <label
-            htmlFor="provider-type-select"
-            className="text-[11px] font-medium uppercase tracking-[0.04em] text-[#94A3B8]"
-          >
+          <label htmlFor="provider-type-select" className={labelClass}>
             Provider
           </label>
 
           <div className="flex items-center gap-3">
-            <ProviderIcon provider={providerType} />
+            <div
+              className="
+            flex h-10 w-10 shrink-0 items-center justify-center rounded-lg
+            bg-white/[0.04] ring-1 ring-inset ring-white/[0.08]
+          "
+            >
+              <ProviderIcon provider={providerType} />
+            </div>
 
-            <div className="relative w-full max-w-[360px]">
+            <div className="relative w-full sm:max-w-[360px]">
               <select
                 id="provider-type-select"
                 value={providerType}
                 onChange={(event) =>
-                  handleProviderChange(
-                    event.target.value as ProviderType,
-                  )
+                  handleProviderChange(event.target.value as ProviderType)
                 }
-                className="
-                  h-10
-                  w-full
-                  appearance-none
-                  rounded-[7px]
-                  border
-                  border-[#282F40]
-                  bg-[#0C0F15]
-                  px-3
-                  pr-9
-                  text-[13px]
-                  text-[#E5EAF1]
-                  outline-none
-                  transition-colors
-                  hover:border-[#394258]
-                  focus:border-[#6366F1]
-                  focus:ring-2
-                  focus:ring-[#6366F1]/15
-                "
+                className={`${inputClass} cursor-pointer appearance-none pr-9`}
               >
                 {PROVIDER_OPTIONS.map((option) => (
-                  <option
-                    key={option.value}
-                    value={option.value}
-                  >
+                  <option key={option.value} value={option.value}>
                     {option.label}
                   </option>
                 ))}
@@ -857,27 +794,18 @@ function AddProviderForm({
 
               <ChevronDownIcon
                 className="
-                  pointer-events-none
-                  absolute
-                  right-3
-                  top-1/2
-                  h-4
-                  w-4
-                  -translate-y-1/2
-                  text-[#697386]
-                "
+              pointer-events-none absolute right-3 top-1/2
+              h-4 w-4 -translate-y-1/2 text-[#6B778C]
+            "
               />
             </div>
           </div>
         </div>
 
         {/* Name + Endpoint */}
-        <div className="flex flex-col sm:grid sm:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="flex min-w-0 flex-col gap-1.5">
-            <label
-              htmlFor="config-name-input"
-              className="text-[11px] font-medium uppercase tracking-[0.04em] text-[#94A3B8]"
-            >
+            <label htmlFor="config-name-input" className={labelClass}>
               Configuration Name
             </label>
 
@@ -885,39 +813,16 @@ function AddProviderForm({
               id="config-name-input"
               type="text"
               value={name}
-              onChange={(event) =>
-                setName(event.target.value)
-              }
-              placeholder={`e.g. My ${PROVIDER_DISPLAY[providerType]?.label ??
-                providerType
+              onChange={(event) => setName(event.target.value)}
+              placeholder={`e.g. My ${PROVIDER_DISPLAY[providerType]?.label ?? providerType
                 }`}
-              className="
-                h-10
-                w-full
-                rounded-[7px]
-                border
-                border-[#282F40]
-                bg-[#0C0F15]
-                px-3
-                text-[13px]
-                text-[#F1F5F9]
-                outline-none
-                placeholder:text-[#566174]
-                transition-colors
-                hover:border-[#394258]
-                focus:border-[#6366F1]
-                focus:ring-2
-                focus:ring-[#6366F1]/15
-              "
+              className={inputClass}
             />
           </div>
 
           {needsEndpoint && (
             <div className="flex min-w-0 flex-col gap-1.5">
-              <label
-                htmlFor="endpoint-input"
-                className="text-[11px] font-medium uppercase tracking-[0.04em] text-[#94A3B8]"
-              >
+              <label htmlFor="endpoint-input" className={labelClass}>
                 Endpoint
               </label>
 
@@ -925,31 +830,11 @@ function AddProviderForm({
                 id="endpoint-input"
                 type="text"
                 value={endpoint}
-                onChange={(event) =>
-                  setEndpoint(event.target.value)
-                }
+                onChange={(event) => setEndpoint(event.target.value)}
                 placeholder={
-                  DEFAULT_ENDPOINTS[providerType] ||
-                  "http://localhost:11434"
+                  DEFAULT_ENDPOINTS[providerType] || "http://localhost:11434"
                 }
-                className="
-                  h-10
-                  w-full
-                  rounded-[7px]
-                  border
-                  border-[#282F40]
-                  bg-[#0C0F15]
-                  px-3
-                  text-[13px]
-                  text-[#F1F5F9]
-                  outline-none
-                  placeholder:text-[#566174]
-                  transition-colors
-                  hover:border-[#394258]
-                  focus:border-[#6366F1]
-                  focus:ring-2
-                  focus:ring-[#6366F1]/15
-                "
+                className={`${inputClass} font-mono text-[12.5px]`}
               />
             </div>
           )}
@@ -957,64 +842,41 @@ function AddProviderForm({
 
         {/* API Key */}
         {needsApiKey && (
-          <div className="flex max-w-[520px] flex-col gap-1.5">
-            <label
-              htmlFor="api-key-input"
-              className="text-[11px] font-medium uppercase tracking-[0.04em] text-[#94A3B8]"
-            >
+          <div className="flex flex-col gap-1.5 sm:max-w-[520px]">
+            <label htmlFor="api-key-input" className={labelClass}>
               API Key
             </label>
 
             <div className="relative">
               <KeyIcon
                 className="
-                  pointer-events-none
-                  absolute
-                  left-3
-                  top-1/2
-                  h-4
-                  w-4
-                  -translate-y-1/2
-                  text-[#566174]
-                "
+              pointer-events-none absolute left-3 top-1/2
+              h-4 w-4 -translate-y-1/2 text-[#5E6A7E]
+            "
               />
 
               <input
                 id="api-key-input"
                 type={showApiKey ? "text" : "password"}
                 value={apiKey}
-                onChange={(event) =>
-                  setApiKey(event.target.value)
-                }
+                onChange={(event) => setApiKey(event.target.value)}
                 placeholder={
-                  isEditing
-                    ? "Leave blank to keep existing key"
-                    : "Enter API key"
+                  isEditing ? "Leave blank to keep existing key" : "Enter API key"
                 }
-                className="
-                  h-10
-                  w-full
-                  rounded-[7px]
-                  border
-                  border-[#282F40]
-                  bg-[#0C0F15]
-                  pl-9
-                  pr-3
-                  text-[13px]
-                  text-[#F1F5F9]
-                  outline-none
-                  placeholder:text-[#566174]
-                  transition-colors
-                  hover:border-[#394258]
-                  focus:border-[#6366F1]
-                  focus:ring-2
-                  focus:ring-[#6366F1]/15
-                "
+                className={`${inputClass} pl-9 pr-10`}
               />
+
               <button
                 type="button"
                 onClick={() => setShowApiKey(!showApiKey)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-[#566174] hover:text-[#8C96A8] focus:outline-none"
+                aria-label={showApiKey ? "Hide API key" : "Show API key"}
+                className="
+              absolute right-1.5 top-1/2 flex h-7 w-7 -translate-y-1/2
+              items-center justify-center rounded-md border-0
+              bg-transparent text-[#6B778C] transition-colors duration-150
+              hover:bg-white/[0.06] hover:text-[#F1F5F9]
+              focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2F48A1]/60
+            "
               >
                 {showApiKey ? (
                   <EyeSlashIcon className="h-4 w-4" />
@@ -1029,132 +891,121 @@ function AddProviderForm({
         {/* Error */}
         {status === "error" && (
           <div
+            role="alert"
             className="
-              flex
-              items-start
-              gap-2
-              rounded-[7px]
-              border
-              border-[#EF4444]/25
-              bg-[#EF4444]/[0.06]
-              p-3
-              text-[12px]
-              leading-[18px]
-              text-[#FCA5A5]
-            "
+          flex items-start gap-2.5 rounded-lg
+          border border-red-500/25 bg-red-500/[0.07]
+          px-3.5 py-3 text-[12.5px] leading-5 text-red-300
+        "
           >
-            <XCircleIcon className="mt-0.5 h-4 w-4 flex-shrink-0" />
-
-            <span>
-              {connectionError ||
-                "Unable to connect to the provider."}
+            <XCircleIcon className="mt-0.5 h-4 w-4 shrink-0 text-red-400" />
+            <span className="min-w-0 break-words">
+              {connectionError || "Unable to connect to the provider."}
             </span>
           </div>
         )}
 
         {/* Models */}
         {status === "success" && (
-          <div
-            className="
-              flex
-              flex-col
-              gap-3
-              border-t
-              border-[#1E2333]
-              pt-5
+          <div className="flex flex-col gap-3 border-t border-white/[0.06] pt-5">
+            <div className="flex flex-wrap items-center gap-2.5">
+              <div
+                className="
+              flex h-6 w-6 items-center justify-center rounded-md
+              bg-emerald-500/10 text-emerald-400
+              ring-1 ring-inset ring-emerald-500/20
             "
-          >
-            <div className="flex items-center gap-2">
-              <CheckCircleIcon className="h-4 w-4 text-[#4ADE80]" />
+              >
+                <CheckCircleIcon className="h-3.5 w-3.5" />
+              </div>
 
-              <span className="text-[13px] font-medium text-[#E8EDF4]">
+              <span className="text-[13px] font-semibold text-[#F1F5F9]">
                 Workspace Models
               </span>
 
-              <span className="text-[11px] text-[#5F6979]">
+              <span
+                className="
+              rounded-full bg-white/[0.05] px-2 py-0.5
+              text-[11px] font-medium tabular-nums text-[#8B96A9]
+              ring-1 ring-inset ring-white/[0.06]
+            "
+              >
                 {discoveredModels.length} available
               </span>
+
+              {selectedIds.length > 0 && (
+                <span
+                  className="
+                rounded-full bg-[#2F48A1]/20 px-2 py-0.5
+                text-[11px] font-medium tabular-nums text-[#9DB0F0]
+                ring-1 ring-inset ring-[#2F48A1]/30
+              "
+                >
+                  {selectedIds.length} selected
+                </span>
+              )}
             </div>
 
-            <p className="mt-1.5 mb-2 text-[11.5px] leading-relaxed text-[#94A3B8]">
-              <span className="font-medium text-[#A3ADC2]">Note:</span> Please select only the models that are accessible with your provided API key.
+            <p
+              className="
+            m-0 rounded-lg border border-white/[0.06] bg-white/[0.03]
+            px-3 py-2 text-[12px] leading-5 text-[#8B96A9]
+          "
+            >
+              <span className="font-semibold text-[#B8C2D4]">Note:</span> Please
+              select only the models that are accessible with your provided API key.
             </p>
 
             {discoveredModels.length === 0 ? (
               <div
                 className="
-                  rounded-[7px]
-                  border
-                  border-[#1E2333]
-                  bg-[#0C0E14]
-                  px-4
-                  py-4
-                  text-[12px]
-                  text-[#7D8798]
-                "
+              rounded-lg border border-dashed border-white/[0.1]
+              bg-white/[0.02] px-4 py-6 text-center
+              text-[12.5px] text-[#8B96A9]
+            "
               >
                 No chat-capable models found.
               </div>
             ) : (
               <div
                 className="
-                  flex
-                  max-h-[280px]
-                  flex-col
-                  gap-1
-                  overflow-y-auto
-                  rounded-[8px]
-                  border
-                  border-[#1E2333]
-                  bg-[#0C0E14]
-                  p-2
-                "
+              flex max-h-[300px] flex-col gap-1 overflow-y-auto
+              rounded-xl border border-white/[0.06] bg-[#0A0D13] p-1.5
+            "
               >
                 {discoveredModels.map((model) => {
-                  const selected =
-                    selectedIds.includes(model.id);
+                  const selected = selectedIds.includes(model.id);
 
                   return (
                     <label
                       key={model.id}
                       className={`
-                        flex
-                        cursor-pointer
-                        items-start
-                        gap-3
-                        rounded-[7px]
-                        border
-                        p-3
-                        transition-colors
-                        ${selected
-                          ? "border-[#6366F1]/45 bg-[#181C2A]"
-                          : "border-transparent hover:bg-[#151924]"
+                    flex cursor-pointer items-start gap-3 rounded-lg border
+                    p-3 transition-colors duration-150
+                    ${selected
+                          ? "border-[#2F48A1]/50 bg-[#2F48A1]/[0.12]"
+                          : "border-transparent hover:bg-white/[0.04]"
                         }
-                      `}
+                  `}
                     >
                       <input
                         type="checkbox"
                         checked={selected}
-                        onChange={() =>
-                          handleToggleModel(model.id)
-                        }
-                        className="
-                          mt-1
-                          h-4
-                          w-4
-                          flex-shrink-0
-                          accent-[#6366F1]
-                        "
+                        onChange={() => handleToggleModel(model.id)}
+                        className="mt-1 h-4 w-4 shrink-0 cursor-pointer accent-[#2F48A1]"
                       />
 
                       <div className="min-w-0">
-                        <div className="truncate text-[12px] font-medium leading-5 text-[#E5EAF1]">
+                        <div
+                          className={`
+                        truncate text-[12.5px] font-medium leading-5
+                        ${selected ? "text-[#F1F5F9]" : "text-[#D5DCE8]"}
+                      `}
+                        >
                           {model.displayName}
                         </div>
 
-                        <CapabilityChips
-                          capabilities={model.capabilities}
-                        />
+                        <CapabilityChips capabilities={model.capabilities} />
                       </div>
                     </label>
                   );
@@ -1165,7 +1016,12 @@ function AddProviderForm({
         )}
 
         {/* Actions */}
-        <div className="mt-1 flex items-center gap-2">
+        <div
+          className="
+        mt-1 flex flex-col-reverse gap-2.5 border-t border-white/[0.06] pt-5
+        sm:flex-row sm:items-center
+      "
+        >
           {status !== "success" ? (
             <button
               id="connect-discover-btn"
@@ -1173,34 +1029,37 @@ function AddProviderForm({
               onClick={handleConnect}
               disabled={isConnecting}
               className="
-                inline-flex
-                min-h-[38px]
-                items-center
-                justify-center
-                gap-2
-                rounded-[7px]
-                border
-                border-[#6366F1]
-                bg-[#4F46E5]
-                px-4
-                text-[12px]
-                font-medium
-                text-white
-                transition-all
-                hover:border-[#4F46E5]
-                hover:bg-[#4338CA]
-                focus:outline-none
-                focus-visible:ring-2
-                focus-visible:ring-[#6366F1]/30
-                disabled:cursor-not-allowed
-                disabled:opacity-50
-              "
+            group inline-flex h-10 w-full items-center justify-center gap-2
+            rounded-lg border-0 bg-[#2F48A1] px-4
+            text-[12.5px] font-medium text-white
+            shadow-md shadow-[#2F48A1]/30
+            transition-all duration-200
+            hover:-translate-y-px hover:bg-[#3A57C2]
+            active:translate-y-0 active:scale-[0.98]
+            focus:outline-none
+            focus-visible:ring-2 focus-visible:ring-[#2F48A1]/60
+            focus-visible:ring-offset-2 focus-visible:ring-offset-[#0D1017]
+            disabled:translate-y-0 disabled:cursor-not-allowed
+            disabled:bg-[#2F48A1]/40 disabled:text-white/60 disabled:shadow-none
+            sm:w-auto
+          "
             >
-              <ServerIcon className="h-4 w-4" />
+              {isConnecting ? (
+                <svg
+                  viewBox="0 0 24 24"
+                  className="h-4 w-4 animate-spin"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                >
+                  <path d="M12 3a9 9 0 1 0 9 9" />
+                </svg>
+              ) : (
+                <ServerIcon className="h-4 w-4" />
+              )}
 
-              {isConnecting
-                ? "Connecting..."
-                : "Connect & Discover Models"}
+              {isConnecting ? "Connecting..." : "Connect & Discover Models"}
             </button>
           ) : (
             <button
@@ -1209,31 +1068,22 @@ function AddProviderForm({
               onClick={handleSave}
               disabled={selectedIds.length === 0}
               className="
-                inline-flex
-                min-h-[38px]
-                items-center
-                justify-center
-                rounded-[7px]
-                border
-                border-[#6366F1]
-                bg-[#4F46E5]
-                px-4
-                text-[12px]
-                font-medium
-                text-white
-                transition-all
-                hover:border-[#4F46E5]
-                hover:bg-[#4338CA]
-                focus:outline-none
-                focus-visible:ring-2
-                focus-visible:ring-[#6366F1]/30
-                disabled:cursor-not-allowed
-                disabled:opacity-50
-              "
+            inline-flex h-10 w-full items-center justify-center
+            rounded-lg border-0 bg-[#2F48A1] px-5
+            text-[12.5px] font-medium text-white
+            shadow-md shadow-[#2F48A1]/30
+            transition-all duration-200
+            hover:-translate-y-px hover:bg-[#3A57C2]
+            active:translate-y-0 active:scale-[0.98]
+            focus:outline-none
+            focus-visible:ring-2 focus-visible:ring-[#2F48A1]/60
+            focus-visible:ring-offset-2 focus-visible:ring-offset-[#0D1017]
+            disabled:translate-y-0 disabled:cursor-not-allowed
+            disabled:bg-[#2F48A1]/40 disabled:text-white/60 disabled:shadow-none
+            sm:w-auto
+          "
             >
-              {isEditing
-                ? "Save Changes"
-                : "Add Provider"}
+              {isEditing ? "Save Changes" : "Add Provider"}
             </button>
           )}
 
@@ -1242,26 +1092,14 @@ function AddProviderForm({
             type="button"
             onClick={onCancel}
             className="
-              inline-flex
-              min-h-[38px]
-              items-center
-              justify-center
-              rounded-[7px]
-              border
-              border-[#282F40]
-              bg-transparent
-              px-4
-              text-[12px]
-              font-medium
-              text-[#AEB8C7]
-              transition-colors
-              hover:border-[#394258]
-              hover:bg-[#171C26]
-              hover:text-[#E7ECF3]
-              focus:outline-none
-              focus-visible:ring-2
-              focus-visible:ring-[#6366F1]/20
-            "
+          inline-flex h-10 w-full items-center justify-center
+          rounded-lg border border-white/[0.1] bg-transparent px-5
+          text-[12.5px] font-medium text-[#B8C2D4]
+          transition-colors duration-150
+          hover:bg-white/[0.06] hover:text-[#F1F5F9]
+          focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2F48A1]/60
+          sm:w-auto
+        "
           >
             Cancel
           </button>
@@ -1382,7 +1220,7 @@ export function ProvidersSettings() {
   return (
     <div className="flex flex-col gap-7">
 
-      <section>
+      {/* <section>
         <div className="mb-3.5">
           <h2 className="m-0 text-[16px] font-semibold leading-6 text-[#F1F5F9]">
             Configured Providers
@@ -1482,6 +1320,116 @@ export function ProvidersSettings() {
                   (model) =>
                     model.providerConfigId ===
                     provider.id,
+                )}
+                onDelete={handleDelete}
+                onEdit={handleEdit}
+              />
+            ))}
+          </div>
+        )}
+      </section> */}
+
+      <section>
+        {/* Section header */}
+        <div className="mb-4 flex items-end justify-between gap-4">
+          <div className="min-w-0">
+            <h2 className="m-0 text-[16px] font-semibold leading-6 tracking-[-0.01em] text-[#F1F5F9]">
+              Configured Providers
+            </h2>
+            <p className="mt-0.5 text-[12.5px] leading-5 text-[#8B96A9]">
+              AI connections available in this workspace.
+            </p>
+          </div>
+
+          {providers.length > 0 && (
+            <span
+              className="
+          shrink-0 rounded-full bg-white/[0.05] px-2.5 py-1
+          text-[11px] font-medium tabular-nums text-[#8B96A9]
+          ring-1 ring-inset ring-white/[0.06]
+        "
+            >
+              {providers.length} {providers.length === 1 ? "provider" : "providers"}
+            </span>
+          )}
+        </div>
+
+        {providers.length === 0 ? (
+          <div
+            id="empty-providers-state"
+            className="
+        relative flex flex-col items-center overflow-hidden
+        rounded-xl border border-dashed border-white/[0.1]
+        bg-gradient-to-b from-white/[0.03] to-transparent
+        px-6 py-10 text-center
+      "
+          >
+            {/* Soft glow */}
+            <div
+              aria-hidden="true"
+              className="
+          pointer-events-none absolute -top-16 left-1/2 h-32 w-56
+          -translate-x-1/2 rounded-full bg-[#2F48A1]/20 blur-3xl
+        "
+            />
+
+            {/* Icon tile */}
+            <div
+              className="
+          relative mb-4 flex h-11 w-11 items-center justify-center
+          rounded-xl bg-[#2F48A1]/15 text-[#7C93E8]
+          ring-1 ring-inset ring-[#2F48A1]/30
+          shadow-[0_0_20px_-6px_rgba(47,72,161,0.6)]
+        "
+            >
+              <ServerIcon className="h-5 w-5" />
+            </div>
+
+            <p className="relative m-0 text-[14px] font-semibold leading-5 text-[#F1F5F9]">
+              No AI providers configured
+            </p>
+
+            <p className="relative mb-5 mt-1.5 max-w-[420px] text-[12.5px] leading-5 text-[#8B96A9]">
+              Add a provider to make its models available in Kodra.
+            </p>
+
+            <button
+              id="add-provider-btn"
+              type="button"
+              onClick={() => {
+                setEditingProvider(null);
+                setShowAddForm(true);
+              }}
+              className="
+          group relative inline-flex h-9 items-center justify-center gap-2
+          rounded-lg border-0 bg-[#2F48A1] px-4
+          text-[12.5px] font-medium text-white
+          shadow-md shadow-[#2F48A1]/30
+          transition-all duration-200
+          hover:-translate-y-px hover:bg-[#3A57C2]
+          active:translate-y-0 active:scale-[0.98]
+          focus:outline-none
+          focus-visible:ring-2 focus-visible:ring-[#2F48A1]/60
+          focus-visible:ring-offset-2 focus-visible:ring-offset-[#0D1017]
+        "
+            >
+              <PlusIcon
+                className="
+            h-4 w-4 transition-transform duration-200
+            group-hover:rotate-90
+          "
+              />
+              Add AI Provider
+            </button>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-2.5 overflow-visible">
+            {providers.map((provider) => (
+              <ProviderCard
+                key={provider.id}
+                provider={provider}
+                models={workspaceModels.filter(
+                  (model) => model.providerConfigId === provider.id,
                 )}
                 onDelete={handleDelete}
                 onEdit={handleEdit}

@@ -48,78 +48,51 @@ export default function SettingsPage() {
 
       <aside
         className="
-          flex
-          w-full
-          md:h-full
-          md:w-[210px]
-          md:min-w-[210px]
-          flex-shrink-0
-          flex-col
-          border-b
-          md:border-b-0
-          md:border-r
-          border-[#1D2230]
-          bg-[#0E1118]
-        "
+    flex w-full flex-shrink-0 flex-col
+    border-b border-white/[0.06] bg-[#0D1017]
+    md:h-full md:w-[220px] md:min-w-[220px] md:border-b-0 md:border-r
+  "
       >
         {/* Back to Chat */}
-        <button
-          type="button"
-          onClick={handleBackToChat}
-          title="Back to Chat"
-          className="
-            group
-            flex
-            h-[46px]
-            w-full
-            flex-shrink-0
-            items-center
-            gap-2
-            border-0
-            border-b
-            border-[#1D2230]
-            bg-transparent
-            px-4
-            text-left
-            text-[12px]
-            font-medium
-            text-[#8D97A8]
-            transition-colors
-            duration-150
-            hover:bg-[#151923]
-            hover:text-[#E7ECF3]
-            focus:outline-none
-            focus-visible:ring-1
-            focus-visible:ring-[#6366F1]
-          "
-        >
-          <ArrowLeftIcon
+        <div className="flex-shrink-0 border-b border-white/[0.06] p-2">
+          <button
+            type="button"
+            onClick={handleBackToChat}
+            title="Back to Chat"
             className="
-              h-[16px]
-              w-[16px]
-              flex-shrink-0
-              stroke-[1.8]
-              transition-transform
-              duration-150
-              group-hover:-translate-x-[1px]
-            "
-          />
-
-          <span>Back to Chat</span>
-        </button>
+        group flex h-9 w-full items-center gap-2 rounded-lg border-0
+        bg-transparent px-2.5 text-left text-[12.5px] font-medium
+        text-[#8B96A9] transition-colors duration-150
+        hover:bg-white/[0.05] hover:text-[#F1F5F9]
+        focus:outline-none
+        focus-visible:ring-2 focus-visible:ring-[#2F48A1]/60
+      "
+          >
+            <span
+              className="
+          flex h-6 w-6 items-center justify-center rounded-md
+          bg-white/[0.04] text-[#8B96A9] transition-colors duration-150
+          group-hover:bg-[#2F48A1]/20 group-hover:text-[#9DB0F0]
+        "
+            >
+              <ArrowLeftIcon
+                className="
+            h-3.5 w-3.5 flex-shrink-0 stroke-[2]
+            transition-transform duration-150
+            group-hover:-translate-x-px
+          "
+              />
+            </span>
+            <span>Back to Chat</span>
+          </button>
+        </div>
 
         {/* Settings Label */}
         <div
           className="
-            px-4
-            pb-2
-            pt-5
-            text-[10px]
-            font-semibold
-            uppercase
-            tracking-[0.09em]
-            text-[#596476]
-          "
+      px-5 pb-2 pt-5 text-[10.5px] font-semibold uppercase
+      tracking-[0.1em] text-[#5E6A7E]
+    "
         >
           Settings
         </div>
@@ -128,84 +101,51 @@ export default function SettingsPage() {
         <nav
           aria-label="Settings navigation"
           className="
-            flex
-            flex-row
-            md:flex-col
-            flex-1
-            gap-1
-            overflow-x-auto
-            md:overflow-y-auto
-            px-2
-            pb-2
-            md:pb-0
-          "
+      flex flex-1 flex-row gap-1 overflow-x-auto px-3 pb-3
+      md:flex-col md:overflow-y-auto md:overflow-x-hidden md:pb-4
+    "
         >
           {CATEGORIES.map((category) => {
-            const isActive =
-              activeTab === category;
+            const isActive = activeTab === category;
 
             return (
               <button
                 key={category}
                 type="button"
-                onClick={() =>
-                  setActiveTab(category)
-                }
-                aria-current={
-                  isActive ? "page" : undefined
-                }
+                onClick={() => setActiveTab(category)}
+                aria-current={isActive ? "page" : undefined}
                 className={`
-                  relative
-                  flex
-                  min-h-[38px]
-                  w-full
-                  items-center
-                  gap-2.5
-                  rounded-[6px]
-                  border-0
-                  px-3
-                  text-left
-                  text-[12px]
-                  transition-colors
-                  duration-150
-                  focus:outline-none
-                  focus-visible:ring-1
-                  focus-visible:ring-[#6366F1]
-
-                  ${
-                    isActive
-                      ? "bg-[#171B28] font-medium text-[#C7D2FE]"
-                      : "bg-transparent font-normal text-[#7D8798] hover:bg-[#151923] hover:text-[#D8DEE8]"
+            group relative flex h-9 shrink-0 items-center gap-2.5
+            whitespace-nowrap rounded-lg border-0 px-3 text-left
+            text-[12.5px] transition-all duration-150
+            focus:outline-none
+            focus-visible:ring-2 focus-visible:ring-[#2F48A1]/60
+            md:w-full
+            ${isActive
+                    ? "bg-[#2F48A1]/[0.18] font-medium text-[#DCE4FF] shadow-[inset_0_0_0_1px_rgba(47,72,161,0.35)]"
+                    : "bg-transparent font-normal text-[#8B96A9] hover:bg-white/[0.05] hover:text-[#E2E8F0]"
                   }
-                `}
+          `}
               >
                 {/* Active indicator */}
                 {isActive && (
                   <span
                     className="
-                      absolute
-                      bottom-[8px]
-                      left-0
-                      top-[8px]
-                      w-[2px]
-                      rounded-r-full
-                      bg-[#6366F1]
-                    "
+                absolute bottom-2 left-0 top-2 hidden w-[3px]
+                rounded-r-full bg-[#5B76D9]
+                shadow-[0_0_10px_rgba(91,118,217,0.6)] md:block
+              "
                   />
                 )}
 
                 <CubeIcon
                   className={`
-                    h-[16px]
-                    w-[16px]
-                    flex-shrink-0
-                    stroke-[1.7]
-                    ${
-                      isActive
-                        ? "text-[#818CF8]"
-                        : "text-[#687386]"
+              h-4 w-4 flex-shrink-0 stroke-[1.8] transition-colors duration-150
+              ${isActive
+                      ? "text-[#8FA5F0]"
+                      : "text-[#667286] group-hover:text-[#A3AFC2]"
                     }
-                  `}
+            `}
                 />
 
                 <span>{category}</span>
@@ -239,35 +179,47 @@ export default function SettingsPage() {
           "
         >
           {/* Page Header */}
-          <header className="mb-7">
-            <div className="flex items-center gap-2">
-              <h1
+          <header className="mb-8">
+            <div className="flex items-start gap-3.5">
+              {/* Icon tile */}
+              <div
                 className="
-                  m-0
-                  text-[24px]
-                  font-semibold
-                  leading-8
-                  tracking-[-0.015em]
-                  text-[#F1F5F9]
-                "
+        flex h-10 w-10 shrink-0 items-center justify-center
+        rounded-xl
+        bg-[#2F48A1]/15
+        ring-1 ring-inset ring-[#2F48A1]/30
+        text-[#7C93E8]
+        shadow-[0_0_20px_-6px_rgba(47,72,161,0.6)]
+      "
               >
-                AI Providers
-              </h1>
+                <svg
+                  viewBox="0 0 24 24"
+                  className="h-5 w-5"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M12 3l1.9 4.6L18.5 9l-4.6 1.9L12 15.5l-1.9-4.6L5.5 9l4.6-1.4L12 3z" />
+                  <path d="M18.5 15.5l.8 1.9 1.9.8-1.9.8-.8 1.9-.8-1.9-1.9-.8 1.9-.8.8-1.9z" />
+                </svg>
+              </div>
+
+              {/* Text */}
+              <div className="min-w-0">
+                <h1 className="m-0 text-[22px] font-semibold leading-7 tracking-[-0.02em] text-[#F1F5F9]">
+                  AI Providers
+                </h1>
+                <p className="mt-1 max-w-[640px] text-[13px] font-normal leading-5 text-[#8B96A9]">
+                  Configure AI connections and choose which models are available in your
+                  workspace.
+                </p>
+              </div>
             </div>
 
-            <p
-              className="
-                mt-1.5
-                max-w-[680px]
-                text-[12px]
-                font-normal
-                leading-[19px]
-                text-[#788396]
-              "
-            >
-              Configure AI connections and choose which
-              models are available in your workspace.
-            </p>
+            {/* Divider */}
+            <div className="mt-6 h-px w-full bg-gradient-to-r from-white/10 via-white/5 to-transparent" />
           </header>
 
           {/* Content */}
