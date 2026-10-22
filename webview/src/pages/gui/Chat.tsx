@@ -527,7 +527,7 @@ export function Chat() {
       <div className="relative flex-1 min-h-0 flex flex-col">
         <StepsDiv
           ref={stepsDivRef}
-        className={`pt-[8px] flex flex-col ${showScrollbar ? "thin-scrollbar" : "no-scrollbar"} min-h-0 flex-1 overflow-y-scroll`}
+        className={`pt-[8px] flex flex-col ${showScrollbar ? "thin-scrollbar" : "no-scrollbar"} min-h-0 flex-1 overflow-y-auto`}
       >
         <DeprecationBanner dismissable={true} />
         {highlights}
@@ -566,9 +566,9 @@ export function Chat() {
         <div className="absolute bottom-4 left-0 right-0 flex justify-center z-50 pointer-events-none">
           <button
             type="button"
-            onClick={scrollToBottom}
+            onClick={() => scrollToBottom(true)}
             aria-label="Jump to latest"
-            className="pointer-events-auto flex items-center justify-center w-8 h-8 rounded-full border border-[var(--vscode-widget-border,rgba(128,128,128,0.2))] bg-[var(--vscode-editor-background,#1e1e1e)] text-[var(--vscode-descriptionForeground,#9d9d9d)] hover:text-[var(--vscode-foreground,#cccccc)] hover:border-[var(--vscode-focusBorder,#007fd4)] transition-colors duration-100 shadow-md"
+            className="pointer-events-auto flex items-center justify-center w-8 h-8 rounded-full border border-[var(--vscode-widget-border,rgba(128,128,128,0.2))] bg-[var(--vscode-editor-background,#1e1e1e)] text-[var(--vscode-descriptionForeground,#9d9d9d)] hover:text-[var(--vscode-foreground,#cccccc)] hover:border-[var(--vscode-focusBorder,#007fd4)] active:scale-95 transition-all duration-150 shadow-md focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--vscode-focusBorder)] cursor-pointer"
           >
             <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" aria-hidden="true" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M6 9l6 6 6-6" />

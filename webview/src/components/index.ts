@@ -156,6 +156,10 @@ export const HeaderButton = styled.button<{
     border: none;
   }
 
+  &:focus-visible {
+    outline: 1px solid var(--vscode-focusBorder, #007fd4);
+  }
+
   &:hover {
     background-color: ${({ inverted, hoverBackgroundColor }) =>
       typeof inverted === "undefined" || inverted
@@ -163,11 +167,16 @@ export const HeaderButton = styled.button<{
         : "transparent"};
   }
 
+  &:active:enabled {
+    transform: scale(0.96);
+  }
+
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 4px;
   padding: 2px;
+  transition: background-color 150ms ease, transform 100ms ease;
 `;
 
 export const StyledActionButton = styled.div`

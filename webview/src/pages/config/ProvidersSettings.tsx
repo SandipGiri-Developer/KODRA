@@ -289,8 +289,8 @@ function ProviderCard({
     };
   }, []);
 
-  const visibleModels = models.slice(0, 3);
-  const extraCount = Math.max(0, models.length - 3);
+  const visibleModels = models.slice(0, 2);
+  const extraCount = Math.max(0, models.length - 2);
 
   const modelTooltip =
     models.length > 0
@@ -385,6 +385,9 @@ function ProviderCard({
           </span>
         ) : (
           <>
+            <span className="sr-only">
+              {models.length} {models.length === 1 ? "model" : "models"} selected
+            </span>
             {visibleModels.map((model) => (
               <ModelChip
                 key={model.id}
@@ -510,7 +513,7 @@ function ProviderCard({
               "
             >
               <TrashIcon className="h-3.5 w-3.5" />
-              Delete
+              Remove
             </button>
           </div>
         )}
@@ -1378,7 +1381,9 @@ function AddProviderForm({
             >
               {isEditing
                 ? "Save Changes"
-                : "Add Provider"}
+                : selectedIds.length > 0
+                  ? `Add ${selectedIds.length} ${selectedIds.length === 1 ? "Model" : "Models"}`
+                  : "Add Provider"}
             </button>
           )}
 

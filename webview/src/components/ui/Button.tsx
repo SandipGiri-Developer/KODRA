@@ -38,8 +38,9 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       <button
         ref={ref}
         className={cn(
-          "cursor-pointer transition-all duration-200",
-          "hover:enabled:cursor-pointer",
+          "cursor-pointer transition-all duration-150 select-none",
+          "hover:enabled:cursor-pointer active:enabled:scale-[0.98]",
+          "focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--vscode-focusBorder)]",
           "disabled:cursor-not-allowed disabled:opacity-50",
           buttonVariants[variant],
           isIcon

@@ -350,7 +350,7 @@ function InputToolbar(props: InputToolbarProps) {
                     });
                   }
                 }}
-                className="p-2 rounded-xl bg-gray-800 hover:bg-gray-700 text-white transition-all duration-150 active:scale-95 flex items-center justify-center cursor-pointer shadow-sm"
+                className="p-1.5 rounded-lg bg-[var(--vscode-button-secondaryBackground,#3a3d41)] hover:bg-[var(--vscode-button-secondaryHoverBackground,#45494e)] text-[var(--vscode-button-secondaryForeground,#cccccc)] transition-all duration-150 active:scale-95 flex items-center justify-center cursor-pointer shadow-sm focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--vscode-focusBorder)]"
               >
                 <StopIcon className="h-3.5 w-3.5 fill-current" />
               </button>
@@ -376,10 +376,10 @@ function InputToolbar(props: InputToolbarProps) {
                   }
                 }}
                 disabled={isEnterDisabled}
-                className={`p-2 rounded-xl transition-all duration-150 active:scale-95 flex items-center justify-center ${
+                className={`p-1.5 rounded-lg transition-all duration-150 active:scale-95 flex items-center justify-center focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--vscode-focusBorder)] ${
                   !isEnterDisabled
-                    ? "bg-blue-600 hover:bg-blue-500 text-white shadow-md shadow-blue-600/20 hover:shadow-blue-600/30 cursor-pointer"
-                    : "bg-gray-800/40 text-gray-600 cursor-not-allowed"
+                    ? "bg-[var(--vscode-button-background,#0e639c)] hover:bg-[var(--vscode-button-hoverBackground,#1177bb)] text-[var(--vscode-button-foreground,#ffffff)] shadow-sm hover:shadow cursor-pointer"
+                    : "bg-[var(--vscode-button-secondaryBackground,rgba(128,128,128,0.15))] text-[var(--vscode-disabledForeground,rgba(128,128,128,0.4))] opacity-40 cursor-not-allowed"
                 }`}
               >
                 <ArrowUpIcon className="h-4 w-4" />

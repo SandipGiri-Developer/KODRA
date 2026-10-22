@@ -16,17 +16,19 @@ export function Toggle({
   children,
 }: ToggleProps) {
   return (
-    <div>
-      <div
-        className="flex cursor-pointer items-start gap-2 text-left text-sm font-semibold"
+    <div className="w-full">
+      <button
+        type="button"
+        className="flex w-full cursor-pointer items-start gap-2 text-left text-sm font-semibold bg-transparent border-none p-0 text-[var(--vscode-foreground)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--vscode-focusBorder)] rounded"
         onClick={onToggle}
+        aria-expanded={isOpen}
       >
         <ChevronRightIcon
-          className={`mt-0.5 h-4 w-4 transition-transform ${
+          className={`mt-0.5 h-4 w-4 shrink-0 transition-transform duration-200 ease-in-out ${
             isOpen ? "rotate-90" : ""
           }`}
         />
-        <div>
+        <div className="flex-1 min-w-0">
           <span>{title}</span>
           {subtitle && (
             <p className="text-description my-1 text-xs font-normal">
@@ -34,10 +36,10 @@ export function Toggle({
             </p>
           )}
         </div>
-      </div>
+      </button>
       <div
-        className={`duration-400 overflow-hidden transition-all ease-in-out ${
-          isOpen ? "mt-4 max-h-screen" : "max-h-0"
+        className={`duration-300 overflow-hidden transition-all ease-in-out ${
+          isOpen ? "mt-4 max-h-screen opacity-100" : "max-h-0 opacity-0"
         }`}
       >
         <div className="pl-6">{children}</div>
