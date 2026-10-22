@@ -280,8 +280,8 @@ export function isPathInWorkspace(targetFsPath: string, workspaceFolders: Worksp
  * to isPathInWorkspace.
  */
 export function isUriInWorkspace(uri: vscode.Uri, workspaceFolders: WorkspaceFolderInfo[]): boolean {
-  if (vscode.workspace?.getWorkspaceFolder?.(uri)) {
-    return true;
+  if (!uri || !uri.fsPath) {
+    return false;
   }
   return isPathInWorkspace(uri.fsPath, workspaceFolders);
 }
@@ -345,10 +345,11 @@ export class VSCodeWorkspaceService implements IWorkspaceService {
         const fRoot = normalizePath(f.fsPath);
         const rel = path.relative(fRoot, candidate);
         if (!rel.startsWith('..') && !path.isAbsolute(rel)) {
+          const inWs = isPathInWorkspace(candidate, folders);
           return {
             resolvedPath: candidate,
             relativePath: rel.replace(/\\/g, '/'),
-            inWorkspace: true,
+            inWorkspace: inWs,
           };
         }
       }
@@ -365,10 +366,11 @@ export class VSCodeWorkspaceService implements IWorkspaceService {
             const subCandidate = normalizePath(path.join(fRoot, subPart));
             const subRel = path.relative(fRoot, subCandidate);
             if (!subRel.startsWith('..') && !path.isAbsolute(subRel)) {
+              const inWs = isPathInWorkspace(subCandidate, folders);
               return {
                 resolvedPath: subCandidate,
                 relativePath: subRel.replace(/\\/g, '/'),
-                inWorkspace: true,
+                inWorkspace: inWs,
               };
             }
           }
@@ -379,10 +381,11 @@ export class VSCodeWorkspaceService implements IWorkspaceService {
       candidate = normalizePath(path.join(rootPath, relativePart));
       const rel = path.relative(rootPath, candidate);
       if (!rel.startsWith('..') && !path.isAbsolute(rel)) {
+        const inWs = isPathInWorkspace(candidate, folders);
         return {
           resolvedPath: candidate,
           relativePath: rel.replace(/\\/g, '/'),
-          inWorkspace: true,
+          inWorkspace: inWs,
         };
       }
 
@@ -393,22 +396,22 @@ export class VSCodeWorkspaceService implements IWorkspaceService {
           const otherCandidate = normalizePath(path.join(fRoot, relativePart));
           const otherRel = path.relative(fRoot, otherCandidate);
           if (!otherRel.startsWith('..') && !path.isAbsolute(otherRel)) {
+            const inWs = isPathInWorkspace(otherCandidate, folders);
             return {
               resolvedPath: otherCandidate,
               relativePath: otherRel.replace(/\\/g, '/'),
-              inWorkspace: true,
+              inWorkspace: inWs,
             };
           }
         }
       }
     }
 
-    const rel = path.relative(rootPath, candidate);
-    const inWorkspace = !rel.startsWith('..') && !path.isAbsolute(rel);
+    const inWorkspace = isPathInWorkspace(candidate, folders);
 
     return {
       resolvedPath: candidate,
-      relativePath: inWorkspace ? rel.replace(/\\/g, '/') : candidate.replace(/\\/g, '/'),
+      relativePath: inWorkspace ? path.relative(rootPath, candidate).replace(/\\/g, '/') : candidate.replace(/\\/g, '/'),
       inWorkspace,
     };
   }
@@ -774,7 +777,9 @@ export class VSCodeWorkspaceService implements IWorkspaceService {
           excludePattern ? excludePattern : null,
           maxResults,
         );
-        return uris.map((u) => vscode.workspace.asRelativePath(u, false));
+        const folders = this.getWorkspaceFolders();
+        const validUris = uris.filter((u) => isUriInWorkspace(u, folders));
+        return validUris.map((u) => vscode.workspace.asRelativePath(u, false));
       } catch {
         // Fall back to manual filesystem walk
       }
@@ -819,11 +824,17 @@ export class VSCodeWorkspaceService implements IWorkspaceService {
           try {
             const st = await fs.stat(fullPath);
             if (st.isDirectory()) {
+              if (!isPathInWorkspace(fullPath, folders)) {
+                continue;
+              }
               if (excludePattern && matchesPattern(relFromRoot, excludePattern)) {
                 continue;
               }
               dirQueue.push(fullPath);
             } else if (st.isFile()) {
+              if (!isPathInWorkspace(fullPath, folders)) {
+                continue;
+              }
               if (includePattern && !matchesPattern(relFromRoot, includePattern)) {
                 continue;
               }

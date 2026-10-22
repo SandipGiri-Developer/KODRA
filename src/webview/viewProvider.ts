@@ -399,7 +399,7 @@ export class KodraViewProvider implements vscode.WebviewViewProvider, IWebviewMe
 
         case 'chatDescriber/describe': {
           const text = data?.text || '';
-          const title = this.generateTitleFromText(text);
+          const title = await this.generateAiTitleFromContext(text);
           this.respondToIdeMessenger(messageId, { status: 'success', content: title });
           break;
         }
@@ -459,6 +459,93 @@ export class KodraViewProvider implements vscode.WebviewViewProvider, IWebviewMe
     return clean.slice(0, 60) || 'New Session';
   }
 
+  private async generateAiTitleFromContext(userText: string, assistantText?: string): Promise<string> {
+    try {
+      const config = await this.providerRegistry.readConfig();
+      if (!config || !config.provider) {
+        return this.generateTitleFromText(userText);
+      }
+      const provider = await this.providerRegistry.getProvider();
+      const modelName = config.modelName || provider.getDefaultModel();
+
+      const promptUser = userText.trim().slice(0, 300);
+      const promptAssistant = (assistantText || '').trim().slice(0, 300);
+
+      const messages: ChatMessage[] = [
+        {
+          role: 'system',
+          content:
+            'You are an expert conversation title generator. Output a concise 3 to 6 word title that captures the intent and topic of this conversation. Do NOT use quotes, punctuation, prefixes, or markdown. Output ONLY the title text.',
+        },
+        {
+          role: 'user',
+          content: promptAssistant
+            ? `User query: ${promptUser}\nAssistant response snippet: ${promptAssistant}`
+            : `User query: ${promptUser}`,
+        },
+      ];
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 6000);
+
+      let result = '';
+      try {
+        const stream = provider.streamChat(messages, {
+          model: modelName,
+          maxTokens: 25,
+          temperature: 0.3,
+          signal: controller.signal,
+        });
+
+        for await (const chunk of stream) {
+          if (chunk.content) {
+            result += chunk.content;
+          }
+        }
+      } finally {
+        clearTimeout(timeoutId);
+      }
+
+      const cleaned = result
+        .trim()
+        .replace(/^["'`]|["'`]$/g, '')
+        .replace(/^(Title|Topic):\s*/i, '')
+        .trim()
+        .split('\n')[0]
+        .slice(0, 70);
+
+      if (cleaned.length >= 3 && !cleaned.toLowerCase().includes('error')) {
+        return cleaned;
+      }
+    } catch (err) {
+      this.logger.debug('[KODRA AI Titling] Fallback to optimistic title generator', err);
+    }
+
+    return this.generateTitleFromText(userText);
+  }
+
+  private async triggerAiTitleGeneration(sessionId: string, userText: string, assistantText: string): Promise<void> {
+    try {
+      const aiTitle = await this.generateAiTitleFromContext(userText, assistantText);
+      const defaultTitle = this.generateTitleFromText(userText);
+      if (aiTitle && aiTitle !== defaultTitle && aiTitle !== 'New Session' && this.conversationRepository) {
+        const existing = await this.conversationRepository.getConversation(sessionId);
+        // Only update if current title is still the default/optimistic title (preserve user manual renames)
+        if (existing && (existing.title === defaultTitle || existing.title === 'New Session')) {
+          await this.conversationRepository.updateTitle(sessionId, aiTitle);
+          this.logger.info(`[KODRA AI Titling] Auto-titled conversation ${sessionId} as "${aiTitle}"`);
+          this.postMessage({
+            type: 'sessionTitleUpdated',
+            sessionId,
+            title: aiTitle,
+          });
+        }
+      }
+    } catch (err) {
+      this.logger.warn('[KODRA AI Titling] Failed to generate AI title', err);
+    }
+  }
+
   private formatSessionAsMarkdown(conv: StoredConversation): string {
     const lines: string[] = [`# ${conv.title || 'Chat Session'}\n`];
     lines.push(`_Date: ${new Date(conv.dateCreated).toLocaleString()} | Workspace: ${conv.workspaceName}_\n`);
@@ -484,6 +571,8 @@ export class KodraViewProvider implements vscode.WebviewViewProvider, IWebviewMe
     let accumulatedContent = '';
     this.ensureStorageServices();
 
+    const isFirstTurn = this.currentSessionHistory.length === 0;
+
     if (sessionId) {
       this.currentSessionId = sessionId;
     } else if (!this.currentSessionId) {
@@ -498,9 +587,14 @@ export class KodraViewProvider implements vscode.WebviewViewProvider, IWebviewMe
 
     const wsInfo = WorkspaceRegistry.getWorkspaceInfo();
     if (this.conversationRepository) {
+      const existing = await this.conversationRepository.getConversation(this.currentSessionId!);
+      const sessionTitle = existing?.title && existing.title !== 'New Session'
+        ? existing.title
+        : this.generateTitleFromText(text);
+
       await this.conversationRepository.saveConversation({
         sessionId: this.currentSessionId!,
-        title: this.generateTitleFromText(text),
+        title: sessionTitle,
         workspaceDirectory: wsInfo.path,
         workspaceId: wsInfo.id,
         workspaceName: wsInfo.name,
@@ -898,6 +992,10 @@ export class KodraViewProvider implements vscode.WebviewViewProvider, IWebviewMe
                 history: this.currentSessionHistory,
                 status: 'completed',
               });
+
+              if (isFirstTurn && accumulatedContent) {
+                this.triggerAiTitleGeneration(this.currentSessionId!, text, accumulatedContent).catch(() => {});
+              }
             }
             break;
         }

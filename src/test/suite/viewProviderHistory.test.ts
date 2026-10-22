@@ -313,4 +313,79 @@ describe('KodraViewProvider History & Storage IPC Protocol', () => {
     expect(listResp.data.content[0].sessionId).toBe(sessionId);
     expect(listResp.data.content[0].messageCount).toBe(2);
   });
+
+  it('generates AI contextual title via provider and updates session title', async () => {
+    const sessionId = uuidv4();
+    const userQuery = 'Can you help me fix the memory leak in the index cache?';
+    const assistantSnippet = 'I found an unbounded Map in SearchCache that needs LRU eviction.';
+
+    // Mock active provider to return a concise AI title
+    const mockProvider: any = {
+      id: 'mock-llm',
+      displayName: 'Mock LLM',
+      getDefaultModel: () => 'mock-model',
+      capabilities: { streaming: true, toolCalling: false, vision: false },
+      streamChat: jest.fn().mockImplementation(async function* () {
+        yield { content: 'Fix Search' };
+        yield { content: 'Cache Memory Leak' };
+      }),
+    };
+
+    const providerRegistry = (viewProvider as any).providerRegistry;
+    jest.spyOn(providerRegistry, 'readConfig').mockResolvedValue({ provider: 'mock-llm', modelName: 'mock-model' } as any);
+    jest.spyOn(providerRegistry, 'getProvider').mockResolvedValue(mockProvider);
+
+    // Initial save with default optimistic title
+    await repository.saveConversation({
+      sessionId,
+      title: (viewProvider as any).generateTitleFromText(userQuery),
+      history: [{ message: { role: 'user', content: userQuery } }],
+    });
+
+    // Trigger AI titling
+    await (viewProvider as any).triggerAiTitleGeneration(sessionId, userQuery, assistantSnippet);
+
+    // Confirm repository title was updated to the AI-generated title
+    const updated = await repository.getConversation(sessionId);
+    expect(updated?.title).toBe('Fix SearchCache Memory Leak');
+
+    // Confirm sessionTitleUpdated event was posted to the webview
+    const titleMsg = postedMessages.find((m) => m.type === 'sessionTitleUpdated' && m.sessionId === sessionId);
+    expect(titleMsg).toBeDefined();
+    expect(titleMsg.title).toBe('Fix SearchCache Memory Leak');
+  });
+
+  it('preserves user manual title rename and does not overwrite it with AI title', async () => {
+    const sessionId = uuidv4();
+    const userQuery = 'How do I run tests?';
+    const assistantSnippet = 'Run npm test in terminal.';
+
+    const mockProvider: any = {
+      id: 'mock-llm',
+      displayName: 'Mock LLM',
+      getDefaultModel: () => 'mock-model',
+      capabilities: { streaming: true, toolCalling: false, vision: false },
+      streamChat: jest.fn().mockImplementation(async function* () {
+        yield { content: 'Running Tests Guide' };
+      }),
+    };
+
+    const providerRegistry = (viewProvider as any).providerRegistry;
+    jest.spyOn(providerRegistry, 'readConfig').mockResolvedValue({ provider: 'mock-llm', modelName: 'mock-model' } as any);
+    jest.spyOn(providerRegistry, 'getProvider').mockResolvedValue(mockProvider);
+
+    // User manually renamed the session
+    await repository.saveConversation({
+      sessionId,
+      title: 'My Custom Renamed Session',
+      history: [{ message: { role: 'user', content: userQuery } }],
+    });
+
+    // Trigger AI titling
+    await (viewProvider as any).triggerAiTitleGeneration(sessionId, userQuery, assistantSnippet);
+
+    // Confirm custom rename was preserved!
+    const check = await repository.getConversation(sessionId);
+    expect(check?.title).toBe('My Custom Renamed Session');
+  });
 });
