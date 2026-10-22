@@ -18,6 +18,7 @@
     "noEmitOnError": false,
     "types": ["vitest/globals"],
     "paths": {
+      "@/*": ["./src/*"],
       "@lobehub/icons": ["./src/components/svg/ProviderLogos.tsx"]
     }
   },

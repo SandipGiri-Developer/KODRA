@@ -7,6 +7,7 @@ export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
+      "@": resolve(__dirname, "src"),
       "@lobehub/icons": resolve(__dirname, "src/components/svg/ProviderLogos.tsx"),
     },
   },

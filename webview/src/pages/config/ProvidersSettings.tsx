@@ -49,14 +49,14 @@ const PROVIDER_OPTIONS: {
   value: ProviderType;
   label: string;
 }[] = [
-  { value: "ollama", label: "Ollama" },
-  { value: "openai", label: "OpenAI" },
-  { value: "anthropic", label: "Anthropic" },
-  { value: "gemini", label: "Google Gemini" },
-  { value: "groq", label: "Groq" },
-  { value: "deepseek", label: "DeepSeek" },
-  { value: "nvidia", label: "NVIDIA NIM" },
-];
+    { value: "ollama", label: "Ollama" },
+    { value: "openai", label: "OpenAI" },
+    { value: "anthropic", label: "Anthropic" },
+    { value: "gemini", label: "Google Gemini" },
+    { value: "groq", label: "Groq" },
+    { value: "deepseek", label: "DeepSeek" },
+    { value: "nvidia", label: "NVIDIA NIM" },
+  ];
 
 const DEFAULT_ENDPOINTS: Record<ProviderType, string> = {
   ollama: "http://127.0.0.1:11434",
@@ -229,10 +229,9 @@ function ModelChip({
         text-[11px]
         leading-4
         transition-colors
-        ${
-          muted
-            ? "border-[#252B3A] bg-[#11151E] text-[#7D8798]"
-            : "border-[#292F40] bg-[#151923] text-[#C7D0DD] hover:border-[#394258] hover:bg-[#1A1F2B]"
+        ${muted
+          ? "border-[#252B3A] bg-[#11151E] text-[#7D8798]"
+          : "border-[#292F40] bg-[#151923] text-[#C7D0DD] hover:border-[#394258] hover:bg-[#1A1F2B]"
         }
       `}
     >
@@ -541,7 +540,7 @@ function AddProviderForm({
   const [providerType, setProviderType] =
     useState<ProviderType>(
       (editingProvider?.provider as ProviderType) ??
-        "ollama",
+      "ollama",
     );
 
   const [name, setName] = useState(
@@ -664,8 +663,8 @@ function AddProviderForm({
     setSelectedIds((previous) =>
       previous.includes(id)
         ? previous.filter(
-            (modelId) => modelId !== id,
-          )
+          (modelId) => modelId !== id,
+        )
         : [...previous, id],
     );
   };
@@ -889,10 +888,9 @@ function AddProviderForm({
               onChange={(event) =>
                 setName(event.target.value)
               }
-              placeholder={`e.g. My ${
-                PROVIDER_DISPLAY[providerType]?.label ??
+              placeholder={`e.g. My ${PROVIDER_DISPLAY[providerType]?.label ??
                 providerType
-              }`}
+                }`}
               className="
                 h-10
                 w-full
@@ -1128,10 +1126,9 @@ function AddProviderForm({
                         border
                         p-3
                         transition-colors
-                        ${
-                          selected
-                            ? "border-[#6366F1]/45 bg-[#181C2A]"
-                            : "border-transparent hover:bg-[#151924]"
+                        ${selected
+                          ? "border-[#6366F1]/45 bg-[#181C2A]"
+                          : "border-transparent hover:bg-[#151924]"
                         }
                       `}
                     >
@@ -1437,13 +1434,13 @@ export function ProvidersSettings() {
               Add a provider to make its models available in Kodra.
             </p>
             <button
-            id="add-provider-btn"
-            type="button"
-            onClick={() => {
-              setEditingProvider(null);
-              setShowAddForm(true);
-            }}
-            className="
+              id="add-provider-btn"
+              type="button"
+              onClick={() => {
+                setEditingProvider(null);
+                setShowAddForm(true);
+              }}
+              className="
               inline-flex
               min-h-[36px]
               items-center
@@ -1463,10 +1460,10 @@ export function ProvidersSettings() {
               focus-visible:ring-2
               focus-visible:ring-[#6366F1]/30
             "
-          >
-            <PlusIcon className="h-4 w-4" />
-            Add AI Provider
-          </button>
+            >
+              <PlusIcon className="h-4 w-4" />
+              Add AI Provider
+            </button>
           </div>
         ) : (
           <div
