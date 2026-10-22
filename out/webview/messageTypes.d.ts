@@ -145,6 +145,10 @@ export type ExtensionToWebviewMessage = {
     type: 'settingsData';
     providers: ProviderSettings[];
     workspaceModels: WorkspaceModel[];
+} | {
+    type: 'sessionTitleUpdated';
+    sessionId: string;
+    title: string;
 }
 /**
  * Real-time agent activity event for the "Worked" panel.

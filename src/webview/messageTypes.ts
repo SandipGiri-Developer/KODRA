@@ -54,6 +54,7 @@ export type ExtensionToWebviewMessage =
   | { type: 'indexStatus'; indexed: boolean; entryCount: number; fileCount: number; inProgress: boolean }
   | { type: 'addContext'; filepath: string; content?: string; selection?: string }
   | { type: 'settingsData'; providers: ProviderSettings[]; workspaceModels: WorkspaceModel[] }
+  | { type: 'sessionTitleUpdated'; sessionId: string; title: string }
   /**
    * Real-time agent activity event for the "Worked" panel.
    * Emitted by the extension host for each meaningful runtime event so

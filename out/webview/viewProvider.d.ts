@@ -59,6 +59,8 @@ export declare class KodraViewProvider implements vscode.WebviewViewProvider, IW
     private handleIdeMessengerMessage;
     private respondToIdeMessenger;
     private generateTitleFromText;
+    private generateAiTitleFromContext;
+    private triggerAiTitleGeneration;
     private formatSessionAsMarkdown;
     private handleUserMessage;
     private getHtmlForWebview;
