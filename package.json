@@ -317,10 +317,10 @@
     }
   },
   "scripts": {
-    "vscode:prepublish": "npm run build:webview && npm run package && node -e \"const fs=require('fs');const p=require('path');['encoder.json','vocab.bpe'].forEach(f=>{fs.copyFileSync(p.join('node_modules','gpt-3-encoder',f),p.join('dist',f));console.log('Copied',f);})\"",
+    "vscode:prepublish": "npm run build:webview && npm run package",
     "compile": "webpack --mode development",
     "watch": "webpack --watch --mode development",
-    "package": "webpack --mode production --devtool hidden-source-map && node -e \"const fs=require('fs');const p=require('path');['encoder.json','vocab.bpe'].forEach(f=>{fs.copyFileSync(p.join('node_modules','gpt-3-encoder',f),p.join('dist',f));console.log('Copied',f);})\"",
+    "package": "webpack --mode production --devtool hidden-source-map",
     "build:webview": "cd webview && npm run build",
     "lint": "eslint src",
     "test": "jest",
@@ -337,7 +337,6 @@
   },
   "devDependencies": {
     "@types/jest": "^30.0.0",
-    "@types/mocha": "^10.0.10",
     "@types/node": "26.x",
     "@types/uuid": "^9.0.0",
     "@types/vscode": "^1.85.0",
@@ -349,7 +348,6 @@
     "ts-jest": "^29.4.14",
     "ts-loader": "^9.5.0",
     "typescript": "^6.0.3",
-    "vitest": "^5.0.3",
     "webpack": "^5.111.1",
     "webpack-cli": "^6.0.0"
   }

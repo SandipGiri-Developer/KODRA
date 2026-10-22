@@ -6,8 +6,6 @@ Kodra lives directly inside your editor and supercharges your development workfl
 
 ---
 
----
-
 - **Context-Aware Conversations:** Chat with your AI assistant using deep context from your open files, current selections, and entire workspace.
 - **Agentic Tool Loop:** Kodra isn't just a chatbot—it's an agent. It can autonomously read your files, inspect directory structures, perform semantic searches, and propose targeted code edits.
 - **Safe Code Edits:** All proposed code modifications are presented in a clean side-by-side diff preview. Nothing is saved until you manually approve the changes.
@@ -74,7 +72,9 @@ To set up API keys for cloud providers like **OpenAI, Anthropic, Gemini, or Groq
 - `KODRA.ollama.endpoint`: Override your local Ollama address if it differs from the default `http://127.0.0.1:11434`.
 - `KODRA.agent.requireApproval`: Ask for manual approval before applying any file modifications (Enabled by default for safety).
 
-In a second terminal:
+---
+
+## Development
 
 Kodra is built with TypeScript, React, and the VS Code Extension API. 
 
