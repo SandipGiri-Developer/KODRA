@@ -379,9 +379,7 @@ export class ApprovalPolicyService implements IApprovalPolicyService {
     return { ...policy };
   }
 
-  /**
-   * Update an existing policy.
-   */
+  // Updates an existing approval policy by ID with validation, scope migration, and atomic rollback on persistence failure.
   public async updatePolicy(id: string, updates: UpdatePolicyInput): Promise<ApprovalPolicy> {
     await this.initialize();
 
@@ -413,8 +411,13 @@ export class ApprovalPolicyService implements IApprovalPolicyService {
     }
 
     const previous = { ...targetPolicy };
+    const targetScope = updates.scope ?? targetPolicy.scope;
+    const isScopeChange = targetScope !== targetPolicy.scope;
+
     const updated: ApprovalPolicy = {
       ...targetPolicy,
+      scope: targetScope,
+      workspaceId: targetScope === 'workspace' ? (updates.workspaceId ?? targetPolicy.workspaceId) : undefined,
       ruleType: updates.ruleType ?? targetPolicy.ruleType,
       commandPattern: newCommandPattern,
       decision: updates.decision ?? targetPolicy.decision,
@@ -423,24 +426,60 @@ export class ApprovalPolicyService implements IApprovalPolicyService {
       updatedAt: new Date().toISOString(),
     };
 
+    if (targetScope === 'workspace' && !updated.workspaceId) {
+      throw new Error('Workspace ID is required when updating policy to workspace scope.');
+    }
+
     if (!this.isValidPolicy(updated)) {
       throw new Error('Updated policy object failed schema validation.');
     }
 
-    targetMap.set(id, updated);
-
-    try {
-      if (updated.scope === 'global') {
-        await this.persistGlobalPolicies();
-      } else if (workspaceId) {
-        await this.persistWorkspacePolicies(workspaceId);
+    if (!isScopeChange) {
+      targetMap.set(id, updated);
+      try {
+        if (updated.scope === 'global') {
+          await this.persistGlobalPolicies();
+        } else if (workspaceId) {
+          await this.persistWorkspacePolicies(workspaceId);
+        }
+      } catch (err) {
+        targetMap.set(id, previous);
+        throw err;
       }
-    } catch (err) {
-      targetMap.set(id, previous);
-      throw err;
+      return { ...updated };
     }
 
-    return { ...updated };
+    // Handle atomic scope migration between global and workspace
+    if (previous.scope === 'global' && targetScope === 'workspace') {
+      const targetWsId = this.validateWorkspaceId(updated.workspaceId!);
+      const targetWsMap = await this.ensureWorkspaceLoaded(targetWsId);
+      this.globalPolicies.delete(id);
+      targetWsMap.set(id, updated);
+
+      try {
+        await this.persistGlobalPolicies();
+        await this.persistWorkspacePolicies(targetWsId);
+      } catch (err) {
+        this.globalPolicies.set(id, previous);
+        targetWsMap.delete(id);
+        throw err;
+      }
+      return { ...updated };
+    } else {
+      const prevWsId = workspaceId!;
+      targetMap.delete(id);
+      this.globalPolicies.set(id, updated);
+
+      try {
+        await this.persistWorkspacePolicies(prevWsId);
+        await this.persistGlobalPolicies();
+      } catch (err) {
+        targetMap.set(id, previous);
+        this.globalPolicies.delete(id);
+        throw err;
+      }
+      return { ...updated };
+    }
   }
 
   /**

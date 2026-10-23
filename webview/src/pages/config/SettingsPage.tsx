@@ -3,16 +3,20 @@ import { useNavigate } from "react-router-dom";
 import {
   ArrowLeftIcon,
   CubeIcon,
+  ShieldCheckIcon,
 } from "@heroicons/react/24/outline";
 import { ProvidersSettings } from "./ProvidersSettings";
+import { ApprovalGateSettings } from "./ApprovalGate";
 import { ROUTES } from "../../util/navigation";
 
-type SettingCategory = "AI Providers";
+type SettingCategory = "AI Providers" | "Approval Gate";
 
 const CATEGORIES: SettingCategory[] = [
   "AI Providers",
+  "Approval Gate",
 ];
 
+// Renders the main settings view with categorized tabs for AI Providers and Terminal Approval Gate.
 export default function SettingsPage() {
   const [activeTab, setActiveTab] =
     useState<SettingCategory>("AI Providers");
@@ -194,19 +198,35 @@ export default function SettingsPage() {
                   />
                 )}
 
-                <CubeIcon
-                  className={`
-                    h-[16px]
-                    w-[16px]
-                    flex-shrink-0
-                    stroke-[1.7]
-                    ${
-                      isActive
-                        ? "text-[#818CF8]"
-                        : "text-[#687386]"
-                    }
-                  `}
-                />
+                {category === "AI Providers" ? (
+                  <CubeIcon
+                    className={`
+                      h-[16px]
+                      w-[16px]
+                      flex-shrink-0
+                      stroke-[1.7]
+                      ${
+                        isActive
+                          ? "text-[#818CF8]"
+                          : "text-[#687386]"
+                      }
+                    `}
+                  />
+                ) : (
+                  <ShieldCheckIcon
+                    className={`
+                      h-[16px]
+                      w-[16px]
+                      flex-shrink-0
+                      stroke-[1.7]
+                      ${
+                        isActive
+                          ? "text-[#818CF8]"
+                          : "text-[#687386]"
+                      }
+                    `}
+                  />
+                )}
 
                 <span>{category}</span>
               </button>
@@ -251,7 +271,7 @@ export default function SettingsPage() {
                   text-[#F1F5F9]
                 "
               >
-                AI Providers
+                {activeTab}
               </h1>
             </div>
 
@@ -265,8 +285,9 @@ export default function SettingsPage() {
                 text-[#788396]
               "
             >
-              Configure AI connections and choose which
-              models are available in your workspace.
+              {activeTab === "AI Providers"
+                ? "Configure AI connections and choose which models are available in your workspace."
+                : "Manage terminal command approval policies for Global and Workspace execution."}
             </p>
           </header>
 
@@ -274,6 +295,9 @@ export default function SettingsPage() {
           <section className="w-full">
             {activeTab === "AI Providers" && (
               <ProvidersSettings />
+            )}
+            {activeTab === "Approval Gate" && (
+              <ApprovalGateSettings />
             )}
           </section>
         </div>

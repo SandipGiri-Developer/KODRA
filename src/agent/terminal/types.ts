@@ -47,6 +47,8 @@ export interface CreatePolicyInput {
 }
 
 export interface UpdatePolicyInput {
+  scope?: PolicyScope;
+  workspaceId?: string;
   ruleType?: RuleType;
   commandPattern?: string;
   decision?: PolicyDecision;

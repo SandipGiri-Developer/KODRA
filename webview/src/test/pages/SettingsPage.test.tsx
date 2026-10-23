@@ -96,10 +96,26 @@ describe("SettingsPage", () => {
     const nav = screen.getByRole("navigation");
     expect(nav).toBeDefined();
     expect(nav.textContent?.includes("AI Providers")).toBe(true);
+    expect(nav.textContent?.includes("Approval Gate")).toBe(true);
   });
 
   it("requests settings from extension on mount", () => {
     renderPage();
     expect(mockPostMessage).toHaveBeenCalledWith({ type: "getSettings" });
   });
+
+  it("renders Approval Gate nav item and switches tab on click", async () => {
+    renderPage();
+    const approvalTabBtn = screen.getByRole("button", { name: /approval gate/i });
+    expect(approvalTabBtn).toBeDefined();
+
+    fireEvent.click(approvalTabBtn);
+
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: "Approval Gate" })).toBeDefined();
+      expect(screen.getByText(/Manage terminal command approval policies/i)).toBeDefined();
+      expect(mockPostMessage).toHaveBeenCalledWith({ type: "policy/list" });
+    });
+  });
 });
+
