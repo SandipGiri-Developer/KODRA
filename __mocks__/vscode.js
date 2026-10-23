@@ -90,6 +90,32 @@ module.exports = {
     createWebviewPanel: jest.fn(createMockWebviewPanel),
     registerWebviewViewProvider: jest.fn(() => ({ dispose: jest.fn() })),
     registerWebviewPanelSerializer: jest.fn(() => ({ dispose: jest.fn() })),
+    _terminalCloseListeners: [],
+    createTerminal: jest.fn((options) => ({
+      name: options?.name || 'mock-terminal',
+      show: jest.fn(),
+      sendText: jest.fn(),
+      dispose: jest.fn(),
+      processId: Promise.resolve(1234),
+      creationOptions: options,
+      exitStatus: undefined,
+    })),
+    onDidCloseTerminal: jest.fn((listener) => {
+      const listeners = module.exports.window._terminalCloseListeners;
+      listeners.push(listener);
+      return {
+        dispose: jest.fn(() => {
+          const idx = listeners.indexOf(listener);
+          if (idx >= 0) listeners.splice(idx, 1);
+        })
+      };
+    }),
+    _triggerCloseTerminal: (terminal) => {
+      const listeners = [...module.exports.window._terminalCloseListeners];
+      for (const l of listeners) {
+        l(terminal);
+      }
+    },
     activeTextEditor: undefined,
   },
   commands: {

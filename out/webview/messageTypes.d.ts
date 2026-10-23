@@ -5,6 +5,7 @@
  * Messages are validated on receipt — the webview never has direct filesystem
  * or network access.
  */
+import { ApprovalDecisionType, ApprovalPolicy, CreatePolicyInput, PolicyScope, UpdatePolicyInput } from '../agent/terminal/types';
 import { IndexingProgress } from '../indexing/types';
 import { DiscoveredModel, ProviderSettings, WorkspaceModel } from '../providers/types';
 export type WebviewToExtensionMessage = {
@@ -18,7 +19,30 @@ export type WebviewToExtensionMessage = {
     type: 'newChat';
 } | {
     type: 'approveAction';
-    approved: boolean;
+    approved?: boolean;
+    decision?: ApprovalDecisionType;
+    requestId?: string;
+} | {
+    type: 'revealTerminal';
+    executionId: string;
+} | {
+    type: 'policy/list';
+    scope?: PolicyScope;
+    workspaceId?: string;
+} | {
+    type: 'policy/create';
+    policy: CreatePolicyInput;
+} | {
+    type: 'policy/update';
+    id: string;
+    updates: UpdatePolicyInput;
+} | {
+    type: 'policy/delete';
+    id: string;
+} | {
+    type: 'policy/enable';
+    id: string;
+    enabled: boolean;
 } | {
     type: 'getConfig';
 } | {
@@ -110,6 +134,17 @@ export type ExtensionToWebviewMessage = {
     command?: string;
     diff?: string;
     filepath?: string;
+    requestId?: string;
+    executionId?: string;
+} | {
+    type: 'policyList';
+    policies: ApprovalPolicy[];
+} | {
+    type: 'policyUpdated';
+    policy: ApprovalPolicy;
+} | {
+    type: 'policyDeleted';
+    id: string;
 } | {
     type: 'config';
     provider: string;
@@ -149,13 +184,7 @@ export type ExtensionToWebviewMessage = {
     type: 'sessionTitleUpdated';
     sessionId: string;
     title: string;
-}
-/**
- * Real-time agent activity event for the "Worked" panel.
- * Emitted by the extension host for each meaningful runtime event so
- * the webview can build the activity timeline without a second event bus.
- */
- | {
+} | {
     type: 'agentActivity';
     executionId: string;
     event: {

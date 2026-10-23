@@ -1,5 +1,4 @@
-import { ContextItem, ToolCallState, ToolStatus } from "core";
-import { IIdeMessenger } from "../../context/IdeMessenger";
+import { ToolCallState, ToolStatus } from "core";
 import { ChatHistoryItemWithMessageId } from "../slices/sessionSlice";
 import { RootState } from "../store";
 
@@ -99,28 +98,3 @@ export function findChatHistoryItemByToolCallId(
   );
 }
 
-export function logToolUsage(
-  toolCallState: ToolCallState,
-  accepted: boolean,
-  success: boolean,
-  messenger: IIdeMessenger,
-  finalOutput?: ContextItem[],
-) {
-  messenger.post("devdata/log", {
-    name: "toolUsage",
-    data: {
-      toolCallId: toolCallState.toolCallId,
-
-      functionName:
-        toolCallState.tool?.function?.name ||
-        toolCallState.toolCall.function.name,
-
-      functionParams: toolCallState.tool?.function.parameters,
-
-      toolCallArgs: toolCallState.toolCall.function.arguments,
-      accepted: accepted,
-      output: finalOutput || toolCallState.output || [],
-      succeeded: success,
-    },
-  });
-}

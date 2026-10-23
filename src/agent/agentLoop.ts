@@ -60,10 +60,15 @@ class AsyncEventQueue<T> {
   }
 }
 
+import { ApprovalGate } from './terminal/approvalGate';
+import { ApprovalPolicyService } from './terminal/approvalPolicyService';
+import { ApprovalDecisionType, IApprovalGate } from './terminal/types';
+
 export class AgentLoop {
   private readonly runtime: AgentRuntime;
   private readonly registry: IToolRegistry;
   private readonly permissionManager: PermissionManager;
+  private readonly approvalGate: IApprovalGate;
   private readonly contextManager: ContextManager;
   private readonly workspaceService: IWorkspaceService;
   private readonly contextEngine: IContextEngine;
@@ -84,11 +89,17 @@ export class AgentLoop {
     this.registry = new ToolRegistry(toolsToRegister);
     this.permissionManager = new PermissionManager(!this.requireApproval);
     this.eventBus = new AgentEventBus();
+    this.approvalGate = new ApprovalGate(
+      ApprovalPolicyService.getInstance(),
+      this.permissionManager,
+      this.eventBus,
+    );
     this.contextManager = new ContextManager(this.workspaceService, this.contextEngine);
 
     this.runtime = new AgentRuntime(this.registry, this.permissionManager, {
       eventBus: this.eventBus,
       contextManager: this.contextManager,
+      approvalGate: this.approvalGate,
     });
 
     // Update ContextEngine on tool completion and persist on agent completion
@@ -164,6 +175,9 @@ export class AgentLoop {
       toolCalling?: boolean;
       firstTokenTimeoutMs?: number;
       idleChunkTimeoutMs?: number;
+      mode?: string;
+      workspaceId?: string;
+      cwd?: string;
     } = {},
   ): AsyncGenerator<AgentEvent> {
     const logger = Logger.getInstance();
@@ -204,6 +218,8 @@ export class AgentLoop {
             command: event.command,
             filepath: event.filepath,
             diff: event.diff,
+            requestId: (event as any).requestId,
+            executionId: event.executionId,
           });
           break;
 
@@ -265,6 +281,9 @@ export class AgentLoop {
           toolCalling: options.toolCalling,
           firstTokenTimeoutMs: options.firstTokenTimeoutMs,
           idleChunkTimeoutMs: options.idleChunkTimeoutMs,
+          mode: options.mode,
+          workspaceId: options.workspaceId,
+          cwd: options.cwd,
         });
 
         for await (const chunk of textStream) {
@@ -306,7 +325,8 @@ export class AgentLoop {
   /**
    * Resolve an approval request.
    */
-  resolveApproval(approved: boolean, requestId?: string): void {
-    this.runtime.resolveApproval(approved, requestId);
+  resolveApproval(decision: boolean | ApprovalDecisionType, requestId?: string): void {
+    this.runtime.resolveApproval(decision, requestId);
   }
 }
+

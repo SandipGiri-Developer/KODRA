@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "skills": {
+    "absolute-prune": {
+      "source": "maddhruv/absolute",
+      "sourceType": "github",
+      "skillPath": "skills/absolute-prune/SKILL.md",
+      "computedHash": "79f507c88905fc17419d944c027224673c87e06b9145bfe9aac16061147b3b99"
+    }
+  }
+}

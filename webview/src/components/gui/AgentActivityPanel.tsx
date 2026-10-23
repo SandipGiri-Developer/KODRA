@@ -172,6 +172,11 @@ function InnerToolRow({ tool, now, hideLabel }: { tool: ToolActivity; now: numbe
         >
           <span
             onClick={() => {
+              if (tool.toolName === 'terminal') {
+                const execId = (tool.metadata?.executionId as string) || (tool.args?.executionId as string) || '';
+                (window as any).vscode?.postMessage({ type: "revealTerminal", executionId: execId });
+                return;
+              }
               const { fullPath } = extractTarget(tool.args);
               if (fullPath && tool.toolName !== 'list_directory' && tool.toolName !== 'list_dir') {
                 (window as any).vscode?.postMessage({ type: "openFile", filepath: fullPath });
@@ -183,9 +188,10 @@ function InnerToolRow({ tool, now, hideLabel }: { tool: ToolActivity; now: numbe
               overflow: "hidden",
               textOverflow: "ellipsis",
               whiteSpace: "nowrap",
-              cursor: (extractTarget(tool.args).fullPath && tool.toolName !== 'list_directory' && tool.toolName !== 'list_dir') ? "pointer" : "default",
+              cursor: (tool.toolName === 'terminal' || (extractTarget(tool.args).fullPath && tool.toolName !== 'list_directory' && tool.toolName !== 'list_dir')) ? "pointer" : "default",
             }}
-            className={(extractTarget(tool.args).fullPath && tool.toolName !== 'list_directory' && tool.toolName !== 'list_dir') ? "hover:underline hover:text-[var(--vscode-foreground,#cccccc)] transition-colors" : ""}
+            className={(tool.toolName === 'terminal' || (extractTarget(tool.args).fullPath && tool.toolName !== 'list_directory' && tool.toolName !== 'list_dir')) ? "hover:underline hover:text-[var(--vscode-foreground,#cccccc)] transition-colors" : ""}
+            title={tool.toolName === 'terminal' ? "Click to reveal terminal in VS Code" : undefined}
           >
             {label}
           </span>
@@ -271,15 +277,22 @@ function GroupRow({ group, now }: { group: ActivityGroup; now: number }) {
           onClick={(e) => {
             const firstItem = group.items.find(i => i.type === 'tool' && i.tool.args);
             if (firstItem && firstItem.type === 'tool') {
-              const { fullPath } = extractTarget(firstItem.tool.args);
               const toolName = firstItem.tool.toolName;
+              if (toolName === 'terminal' || toolName === 'run_command') {
+                e.stopPropagation();
+                const execId = (firstItem.tool.metadata?.executionId as string) || (firstItem.tool.args?.executionId as string) || '';
+                (window as any).vscode?.postMessage({ type: "revealTerminal", executionId: execId });
+                return;
+              }
+              const { fullPath } = extractTarget(firstItem.tool.args);
               if (fullPath && toolName !== 'list_directory' && toolName !== 'list_dir') {
                 e.stopPropagation();
                 (window as any).vscode?.postMessage({ type: "openFile", filepath: fullPath });
               }
             }
           }}
-          className={(group.items.some(i => i.type === 'tool' && extractTarget(i.tool.args).fullPath && i.tool.toolName !== 'list_directory' && i.tool.toolName !== 'list_dir')) ? "hover:underline" : ""}
+          className={(group.items.some(i => i.type === 'tool' && (i.tool.toolName === 'terminal' || i.tool.toolName === 'run_command' || (extractTarget(i.tool.args).fullPath && i.tool.toolName !== 'list_directory' && i.tool.toolName !== 'list_dir')))) ? "hover:underline cursor-pointer" : ""}
+          title={(group.items.some(i => i.type === 'tool' && (i.tool.toolName === 'terminal' || i.tool.toolName === 'run_command'))) ? "Click to reveal terminal in VS Code" : undefined}
           style={{
             fontSize: 11,
             color: hover ? "var(--vscode-editor-foreground, #ffffff)" : "var(--vscode-descriptionForeground, #9d9d9d)",
@@ -411,6 +424,7 @@ export function AgentActivityPanel({ activities, isStreaming = false }: AgentAct
         args: ev.args,
         startTime: ev.timestamp,
         status: "running",
+        metadata: { executionId: msg.executionId },
       };
       toolMap.set(ev.toolCallId, t);
       entries.push({ type: "tool", tool: t });

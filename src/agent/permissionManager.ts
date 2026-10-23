@@ -3,68 +3,83 @@
  * 
  * Manages user approval lifecycles for sensitive or destructive tools
  * (e.g., terminal command execution, file modifications).
+ * Supports 4-way approval decisions: allow_once, always_allow_global,
+ * always_allow_workspace, deny, and cancel.
  */
 
-import { PermissionRequest } from './types';
+import { ApprovalDecisionType, PermissionRequest } from './types';
 
-export type ApprovalHandler = (request: PermissionRequest) => Promise<boolean>;
+export type ApprovalDecisionHandler = (
+  request: PermissionRequest,
+) => Promise<ApprovalDecisionType | boolean>;
 
 export interface IPermissionManager {
-  /** Request user approval for a tool invocation */
+  /** Request 4-way user approval decision for a tool invocation */
+  requestDecision(request: PermissionRequest, signal?: AbortSignal): Promise<ApprovalDecisionType>;
+  /** Request user approval for a tool invocation (backward compatible boolean) */
   requestPermission(request: PermissionRequest, signal?: AbortSignal): Promise<boolean>;
-  /** Resolve a pending permission request (e.g. from webview IPC) */
-  resolveRequest(requestId: string, approved: boolean): boolean;
+  /** Resolve a pending permission request with boolean or 4-way decision */
+  resolveRequest(requestId: string, decision: boolean | ApprovalDecisionType): boolean;
   /** Set custom approval handler (e.g. UI bridge or test mock) */
-  setApprovalHandler(handler: ApprovalHandler | null): void;
+  setApprovalHandler(handler: ApprovalDecisionHandler | null): void;
   /** Cancel all pending permission requests */
   cancelAll(): void;
   /** Check if there are active pending requests */
   hasPendingRequests(): boolean;
+  /** Resolve the latest request with boolean or 4-way decision */
+  resolveLatest(decision: boolean | ApprovalDecisionType): boolean;
+  /** Check if permission manager auto-approves by default */
+  isAutoApprove(): boolean;
 }
 
 export class PermissionManager implements IPermissionManager {
-  private customHandler: ApprovalHandler | null = null;
-  private readonly pendingRequests: Map<string, (approved: boolean) => void> = new Map();
+  private customHandler: ApprovalDecisionHandler | null = null;
+  private readonly pendingRequests: Map<string, (decision: ApprovalDecisionType) => void> = new Map();
 
   constructor(private readonly defaultAutoApprove: boolean = false) {}
 
-  setApprovalHandler(handler: ApprovalHandler | null): void {
+  public isAutoApprove(): boolean {
+    return this.defaultAutoApprove;
+  }
+
+  setApprovalHandler(handler: ApprovalDecisionHandler | null): void {
     this.customHandler = handler;
   }
 
-  async requestPermission(request: PermissionRequest, signal?: AbortSignal): Promise<boolean> {
-    // If auto-approve is explicitly enabled (e.g. in headless tests), approve immediately
+  async requestDecision(request: PermissionRequest, signal?: AbortSignal): Promise<ApprovalDecisionType> {
     if (this.defaultAutoApprove) {
-      return true;
+      return 'allow_once';
     }
 
     if (signal?.aborted) {
-      return false;
+      return 'cancel';
     }
 
-    // If an external approval handler is provided, delegate to it
     if (this.customHandler) {
       try {
-        return await this.customHandler(request);
+        const res = await this.customHandler(request);
+        if (typeof res === 'boolean') {
+          return res ? 'allow_once' : 'deny';
+        }
+        return res;
       } catch {
-        return false;
+        return 'deny';
       }
     }
 
-    // Default: Wait for explicit resolution via resolveRequest(requestId, approved)
-    return new Promise<boolean>((resolve) => {
+    return new Promise<ApprovalDecisionType>((resolve) => {
       let abortHandler: (() => void) | undefined;
-      const onResolve = (approved: boolean) => {
+      const onResolve = (decision: ApprovalDecisionType) => {
         if (abortHandler && signal) {
           signal.removeEventListener('abort', abortHandler);
         }
-        resolve(approved);
+        resolve(decision);
       };
 
       if (signal) {
         abortHandler = () => {
           this.pendingRequests.delete(request.requestId);
-          resolve(false);
+          resolve('cancel');
         };
         signal.addEventListener('abort', abortHandler, { once: true });
       }
@@ -73,34 +88,39 @@ export class PermissionManager implements IPermissionManager {
     });
   }
 
-  resolveRequest(requestId: string, approved: boolean): boolean {
+  async requestPermission(request: PermissionRequest, signal?: AbortSignal): Promise<boolean> {
+    const decision = await this.requestDecision(request, signal);
+    return decision === 'allow_once' || decision === 'always_allow_global' || decision === 'always_allow_workspace';
+  }
+
+  resolveRequest(requestId: string, decision: boolean | ApprovalDecisionType): boolean {
     const resolve = this.pendingRequests.get(requestId);
     if (resolve) {
       this.pendingRequests.delete(requestId);
-      resolve(approved);
+      const normalized: ApprovalDecisionType =
+        typeof decision === 'boolean' ? (decision ? 'allow_once' : 'deny') : decision;
+      resolve(normalized);
       return true;
     }
     return false;
   }
 
-  /**
-   * Helper to resolve the most recent or single pending request.
-   * Useful when UI does not track request IDs.
-   */
-  resolveLatest(approved: boolean): boolean {
+  resolveLatest(decision: boolean | ApprovalDecisionType): boolean {
     const entries = Array.from(this.pendingRequests.entries());
     if (entries.length === 0) {
       return false;
     }
     const [latestId, resolve] = entries[entries.length - 1];
     this.pendingRequests.delete(latestId);
-    resolve(approved);
+    const normalized: ApprovalDecisionType =
+      typeof decision === 'boolean' ? (decision ? 'allow_once' : 'deny') : decision;
+    resolve(normalized);
     return true;
   }
 
   cancelAll(): void {
-    for (const [id, resolve] of this.pendingRequests) {
-      resolve(false);
+    for (const [_, resolve] of this.pendingRequests) {
+      resolve('cancel');
     }
     this.pendingRequests.clear();
   }

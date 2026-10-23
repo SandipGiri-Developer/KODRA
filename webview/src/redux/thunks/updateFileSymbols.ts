@@ -36,38 +36,6 @@ export function getContextItemsFromHistory(
 }
 
 /*
-    Get file symbols for given context items
-    Overwrite symbols for existing file matches
-*/
-export const updateFileSymbolsFromFiles = createAsyncThunk<
-  void,
-  string[],
-  ThunkApiType
->(
-  "symbols/updateFromContextItems",
-  async (filepaths, { dispatch, extra, getState }) => {
-    try {
-      // Get unique file uris from context items
-      const uniqueUris = Array.from(new Set(filepaths));
-
-      // Update symbols for those files
-      if (uniqueUris.length > 0) {
-        const result = await extra.ideMessenger.request(
-          "context/getSymbolsForFiles",
-          { uris: uniqueUris },
-        );
-        if (result.status === "error") {
-          throw new Error(result.error);
-        }
-        dispatch(updateFileSymbols(result.content));
-      }
-    } catch (e) {
-      console.error("Error updating file symbols from filepaths", e, filepaths);
-    }
-  },
-);
-
-/*
     - Update file symbols for all context items in history
     - That don't already have symbols
 */
