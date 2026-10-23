@@ -121,6 +121,7 @@ export type AgentNormalizedEvent = {
     command?: string;
     filepath?: string;
     diff?: string;
+    requestId?: string;
     timestamp: number;
 } | {
     type: 'tool.approved';
@@ -207,6 +208,8 @@ export type AgentEvent = {
     command?: string;
     diff?: string;
     filepath?: string;
+    requestId?: string;
+    executionId?: string;
 } | {
     type: 'error';
     error: string;
@@ -219,6 +222,7 @@ export type AgentEvent = {
 } | {
     type: 'cancelled';
 };
+export type ApprovalDecisionType = 'allow_once' | 'always_allow_global' | 'always_allow_workspace' | 'deny' | 'cancel';
 /** Permission request payload passed to PermissionManager. */
 export interface PermissionRequest {
     requestId: string;
@@ -227,6 +231,9 @@ export interface PermissionRequest {
     toolName: string;
     description: string;
     command?: string;
+    cwd?: string;
+    workspaceId?: string;
+    mode?: string;
     filepath?: string;
     diff?: string;
     metadata?: Record<string, unknown>;

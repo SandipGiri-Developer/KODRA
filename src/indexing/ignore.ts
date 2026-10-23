@@ -95,25 +95,6 @@ export function createSecurityIgnore(): Ignore {
 }
 
 /**
- * Check if a file path matches security-sensitive patterns.
- * Used to prevent indexing and reading of secrets.
- */
-export function isSecurityConcern(filepath: string): boolean {
-  if (!filepath) { return false; }
-  const securityIgnore = createSecurityIgnore();
-  // Use just the basename + parent dir for matching
-  const parts = filepath.replace(/\\/g, '/').split('/');
-  const basename = parts.pop() || '';
-  const parentDir = parts.pop() || '';
-  const testPath = parentDir ? `${parentDir}/${basename}` : basename;
-  try {
-    return securityIgnore.ignores(testPath);
-  } catch {
-    return false;
-  }
-}
-
-/**
  * Parse a .gitignore or .KODRAignore file into ignore patterns.
  * Strips comments and empty lines.
  */

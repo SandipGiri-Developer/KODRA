@@ -4,6 +4,28 @@ All notable changes to the "KODRA" extension will be documented in this file.
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [0.1.4] - 2026-10-23
+
+### Agent Terminal Execution Manager & Security Approval Gate
+- **Interactive Pseudoterminal Execution**: Built-in `TerminalExecutionManager` managing persistent VS Code pseudoterminals with real-time output capture, ANSI stripping for LLM context, raw ANSI preservation for UI playback, and execution lifecycle tracking.
+- **Security Approval Gate**: Introduced `ApprovalGate` enforcing explicit user confirmation or automated policy validation before command execution, supporting seamless approval, rejection, and modification flows.
+- **Pattern-Based Policy Engine**: Implemented `ApprovalPolicyService` enabling dynamic rule evaluation (`allow`, `deny`, `ask`) across predefined command categories (safe reads, package management, build tooling, destructive system commands).
+- **Command Syntax Parsing & Matching**: Added `CommandMatcher` with CLI tokenization, chained command parsing (`&&`, `||`, `;`, pipes), and glob/regex pattern evaluation to safeguard against unauthorized operations.
+- **Background Task Management**: Added process timeout detection, background task detachment, and cancellation token propagation for long-running CLI workflows.
+
+### Provider Testing & Hardening
+- **Anthropic & Gemini Unit Test Coverage**: Added dedicated test suites (`anthropic.test.ts`, `gemini.test.ts`) validating message schema compilation, multi-tool-call serialization, streaming response synthesis, and error handling.
+- **Linter & Code Cleanliness**: Cleared obsolete linter directives and verified zero ESLint errors across the extension backend.
+
+### Webview & UI Integration
+- **Terminal Execution UI**: Updated `AgentActivityPanel` and `UnifiedTerminal` with real-time status badges (running, completed, failed, background), exit code feedback, and terminal approval action buttons.
+- **Terminal Reveal Action**: Integrated `revealTerminal` webview bridge action, enabling one-click focusing of the active VS Code terminal instance directly from chat.
+
+### Codebase Optimization & Dead Code Removal
+- **Repository Pruning**: Removed 24 unreferenced legacy files (~2,160+ lines of dead code), including obsolete migration scripts, orphaned ToolCall wrappers, and unused SVG assets.
+- **Dependency Streamlining**: Removed unreferenced `gpt-tokenizer` dependency in favor of native token estimation heuristics.
+- **Regression Verification**: Maintained 100% test pass rate across all 37 backend suites (387 tests) and 7 webview suites (69 tests).
+
 ## [0.1.3] - 2026-09-30
 
 ### Zero-Setup Local Embeddings & Codebase Indexing

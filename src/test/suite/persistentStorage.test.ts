@@ -74,7 +74,7 @@ describe('KODRA Persistent Storage System', () => {
       const meta = await storageManager.readJson<any>(storageManager.metadataFile, null);
       expect(meta).not.toBeNull();
       expect(meta.schemaVersion).toBe(STORAGE_SCHEMA_VERSION);
-      expect(meta.kodraVersion).toBe('0.1.3');
+      expect(meta.kodraVersion).toBe('0.1.4');
     });
 
     it('initialization is idempotent and does not overwrite existing data', async () => {

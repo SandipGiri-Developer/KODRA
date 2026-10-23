@@ -25,11 +25,6 @@ export declare function createDefaultIgnore(additionalPatterns?: string[]): Igno
  */
 export declare function createSecurityIgnore(): Ignore;
 /**
- * Check if a file path matches security-sensitive patterns.
- * Used to prevent indexing and reading of secrets.
- */
-export declare function isSecurityConcern(filepath: string): boolean;
-/**
  * Parse a .gitignore or .KODRAignore file into ignore patterns.
  * Strips comments and empty lines.
  */

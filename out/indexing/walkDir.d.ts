@@ -37,13 +37,4 @@ export interface WalkResult {
  * - Returns absolute paths
  */
 export declare function walkWorkspace(rootDir: string, options?: WalkOptions): Promise<WalkResult>;
-/**
- * Walk all workspace folders.
- */
-export declare function walkAllWorkspaces(options?: WalkOptions): Promise<WalkResult>;
-/**
- * Check if a path is within any workspace folder.
- * Used for security boundary enforcement.
- */
-export declare function isWithinWorkspace(filePath: string): boolean;
 //# sourceMappingURL=walkDir.d.ts.map

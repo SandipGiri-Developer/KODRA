@@ -18,6 +18,9 @@ import { getWebviewContent } from './htmlHelper';
 import { OllamaManager } from '../utils/ollamaManager';
 import { ChatMessage } from '../providers/types';
 import { WebviewSettingsBridge, IWebviewMessagePoster } from './webviewSettingsBridge';
+import { TerminalExecutionManager } from '../agent/terminal/terminalExecutionManager';
+import { ApprovalPolicyService } from '../agent/terminal/approvalPolicyService';
+
 
 import * as path from 'path';
 import { v4 as uuidv4 } from 'uuid';
@@ -236,7 +239,7 @@ export class KodraViewProvider implements vscode.WebviewViewProvider, IWebviewMe
           break;
           
         case 'sendMessage':
-          await this.handleUserMessage(msg.text, msg.contextFiles, msg.sessionId);
+          await this.handleUserMessage(msg.text, msg.contextFiles, msg.sessionId, (msg as any).mode);
           break;
           
         case 'cancelGeneration':
@@ -286,10 +289,62 @@ export class KodraViewProvider implements vscode.WebviewViewProvider, IWebviewMe
           break;
           
         case 'approveAction':
-          if (this.agent) {
-            this.agent.resolveApproval(msg.approved);
+          if (this.agent && msg.requestId) {
+            const decision = msg.decision || (msg.approved ? 'allow_once' : 'deny');
+            this.agent.resolveApproval(decision, msg.requestId);
+          } else {
+            this.logger.warn(`approveAction: Missing or invalid requestId in webview message`);
           }
           break;
+
+        case 'revealTerminal':
+          if (msg.executionId) {
+            const revealed = TerminalExecutionManager.getInstance().revealTerminal(msg.executionId);
+            if (!revealed) {
+              this.logger.warn(`revealTerminal: Could not find or reveal terminal for "${msg.executionId}"`);
+            }
+          }
+          break;
+
+        case 'policy/list': {
+          const wsInfo = WorkspaceRegistry.getWorkspaceInfo();
+          const targetWorkspaceId = msg.scope === 'workspace' ? wsInfo.id : msg.workspaceId;
+          const policies = await ApprovalPolicyService.getInstance().listPolicies({
+            scope: msg.scope,
+            workspaceId: targetWorkspaceId,
+          });
+          this.postMessage({ type: 'policyList', policies });
+          break;
+        }
+
+        case 'policy/create': {
+          const wsInfo = WorkspaceRegistry.getWorkspaceInfo();
+          const safePolicy = {
+            ...msg.policy,
+            workspaceId: msg.policy.scope === 'workspace' ? wsInfo.id : undefined,
+          };
+          const policy = await ApprovalPolicyService.getInstance().createPolicy(safePolicy);
+          this.postMessage({ type: 'policyUpdated', policy });
+          break;
+        }
+
+        case 'policy/update': {
+          const policy = await ApprovalPolicyService.getInstance().updatePolicy(msg.id, msg.updates);
+          this.postMessage({ type: 'policyUpdated', policy });
+          break;
+        }
+
+        case 'policy/delete': {
+          await ApprovalPolicyService.getInstance().deletePolicy(msg.id);
+          this.postMessage({ type: 'policyDeleted', id: msg.id });
+          break;
+        }
+
+        case 'policy/enable': {
+          const policy = await ApprovalPolicyService.getInstance().enablePolicy(msg.id, msg.enabled);
+          this.postMessage({ type: 'policyUpdated', policy });
+          break;
+        }
           
         case 'startIndexing':
           this.indexer.indexWorkspace(msg.fullReindex);
@@ -434,6 +489,50 @@ export class KodraViewProvider implements vscode.WebviewViewProvider, IWebviewMe
           break;
         }
 
+        case 'policy/list': {
+          const wsInfo = WorkspaceRegistry.getWorkspaceInfo();
+          const targetWsId = data?.scope === 'workspace' ? wsInfo.id : data?.workspaceId;
+          const policies = await ApprovalPolicyService.getInstance().listPolicies({
+            scope: data?.scope,
+            workspaceId: targetWsId,
+          });
+          this.respondToIdeMessenger(messageId, { status: 'success', content: policies });
+          break;
+        }
+
+        case 'policy/create': {
+          if (!data?.policy || typeof data.policy !== 'object') {
+            this.respondToIdeMessenger(messageId, { status: 'error', error: 'Missing policy payload' });
+            return;
+          }
+          const wsInfo = WorkspaceRegistry.getWorkspaceInfo();
+          const safePolicy = {
+            ...data.policy,
+            workspaceId: data.policy.scope === 'workspace' ? wsInfo.id : undefined,
+          };
+          const policy = await ApprovalPolicyService.getInstance().createPolicy(safePolicy);
+          this.respondToIdeMessenger(messageId, { status: 'success', content: policy });
+          break;
+        }
+
+        case 'policy/update': {
+          const policy = await ApprovalPolicyService.getInstance().updatePolicy(data?.id, data?.updates);
+          this.respondToIdeMessenger(messageId, { status: 'success', content: policy });
+          break;
+        }
+
+        case 'policy/delete': {
+          await ApprovalPolicyService.getInstance().deletePolicy(data?.id);
+          this.respondToIdeMessenger(messageId, { status: 'success' });
+          break;
+        }
+
+        case 'policy/enable': {
+          const policy = await ApprovalPolicyService.getInstance().enablePolicy(data?.id, data?.enabled);
+          this.respondToIdeMessenger(messageId, { status: 'success', content: policy });
+          break;
+        }
+
         default:
           this.respondToIdeMessenger(messageId, { status: 'error', error: `Unknown request type: ${messageType}` });
           break;
@@ -561,7 +660,7 @@ export class KodraViewProvider implements vscode.WebviewViewProvider, IWebviewMe
     return lines.join('\n');
   }
 
-  private async handleUserMessage(text: string, contextFiles?: string[], sessionId?: string) {
+  private async handleUserMessage(text: string, contextFiles?: string[], sessionId?: string, mode?: string) {
     const t0 = Date.now();
     const logger = this.logger;
     let unsubscribeActivity: (() => void) | undefined;
@@ -872,6 +971,9 @@ export class KodraViewProvider implements vscode.WebviewViewProvider, IWebviewMe
         toolCalling,
         firstTokenTimeoutMs: requestTimeoutSec > 0 ? requestTimeoutSec * 1000 : 0,
         idleChunkTimeoutMs: stallTimeoutSec > 0 ? stallTimeoutSec * 1000 : 0,
+        mode: (mode as string) || 'agent',
+        workspaceId: wsInfo.id,
+        cwd: wsInfo.path,
       });
 
       accumulatedContent = '';
@@ -910,7 +1012,9 @@ export class KodraViewProvider implements vscode.WebviewViewProvider, IWebviewMe
               success: event.result.success,
               toolCallId: event.toolCallId,
               durationMs: event.durationMs,
-            });
+              metadata: event.result.metadata,
+              executionId: (event.result.metadata as any)?.executionId,
+            } as any);
             break;
 
           case 'approval':
@@ -920,7 +1024,9 @@ export class KodraViewProvider implements vscode.WebviewViewProvider, IWebviewMe
               description: event.description,
               command: event.command,
               diff: event.diff,
-              filepath: event.filepath
+              filepath: event.filepath,
+              requestId: event.requestId,
+              executionId: event.executionId || currentExecutionId || activeExecutionId,
             });
             break;
 

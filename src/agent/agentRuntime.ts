@@ -40,6 +40,9 @@ export interface AgentRuntimeOptions {
   customInstructions?: string;
   firstTokenTimeoutMs?: number;
   idleChunkTimeoutMs?: number;
+  mode?: string;
+  workspaceId?: string;
+  cwd?: string;
 }
 
 /**
@@ -109,7 +112,9 @@ export async function* withStreamTimeout<T>(
 
         const result = await Promise.race([nextPromise, timeoutPromise]);
 
-        if (timer) clearTimeout(timer);
+        if (timer) {
+          clearTimeout(timer);
+        }
         if (options.signal && abortListener) {
           options.signal.removeEventListener('abort', abortListener);
         }
@@ -125,7 +130,9 @@ export async function* withStreamTimeout<T>(
 
         yield result.value;
       } finally {
-        if (timer) clearTimeout(timer);
+        if (timer) {
+          clearTimeout(timer);
+        }
         if (options.signal && abortListener) {
           options.signal.removeEventListener('abort', abortListener);
         }
@@ -146,6 +153,8 @@ export async function* withStreamTimeout<T>(
   }
 }
 
+import { ApprovalDecisionType, IApprovalGate } from './terminal/types';
+
 export class AgentRuntime {
   private readonly eventBus: IAgentEventBus;
   private readonly toolRegistry: IToolRegistry;
@@ -163,6 +172,7 @@ export class AgentRuntime {
       eventBus?: IAgentEventBus;
       toolExecutor?: IToolExecutor;
       contextManager?: IContextManager;
+      approvalGate?: IApprovalGate;
     },
   ) {
     this.toolRegistry = toolRegistry;
@@ -170,7 +180,7 @@ export class AgentRuntime {
     this.eventBus = options?.eventBus ?? new AgentEventBus();
     this.toolExecutor =
       options?.toolExecutor ??
-      new ToolExecutor(this.toolRegistry, this.permissionManager, this.eventBus);
+      new ToolExecutor(this.toolRegistry, this.permissionManager, this.eventBus, options?.approvalGate);
     this.contextManager = options?.contextManager ?? new ContextManager();
   }
 
@@ -233,12 +243,12 @@ export class AgentRuntime {
   /**
    * Resolve an approval request from the user/UI.
    */
-  resolveApproval(approved: boolean, requestId?: string): boolean {
+  resolveApproval(decision: boolean | ApprovalDecisionType, requestId?: string): boolean {
     if (requestId) {
-      return this.permissionManager.resolveRequest(requestId, approved);
+      return this.permissionManager.resolveRequest(requestId, decision);
     }
     if (this.permissionManager instanceof PermissionManager) {
-      return this.permissionManager.resolveLatest(approved);
+      return this.permissionManager.resolveLatest(decision);
     }
     return false;
   }
@@ -423,7 +433,12 @@ export class AgentRuntime {
             return;
           }
 
-          const execResponse = await this.toolExecutor.executeToolCall(toolCall, executionId, signal);
+          const execResponse = await this.toolExecutor.executeToolCall(
+            toolCall,
+            executionId,
+            signal,
+            { mode: options.mode, workspaceId: options.workspaceId, cwd: options.cwd },
+          );
 
           // Record in execution state
           this.currentExecution.toolCalls.push({

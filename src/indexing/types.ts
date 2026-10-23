@@ -37,29 +37,6 @@ export interface FileStats {
 /** Map of file paths to their stats. */
 export type FileStatsMap = Record<string, FileStats>;
 
-/** Indexing operation result types. */
-export enum IndexResultType {
-  Add = 'add',
-  Remove = 'remove',
-  Update = 'update',
-}
-
-/** A path paired with its content hash for change detection. */
-export interface PathAndCacheKey {
-  path: string;
-  cacheKey: string;
-}
-
-/** Result of comparing current files against indexed state. */
-export interface RefreshIndexResults {
-  /** New files to index */
-  toAdd: PathAndCacheKey[];
-  /** Files to remove from index */
-  toRemove: PathAndCacheKey[];
-  /** Files whose content changed — re-index */
-  toUpdate: PathAndCacheKey[];
-}
-
 /** Real runtime indexing lifecycle states. */
 export type IndexingStatus =
   | 'idle'
