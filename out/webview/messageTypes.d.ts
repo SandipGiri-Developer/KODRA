@@ -94,6 +94,9 @@ export type WebviewToExtensionMessage = {
     type: 'saveWorkspaceModels';
     models: WorkspaceModel[];
 } | {
+    type: 'getProviderApiKey';
+    id: string;
+} | {
     type: 'returnToChat';
 } | {
     type: 'closeSettings';
@@ -180,6 +183,10 @@ export type ExtensionToWebviewMessage = {
     type: 'settingsData';
     providers: ProviderSettings[];
     workspaceModels: WorkspaceModel[];
+} | {
+    type: 'providerApiKey';
+    id: string;
+    apiKey: string;
 } | {
     type: 'sessionTitleUpdated';
     sessionId: string;

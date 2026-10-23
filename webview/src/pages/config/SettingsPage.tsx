@@ -48,39 +48,45 @@ export default function SettingsPage() {
 
       <aside
         className="
-    flex w-full flex-shrink-0 flex-col
-    border-b border-white/[0.06] bg-[#0D1017]
-    md:h-full md:w-[220px] md:min-w-[220px] md:border-b-0 md:border-r
-  "
+        box-border [&_*]:box-border
+        flex w-full flex-shrink-0 flex-col
+        border-b border-white/[0.06]
+        bg-gradient-to-b from-[#0F131B] to-[#0B0E14]
+        md:h-full md:w-[232px] md:min-w-[232px] md:border-b-0 md:border-r
+      "
       >
         {/* Back to Chat */}
-        <div className="flex-shrink-0 border-b border-white/[0.06] p-2">
+        <div className="flex-shrink-0 border-b border-white/[0.06] p-2.5">
           <button
             type="button"
             onClick={handleBackToChat}
             title="Back to Chat"
             className="
-        group flex h-9 w-full items-center gap-2 rounded-lg border-0
-        bg-transparent px-2.5 text-left text-[12.5px] font-medium
-        text-[#8B96A9] transition-colors duration-150
-        hover:bg-white/[0.05] hover:text-[#F1F5F9]
-        focus:outline-none
-        focus-visible:ring-2 focus-visible:ring-[#2F48A1]/60
-      "
+            group flex h-9 w-full items-center gap-2.5 rounded-lg
+            appearance-none border-0 !bg-transparent px-2 text-left
+            text-[12.5px] font-medium text-[#8B96A9]
+            transition-colors duration-150 cursor-pointer
+            hover:!bg-white/[0.05] hover:text-[#F1F5F9]
+            focus:outline-none
+            focus-visible:ring-2 focus-visible:ring-[#4A63C9]/60
+          "
           >
             <span
               className="
-          flex h-6 w-6 items-center justify-center rounded-md
-          bg-white/[0.04] text-[#8B96A9] transition-colors duration-150
-          group-hover:bg-[#2F48A1]/20 group-hover:text-[#9DB0F0]
-        "
+              flex h-6 w-6 items-center justify-center rounded-md
+              bg-white/[0.04] text-[#8B96A9]
+              ring-1 ring-inset ring-white/[0.06]
+              transition-colors duration-150
+              group-hover:bg-[#2F48A1]/20 group-hover:text-[#9DB0F0]
+              group-hover:ring-[#2F48A1]/30
+            "
             >
               <ArrowLeftIcon
                 className="
-            h-3.5 w-3.5 flex-shrink-0 stroke-[2]
-            transition-transform duration-150
-            group-hover:-translate-x-px
-          "
+                h-3.5 w-3.5 flex-shrink-0 stroke-[2]
+                transition-transform duration-150
+                group-hover:-translate-x-px
+              "
               />
             </span>
             <span>Back to Chat</span>
@@ -90,9 +96,9 @@ export default function SettingsPage() {
         {/* Settings Label */}
         <div
           className="
-      px-5 pb-2 pt-5 text-[10.5px] font-semibold uppercase
-      tracking-[0.1em] text-[#5E6A7E]
-    "
+          px-5 pb-2 pt-5 text-[10.5px] font-semibold uppercase
+          tracking-[0.1em] text-[#5E6A7E]
+        "
         >
           Settings
         </div>
@@ -101,9 +107,10 @@ export default function SettingsPage() {
         <nav
           aria-label="Settings navigation"
           className="
-      flex flex-1 flex-row gap-1 overflow-x-auto px-3 pb-3
-      md:flex-col md:overflow-y-auto md:overflow-x-hidden md:pb-4
-    "
+          flex flex-1 flex-row gap-1 overflow-x-auto px-3 pb-3
+          [scrollbar-width:none] [&::-webkit-scrollbar]:hidden
+          md:flex-col md:overflow-y-auto md:overflow-x-hidden md:pb-4
+        "
         >
           {CATEGORIES.map((category) => {
             const isActive = activeTab === category;
@@ -115,37 +122,38 @@ export default function SettingsPage() {
                 onClick={() => setActiveTab(category)}
                 aria-current={isActive ? "page" : undefined}
                 className={`
-            group relative flex h-9 shrink-0 items-center gap-2.5
-            whitespace-nowrap rounded-lg border-0 px-3 text-left
-            text-[12.5px] transition-all duration-150
-            focus:outline-none
-            focus-visible:ring-2 focus-visible:ring-[#2F48A1]/60
-            md:w-full
-            ${isActive
-                    ? "bg-[#2F48A1]/[0.18] font-medium text-[#DCE4FF] shadow-[inset_0_0_0_1px_rgba(47,72,161,0.35)]"
-                    : "bg-transparent font-normal text-[#8B96A9] hover:bg-white/[0.05] hover:text-[#E2E8F0]"
+                group relative flex h-9 shrink-0 items-center gap-2.5
+                whitespace-nowrap rounded-lg px-3 text-left
+                appearance-none border-0 cursor-pointer
+                text-[12.5px] transition-all duration-150
+                focus:outline-none
+                focus-visible:ring-2 focus-visible:ring-[#4A63C9]/60
+                md:w-full
+                ${isActive
+                    ? "!bg-[#18214F] hover:!bg-[#1B2659] font-medium text-[#E6ECFF] shadow-[inset_0_0_0_1px_rgba(74,99,201,0.45)]"
+                    : "!bg-transparent font-normal text-[#8B96A9] hover:!bg-white/[0.05] hover:text-[#E2E8F0]"
                   }
-          `}
+              `}
               >
                 {/* Active indicator */}
                 {isActive && (
                   <span
                     className="
-                absolute bottom-2 left-0 top-2 hidden w-[3px]
-                rounded-r-full bg-[#5B76D9]
-                shadow-[0_0_10px_rgba(91,118,217,0.6)] md:block
-              "
+                    absolute bottom-2 left-0 top-2 hidden w-[3px]
+                    rounded-r-full bg-[#6F8AF0]
+                    shadow-[0_0_10px_rgba(111,138,240,0.7)] md:block
+                  "
                   />
                 )}
 
                 <CubeIcon
                   className={`
-              h-4 w-4 flex-shrink-0 stroke-[1.8] transition-colors duration-150
-              ${isActive
-                      ? "text-[#8FA5F0]"
+                  h-4 w-4 flex-shrink-0 stroke-[1.8] transition-colors duration-150
+                  ${isActive
+                      ? "text-[#9DB0F5]"
                       : "text-[#667286] group-hover:text-[#A3AFC2]"
                     }
-            `}
+                `}
                 />
 
                 <span>{category}</span>
@@ -180,46 +188,16 @@ export default function SettingsPage() {
         >
           {/* Page Header */}
           <header className="mb-8">
-            <div className="flex items-start gap-3.5">
-              {/* Icon tile */}
-              <div
-                className="
-        flex h-10 w-10 shrink-0 items-center justify-center
-        rounded-xl
-        bg-[#2F48A1]/15
-        ring-1 ring-inset ring-[#2F48A1]/30
-        text-[#7C93E8]
-        shadow-[0_0_20px_-6px_rgba(47,72,161,0.6)]
-      "
-              >
-                <svg
-                  viewBox="0 0 24 24"
-                  className="h-5 w-5"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.8"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M12 3l1.9 4.6L18.5 9l-4.6 1.9L12 15.5l-1.9-4.6L5.5 9l4.6-1.4L12 3z" />
-                  <path d="M18.5 15.5l.8 1.9 1.9.8-1.9.8-.8 1.9-.8-1.9-1.9-.8 1.9-.8.8-1.9z" />
-                </svg>
-              </div>
+            <h1 className="m-0 text-[22px] font-semibold leading-7 tracking-tight text-[#E5E7EB]">
+              AI Providers
+            </h1>
 
-              {/* Text */}
-              <div className="min-w-0">
-                <h1 className="m-0 text-[22px] font-semibold leading-7 tracking-[-0.02em] text-[#F1F5F9]">
-                  AI Providers
-                </h1>
-                <p className="mt-1 max-w-[640px] text-[13px] font-normal leading-5 text-[#8B96A9]">
-                  Configure AI connections and choose which models are available in your
-                  workspace.
-                </p>
-              </div>
-            </div>
+            <p className="mt-1 text-sm leading-5 text-[#858585]">
+              Configure AI connections and choose which models are available in your
+              workspace.
+            </p>
 
-            {/* Divider */}
-            <div className="mt-6 h-px w-full bg-gradient-to-r from-white/10 via-white/5 to-transparent" />
+            <div className="mt-6 border-b border-white/[0.07]" />
           </header>
 
           {/* Content */}

@@ -172,6 +172,16 @@ export class WebviewSettingsBridge {
         await this.sendSettingsData(poster);
         return true;
 
+      case 'getProviderApiKey': {
+        const apiKey = await this.settingsManager.getApiKey(msg.id);
+        poster.postMessage({
+          type: 'providerApiKey',
+          id: msg.id,
+          apiKey: apiKey || '',
+        });
+        return true;
+      }
+
       default:
         return false;
     }

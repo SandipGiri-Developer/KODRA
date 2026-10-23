@@ -47,6 +47,7 @@ describe('WebviewSettingsBridge', () => {
       saveWorkspaceModels: jest.fn().mockResolvedValue(undefined),
       saveApiKey: jest.fn().mockResolvedValue(undefined),
       deleteApiKey: jest.fn().mockResolvedValue(undefined),
+      getApiKey: jest.fn().mockResolvedValue('sk-test-secret'),
     };
 
     bridge = new WebviewSettingsBridge(
@@ -119,6 +120,24 @@ describe('WebviewSettingsBridge', () => {
     expect(handled).toBe(true);
     expect(mockSettingsManager.saveApiKey).toHaveBeenCalledWith('p2', 'sk-test');
     expect(mockSettingsManager.saveProviders).toHaveBeenCalled();
+  });
+
+  test('handles getProviderApiKey and returns stored key', async () => {
+    const handled = await bridge.handleSettingsMessage(
+      {
+        type: 'getProviderApiKey',
+        id: 'p2',
+      },
+      poster,
+    );
+
+    expect(handled).toBe(true);
+    expect(mockSettingsManager.getApiKey).toHaveBeenCalledWith('p2');
+    expect(postedMessages).toContainEqual({
+      type: 'providerApiKey',
+      id: 'p2',
+      apiKey: 'sk-test-secret',
+    });
   });
 
   test('returns false for non-settings messages', async () => {

@@ -332,7 +332,7 @@ function ProviderCard({
       </div>
 
       {/* Connection */}
-      <div
+      {/* <div
         className="
       col-span-2 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1
       md:col-span-1 md:flex-col md:items-start md:gap-1
@@ -363,7 +363,7 @@ function ProviderCard({
             {provider.endpoint}
           </div>
         )}
-      </div>
+      </div> */}
 
       {/* Models */}
       <div
@@ -533,6 +533,38 @@ function AddProviderForm({
     useState<DiscoveryStatus>("idle");
 
   const [modelSearchQuery, setModelSearchQuery] = useState("");
+
+  // Fetch stored API key when editing an existing provider
+  useEffect(() => {
+    if (editingProvider) {
+      if ((window as any).vscode) {
+        (window as any).vscode.postMessage({
+          type: "getProviderApiKey",
+          id: editingProvider.id,
+        });
+      }
+    }
+  }, [editingProvider]);
+
+  useEffect(() => {
+    const handler = (event: MessageEvent) => {
+      const data = event.data;
+      if (
+        data &&
+        data.type === "providerApiKey" &&
+        data.id === editingProvider?.id
+      ) {
+        if (typeof data.apiKey === "string") {
+          setApiKey(data.apiKey);
+        }
+      }
+    };
+
+    window.addEventListener("message", handler);
+    return () => {
+      window.removeEventListener("message", handler);
+    };
+  }, [editingProvider]);
 
   useEffect(() => {
     const handler = (event: MessageEvent) => {
@@ -723,21 +755,50 @@ function AddProviderForm({
     providerType !== "anthropic";
 
   const labelClass =
-    "text-[11px] font-semibold uppercase tracking-[0.06em] text-[#8B96A9]";
+    "text-[11px] font-semibold uppercase tracking-[0.08em] text-[#8B96A9]";
 
   const inputClass = `
-  h-10 w-full rounded-lg border border-white/[0.08] bg-[#0A0D13] px-3
-  text-[13px] text-[#F1F5F9] outline-none placeholder:text-[#5E6A7E]
-  transition-colors duration-150
+  box-border block h-10 w-full min-w-0 rounded-lg
+  border border-white/[0.08] bg-[#090B11] px-3
+  text-[13px] text-[#E5EAF1] placeholder:text-[#566074]
+  shadow-[inset_0_1px_2px_rgba(0,0,0,0.4)]
+  transition-all duration-150
   hover:border-white/[0.16]
-  focus:border-[#2F48A1] focus:ring-2 focus:ring-[#2F48A1]/30
+  focus:outline-none focus:border-[#4A63C9] focus:ring-4 focus:ring-[#2F48A1]/20
+`;
+
+  const primaryBtnClass = `
+  inline-flex h-10 w-full items-center justify-center gap-2 sm:w-auto
+  rounded-lg border-0 px-5 text-[12.5px] font-semibold text-white
+  bg-gradient-to-b from-[#3A57C2] to-[#2F48A1]
+  shadow-[inset_0_1px_0_rgba(255,255,255,0.15),0_8px_18px_-8px_rgba(47,72,161,0.8)]
+  transition-all duration-200
+  hover:from-[#4764D1] hover:to-[#3550B5] hover:-translate-y-px
+  active:translate-y-0 active:scale-[0.98]
+  focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4A63C9]/70
+  focus-visible:ring-offset-2 focus-visible:ring-offset-[#0D1017]
+  disabled:translate-y-0 disabled:cursor-not-allowed
+  disabled:from-[#2F48A1]/40 disabled:to-[#2F48A1]/40
+  disabled:text-white/60 disabled:shadow-none
+`;
+
+  const secondaryBtnClass = `
+  inline-flex h-10 w-full items-center justify-center sm:w-auto
+  rounded-lg border border-white/[0.1] bg-transparent px-5
+  text-[12.5px] font-medium text-[#B8C2D4]
+  transition-colors duration-150
+  hover:border-white/[0.2] hover:bg-white/[0.06] hover:text-[#F1F5F9]
+  focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4A63C9]/70
 `;
 
   return (
     <section
       className="
-    rounded-2xl border border-white/[0.06] bg-white/[0.02]
-    p-4 sm:p-6
+    box-border [&_*]:box-border
+    rounded-2xl border border-white/[0.07]
+    bg-gradient-to-b from-white/[0.035] to-white/[0.01]
+    p-5 sm:p-7
+    shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_24px_48px_-24px_rgba(0,0,0,0.7)]
   "
     >
       {/* Header */}
@@ -813,37 +874,32 @@ function AddProviderForm({
         </div>
 
         {/* Name + Endpoint */}
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div className="flex min-w-0 flex-col gap-1.5">
+        <div className="grid grid-cols-1 gap-x-4 gap-y-5 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+          <div className="flex min-w-0 flex-col gap-2">
             <label htmlFor="config-name-input" className={labelClass}>
               Configuration Name
             </label>
-
             <input
               id="config-name-input"
               type="text"
               value={name}
               onChange={(event) => setName(event.target.value)}
-              placeholder={`e.g. My ${PROVIDER_DISPLAY[providerType]?.label ?? providerType
-                }`}
+              placeholder={`e.g. My ${PROVIDER_DISPLAY[providerType]?.label ?? providerType}`}
               className={inputClass}
             />
           </div>
 
           {needsEndpoint && (
-            <div className="flex min-w-0 flex-col gap-1.5">
+            <div className="flex min-w-0 flex-col gap-2">
               <label htmlFor="endpoint-input" className={labelClass}>
                 Endpoint
               </label>
-
               <input
                 id="endpoint-input"
                 type="text"
                 value={endpoint}
                 onChange={(event) => setEndpoint(event.target.value)}
-                placeholder={
-                  DEFAULT_ENDPOINTS[providerType] || "http://localhost:11434"
-                }
+                placeholder={DEFAULT_ENDPOINTS[providerType] || "http://localhost:11434"}
                 className={`${inputClass} font-mono text-[12.5px]`}
               />
             </div>
@@ -870,9 +926,7 @@ function AddProviderForm({
                 type={showApiKey ? "text" : "password"}
                 value={apiKey}
                 onChange={(event) => setApiKey(event.target.value)}
-                placeholder={
-                  isEditing ? "Leave blank to keep existing key" : "Enter API key"
-                }
+                placeholder="Enter API key"
                 className={`${inputClass} pl-9 pr-10`}
               />
 
@@ -1011,12 +1065,12 @@ function AddProviderForm({
                   <span>
                     {modelSearchQuery.trim()
                       ? `Showing ${discoveredModels.filter((m) => {
-                          const q = modelSearchQuery.toLowerCase().trim();
-                          return (
-                            (m.displayName && m.displayName.toLowerCase().includes(q)) ||
-                            (m.id && m.id.toLowerCase().includes(q))
-                          );
-                        }).length} of ${discoveredModels.length} models (${selectedIds.length} selected)`
+                        const q = modelSearchQuery.toLowerCase().trim();
+                        return (
+                          (m.displayName && m.displayName.toLowerCase().includes(q)) ||
+                          (m.id && m.id.toLowerCase().includes(q))
+                        );
+                      }).length} of ${discoveredModels.length} models (${selectedIds.length} selected)`
                       : `${discoveredModels.length} models found (${selectedIds.length} selected)`}
                   </span>
                   {discoveredModels.filter((m) => {
@@ -1026,46 +1080,46 @@ function AddProviderForm({
                       (m.id && m.id.toLowerCase().includes(q))
                     );
                   }).length > 0 && (
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const q = modelSearchQuery.toLowerCase().trim();
-                          const matching = discoveredModels.filter((m) => {
-                            if (!q) return true;
-                            return (
-                              (m.displayName && m.displayName.toLowerCase().includes(q)) ||
-                              (m.id && m.id.toLowerCase().includes(q))
-                            );
-                          });
-                          const idsToAdd = matching.map((m) => m.id);
-                          setSelectedIds((prev) => Array.from(new Set([...prev, ...idsToAdd])));
-                        }}
-                        className="text-[#818CF8] hover:text-[#A5B4FC] cursor-pointer hover:underline"
-                      >
-                        Select all {modelSearchQuery.trim() ? "matching" : ""}
-                      </button>
-                      <span>•</span>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const q = modelSearchQuery.toLowerCase().trim();
-                          const matching = discoveredModels.filter((m) => {
-                            if (!q) return true;
-                            return (
-                              (m.displayName && m.displayName.toLowerCase().includes(q)) ||
-                              (m.id && m.id.toLowerCase().includes(q))
-                            );
-                          });
-                          const idsToRemove = new Set(matching.map((m) => m.id));
-                          setSelectedIds((prev) => prev.filter((id) => !idsToRemove.has(id)));
-                        }}
-                        className="text-[#7D8798] hover:text-[#94A3B8] cursor-pointer hover:underline"
-                      >
-                        Deselect all {modelSearchQuery.trim() ? "matching" : ""}
-                      </button>
-                    </div>
-                  )}
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const q = modelSearchQuery.toLowerCase().trim();
+                            const matching = discoveredModels.filter((m) => {
+                              if (!q) return true;
+                              return (
+                                (m.displayName && m.displayName.toLowerCase().includes(q)) ||
+                                (m.id && m.id.toLowerCase().includes(q))
+                              );
+                            });
+                            const idsToAdd = matching.map((m) => m.id);
+                            setSelectedIds((prev) => Array.from(new Set([...prev, ...idsToAdd])));
+                          }}
+                          className="text-[#818CF8] hover:text-[#A5B4FC] cursor-pointer hover:underline"
+                        >
+                          Select all {modelSearchQuery.trim() ? "matching" : ""}
+                        </button>
+                        <span>•</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const q = modelSearchQuery.toLowerCase().trim();
+                            const matching = discoveredModels.filter((m) => {
+                              if (!q) return true;
+                              return (
+                                (m.displayName && m.displayName.toLowerCase().includes(q)) ||
+                                (m.id && m.id.toLowerCase().includes(q))
+                              );
+                            });
+                            const idsToRemove = new Set(matching.map((m) => m.id));
+                            setSelectedIds((prev) => prev.filter((id) => !idsToRemove.has(id)));
+                          }}
+                          className="text-[#7D8798] hover:text-[#94A3B8] cursor-pointer hover:underline"
+                        >
+                          Deselect all {modelSearchQuery.trim() ? "matching" : ""}
+                        </button>
+                      </div>
+                    )}
                 </div>
               </div>
             )}
@@ -1120,10 +1174,9 @@ function AddProviderForm({
                         className={`
                           flex cursor-pointer items-start gap-3 rounded-lg border
                           p-3 transition-colors duration-150
-                          ${
-                            selected
-                              ? "border-[#2F48A1]/50 bg-[#2F48A1]/[0.12]"
-                              : "border-transparent hover:bg-white/[0.04]"
+                          ${selected
+                            ? "border-[#2F48A1]/50 bg-[#2F48A1]/[0.12]"
+                            : "border-transparent hover:bg-white/[0.04]"
                           }
                         `}
                       >

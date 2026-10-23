@@ -50,6 +50,7 @@ export type WebviewToExtensionMessage =
   | { type: 'saveProviderSetting'; setting: ProviderSettings; apiKey?: string }
   | { type: 'deleteProviderSetting'; id: string }
   | { type: 'saveWorkspaceModels'; models: WorkspaceModel[] }
+  | { type: 'getProviderApiKey'; id: string }
   | { type: 'returnToChat' }
   | { type: 'closeSettings' };
 
@@ -84,6 +85,7 @@ export type ExtensionToWebviewMessage =
   | { type: 'indexStatus'; indexed: boolean; entryCount: number; fileCount: number; inProgress: boolean }
   | { type: 'addContext'; filepath: string; content?: string; selection?: string }
   | { type: 'settingsData'; providers: ProviderSettings[]; workspaceModels: WorkspaceModel[] }
+  | { type: 'providerApiKey'; id: string; apiKey: string }
   | { type: 'sessionTitleUpdated'; sessionId: string; title: string }
   | {
       type: 'agentActivity';
@@ -120,7 +122,7 @@ export function validateWebviewMessage(data: unknown): WebviewToExtensionMessage
     'testConnection', 'discoverModels', 'startIndexing', 'cancelIndexing',
     'getIndexStatus', 'executeCommand', 'webviewReady', 'openFile',
     'getSettings', 'saveProviderSetting', 'deleteProviderSetting', 'saveWorkspaceModels',
-    'returnToChat', 'closeSettings'
+    'getProviderApiKey', 'returnToChat', 'closeSettings'
   ]);
 
   if (!validTypes.has(msg.type)) {
@@ -244,6 +246,11 @@ export function validateWebviewMessage(data: unknown): WebviewToExtensionMessage
       break;
     case 'discoverModels':
       if (typeof msg.provider !== 'string') {
+        return null;
+      }
+      break;
+    case 'getProviderApiKey':
+      if (typeof msg.id !== 'string' || !msg.id.trim()) {
         return null;
       }
       break;

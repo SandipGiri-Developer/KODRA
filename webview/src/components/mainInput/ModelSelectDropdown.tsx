@@ -223,9 +223,11 @@ export function ModelSelectDropdown() {
           </div>
 
           {/* Search input bar */}
-          <div className="p-2 border-b border-vsc-commandCenter-inactiveBorder bg-vsc-input-background/30">
-            <div className="relative flex items-center">
-              <MagnifyingGlassIcon className="h-3.5 w-3.5 absolute left-2 text-gray-400 pointer-events-none" />
+          <div className="px-2 py-1.5 border-b border-white/5 bg-black/20">
+            <div className="group relative flex items-center">
+              {/* Search icon */}
+              <MagnifyingGlassIcon className="h-3.5 w-3.5 absolute left-2 text-white/40 pointer-events-none transition-colors group-focus-within:text-vsc-focusBorder" />
+
               <input
                 ref={searchInputRef}
                 type="text"
@@ -234,9 +236,29 @@ export function ModelSelectDropdown() {
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onKeyDown={(e) => e.stopPropagation()}
                 onClick={(e) => e.stopPropagation()}
-                placeholder="Search models..."
-                className="w-full bg-vsc-input-background text-vsc-foreground text-xs rounded pl-7 pr-6 py-1 border border-vsc-commandCenter-inactiveBorder focus:outline-none focus:border-vsc-focusBorder placeholder:text-gray-400"
+                placeholder="Search models"
+                autoComplete="off"
+                spellCheck={false}
+                className="w-full h-7 rounded-none
+                 bg-white/[0.04] text-vsc-foreground text-xs
+                 pl-7 pr-7 border border-white/10
+                 placeholder:text-white/30
+                 transition-colors duration-150
+                 hover:bg-white/[0.07] hover:border-white/20
+                 focus:outline-none focus:bg-white/[0.08]
+                 focus:border-vsc-focusBorder"
               />
+
+              {/* Shortcut hint (only when empty) */}
+              {!searchQuery && (
+                <kbd className="absolute right-1.5 pointer-events-none select-none
+                      text-[10px] leading-none text-white/30
+                      border border-white/10 rounded-none px-1 py-0.5 bg-white/[0.03]">
+                  /
+                </kbd>
+              )}
+
+              {/* Clear button (only when typing) */}
               {searchQuery && (
                 <button
                   type="button"
@@ -246,24 +268,30 @@ export function ModelSelectDropdown() {
                     setSearchQuery("");
                     searchInputRef.current?.focus();
                   }}
-                  className="absolute right-1.5 p-0.5 text-gray-400 hover:text-vsc-foreground rounded cursor-pointer"
+                  className="absolute right-1 flex items-center justify-center h-5 w-5 p-0
+               rounded-none appearance-none border-0 outline-none
+               !bg-transparent text-white/60
+               hover:!bg-white/10 hover:text-white
+               transition-colors duration-150 cursor-pointer"
                   title="Clear search"
+                  aria-label="Clear search"
                 >
-                  <XMarkIcon className="h-3 w-3" />
+                  <XMarkIcon className="h-3.5 w-3.5 text-current" />
                 </button>
               )}
             </div>
           </div>
-          
+
+
           <div className="no-scrollbar max-h-[300px] overflow-y-auto">
             {isLoading && (
               <div className="px-3 py-2 text-xs text-gray-500 italic">Discovering models...</div>
             )}
-            
+
             {!isLoading && error && (
               <div className="px-3 py-2 text-xs text-red-500">{error}</div>
             )}
-            
+
             {!isLoading && !error && models.length === 0 && (
               <div className="px-3 py-2 text-xs text-gray-500 italic">No models found.</div>
             )}
@@ -276,7 +304,7 @@ export function ModelSelectDropdown() {
 
             {!isLoading && filteredModels.map((model, idx) => {
               const modelKey = getModelKey(model);
-              const isSelected = selectedWorkspaceModel 
+              const isSelected = selectedWorkspaceModel
                 ? getModelKey(selectedWorkspaceModel) === modelKey
                 : (currentModel === model.id && currentProvider === model.provider);
 
@@ -304,7 +332,7 @@ export function ModelSelectDropdown() {
                       )}
                     </div>
                   </div>
-                  <div 
+                  <div
                     className="opacity-0 group-hover:opacity-100 p-1 hover:bg-vsc-editor-background rounded transition-opacity"
                     onClick={(e) => handleDeleteModel(e, model)}
                     title="Remove from Workspace"
@@ -315,9 +343,9 @@ export function ModelSelectDropdown() {
               );
             })}
           </div>
-          
+
           <Divider className="my-1" />
-          <ListboxOption 
+          <ListboxOption
             value="CONFIGURE_MODELS"
             className="px-3 py-2 flex items-center gap-2 cursor-pointer hover:bg-list-active hover:text-list-active-foreground"
           >

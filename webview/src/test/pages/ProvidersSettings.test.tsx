@@ -408,4 +408,36 @@ describe("ProvidersSettings", () => {
       })
     );
   });
+
+  it("requests and displays API key when editing an existing provider", async () => {
+    renderComponent();
+    dispatchSettings([providerOpenAI], []);
+    await waitFor(() => expect(screen.getByText("My OpenAI")).toBeDefined());
+
+    const menuBtn = await screen.findByRole("button", { name: "Provider actions" });
+    fireEvent.click(menuBtn);
+
+    const editBtn = await screen.findByText("Edit");
+    fireEvent.click(editBtn);
+
+    expect(mockPostMessage).toHaveBeenCalledWith({
+      type: "getProviderApiKey",
+      id: "openai-1",
+    });
+
+    window.dispatchEvent(
+      new MessageEvent("message", {
+        data: {
+          type: "providerApiKey",
+          id: "openai-1",
+          apiKey: "sk-my-secret-key",
+        },
+      })
+    );
+
+    const apiKeyInput = (await screen.findByPlaceholderText("Enter API key")) as HTMLInputElement;
+    await waitFor(() => {
+      expect(apiKeyInput.value).toBe("sk-my-secret-key");
+    });
+  });
 });
