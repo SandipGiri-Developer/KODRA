@@ -128,7 +128,7 @@ export class StorageManager {
           schemaVersion: STORAGE_SCHEMA_VERSION,
           initializedAt: now,
           lastUpdatedAt: now,
-          kodraVersion: '0.1.3',
+          kodraVersion: '0.1.4',
         };
         await this.writeAtomicJson(this.metadataFile, meta);
       } else {

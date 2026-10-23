@@ -2,7 +2,7 @@
   "name": "kodra",
   "displayName": "KODRA",
   "description": "An AI coding assistant that understands your entire codebase. Supports local models via Ollama and cloud providers like OpenAI and Anthropic.",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "publisher": "SandipGiri",
   "engines": {
     "vscode": "^1.85.0",

@@ -106,7 +106,7 @@ This creates a file named `kodra-<version>.vsix` in the project root.
 Install the generated `.vsix` file into your local VS Code:
 
 ```bash
-code --install-extension kodra-0.1.3.vsix
+code --install-extension kodra-0.1.4.vsix
 ```
 
 ---
