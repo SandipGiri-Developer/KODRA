@@ -9,7 +9,7 @@ export interface UseAutoScrollResult {
   /** True when the user has scrolled upward away from the bottom. */
   userHasScrolled: boolean;
   /** Programmatically scroll to the bottom. */
-  scrollToBottom: () => void;
+  scrollToBottom: (smooth?: boolean) => void;
 }
 
 export const useAutoScroll = (
@@ -24,9 +24,13 @@ export const useAutoScroll = (
     setUserHasScrolled(false);
   }, [numUserMsgs]);
 
-  const scrollToBottom = useCallback(() => {
+  const scrollToBottom = useCallback((smooth = false) => {
     if (ref.current) {
-      ref.current.scrollTop = ref.current.scrollHeight;
+      if (smooth) {
+        ref.current.scrollTo({ top: ref.current.scrollHeight, behavior: "smooth" });
+      } else {
+        ref.current.scrollTop = ref.current.scrollHeight;
+      }
       setUserHasScrolled(false);
     }
   }, [ref]);

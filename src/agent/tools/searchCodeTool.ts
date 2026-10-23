@@ -10,12 +10,15 @@ import { ToolDefinition } from '../../providers/types';
 import { ITool, ToolParameterSchema, ToolResult } from '../types';
 import { IWorkspaceService, VSCodeWorkspaceService } from '../workspaceService';
 
+const MAX_OUTPUT_CHARS = 8000;
+
 export class SearchCodeTool implements ITool {
   readonly name = 'search_code';
   readonly description =
     'Search for text, symbols, or regex patterns across files in the workspace. ' +
     'Returns matching file paths, line numbers, and code snippets. ' +
-    'Use this to locate entry points, definitions, configurations, and usages across the codebase.';
+    'Use this to locate entry points, definitions, configurations, and usages across the codebase. ' +
+    'filePattern and exclude accept full workspace-relative glob patterns (e.g. "src/**/*.ts", "**/*.spec.ts").';
 
   readonly parameters: ToolParameterSchema = {
     type: 'object',
@@ -26,7 +29,15 @@ export class SearchCodeTool implements ITool {
       },
       filePattern: {
         type: 'string',
-        description: 'Optional file filter pattern (e.g., "*.ts", "*.json", "src/**").',
+        description:
+          'Optional include glob pattern matched against the full workspace-relative path ' +
+          '(e.g. "*.ts", "src/**/*.ts", "src/**"). Omit to search all files.',
+      },
+      exclude: {
+        type: 'string',
+        description:
+          'Optional exclude glob pattern. Files matching this pattern are skipped ' +
+          '(e.g. "**/*.spec.ts", "dist/**", "**/*.test.ts").',
       },
       isRegex: {
         type: 'boolean',
@@ -86,6 +97,13 @@ export class SearchCodeTool implements ITool {
         ? args.include
         : undefined;
 
+    const exclude =
+      typeof args.exclude === 'string'
+        ? args.exclude
+        : typeof args.excludePattern === 'string'
+        ? args.excludePattern
+        : undefined;
+
     const isRegex = Boolean(args.isRegex);
     const caseSensitive = Boolean(args.caseSensitive);
     const maxResults = typeof args.maxResults === 'number' ? Math.min(args.maxResults, 100) : 50;
@@ -101,6 +119,7 @@ export class SearchCodeTool implements ITool {
     try {
       const matches = await this.workspaceService.searchFiles(query, {
         filePattern,
+        exclude,
         isRegex,
         caseSensitive,
         maxResults,
@@ -136,13 +155,20 @@ export class SearchCodeTool implements ITool {
         outputLines.push('');
       }
 
+      const rawOutput = outputLines.join('\n').trim();
+      const truncatedContent =
+        rawOutput.length > MAX_OUTPUT_CHARS
+          ? rawOutput.slice(0, MAX_OUTPUT_CHARS) + '\n... (truncated — output exceeded limit)'
+          : rawOutput;
+
       return {
-        content: outputLines.join('\n').trim(),
+        content: truncatedContent,
         success: true,
         metadata: {
           matchCount: matches.length,
           fileCount: grouped.size,
           query,
+          truncated: rawOutput.length > MAX_OUTPUT_CHARS,
         },
       };
     } catch (err: any) {

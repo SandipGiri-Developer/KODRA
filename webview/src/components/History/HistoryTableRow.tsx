@@ -18,6 +18,8 @@ import {
   loadSession,
   updateSession,
 } from "../../redux/thunks/session";
+import { setDialogMessage, setShowDialog } from "../../redux/slices/uiSlice";
+import { ConfirmationDialog } from "../dialogs/ConfirmationDialog";
 import { isShareSessionSupported } from "../../util";
 import HeaderButtonWithToolTip from "../gui/HeaderButtonWithToolTip";
 import { ToolTip } from "../gui/Tooltip";
@@ -78,6 +80,34 @@ export function HistoryTableRow({
     }
   };
 
+  const promptDeleteSession = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    dispatch(
+      setDialogMessage(
+        <ConfirmationDialog
+          title="Delete Chat Session"
+          text={`Are you sure you want to permanently delete "${sessionMetadata.title}"?\n\nThis will permanently delete this conversation, its message history, execution logs, and generated artifacts.\n\nYour workspace files and code will NOT be modified.`}
+          confirmText="Permanently Delete"
+          onConfirm={async () => {
+            try {
+              await dispatch(deleteSession(sessionMetadata.sessionId)).unwrap();
+            } catch (err: any) {
+              dispatch(
+                setDialogMessage(
+                  <div className="p-4 text-sm text-red-400">
+                    Failed to delete conversation: {err?.message || String(err)}
+                  </div>
+                )
+              );
+              dispatch(setShowDialog(true));
+            }
+          }}
+        />,
+      ),
+    );
+    dispatch(setShowDialog(true));
+  };
+
   return (
     <tr
       onMouseEnter={() => setHovered(true)}
@@ -115,6 +145,14 @@ export function HistoryTableRow({
             <span className="line-clamp-1 break-all text-sm font-semibold">
               {sessionMetadata.title}
             </span>
+
+            {((sessionMetadata as any).hasInterruptedRun || (sessionMetadata as any).status === 'interrupted') && (
+              <ToolTip content="This agent run was interrupted and can be reviewed or resumed safely.">
+                <span className="bg-amber-900/40 text-amber-400 border border-amber-600/50 inline-flex items-center rounded px-1.5 py-0.5 text-2xs font-medium">
+                  Interrupted
+                </span>
+              </ToolTip>
+            )}
 
             {sessionMetadata.messageCount !== undefined && (
               <ToolTip
@@ -174,10 +212,7 @@ export function HistoryTableRow({
               )}
               <HeaderButtonWithToolTip
                 text="Delete"
-                onClick={async (e) => {
-                  e.stopPropagation();
-                  await dispatch(deleteSession(sessionMetadata.sessionId));
-                }}
+                onClick={promptDeleteSession}
               >
                 <TrashIcon width="1em" height="1em" />
               </HeaderButtonWithToolTip>

@@ -17,7 +17,7 @@ import {
   ILLMProvider,
   ToolCall,
 } from '../providers/types';
-import { isCancellationError, KodraError, toError } from '../utils/errors';
+import { ErrorReason, isCancellationError, KodraError, toError } from '../utils/errors';
 import { Logger } from '../utils/logger';
 import { AgentEventBus, IAgentEventBus } from './agentEventBus';
 import { ContextManager, IContextManager } from './contextManager';
@@ -38,7 +38,122 @@ export interface AgentRuntimeOptions {
   toolCalling?: boolean;
   contextFiles?: string[];
   customInstructions?: string;
+  firstTokenTimeoutMs?: number;
+  idleChunkTimeoutMs?: number;
+  mode?: string;
+  workspaceId?: string;
+  cwd?: string;
 }
+
+/**
+ * Wraps a model provider's streaming async iterable with lifecycle timeout protections:
+ * - Enforces firstTokenTimeoutMs until the first chunk is received.
+ * - Enforces idleChunkTimeoutMs between subsequent chunks to detect stalled connections.
+ * - Immediately aborts on signal abortion without waiting indefinitely.
+ * - Safely clears timers and listeners on exit.
+ */
+export async function* withStreamTimeout<T>(
+  stream: AsyncIterable<T>,
+  options: {
+    firstTokenTimeoutMs?: number;
+    idleChunkTimeoutMs?: number;
+    signal?: AbortSignal;
+    onFirstToken?: () => void;
+  } = {},
+): AsyncGenerator<T, void, unknown> {
+  const firstTokenTimeout = options.firstTokenTimeoutMs ?? 120_000;
+  const idleChunkTimeout = options.idleChunkTimeoutMs ?? 60_000;
+
+  const iterator = stream[Symbol.asyncIterator]();
+  let firstTokenReceived = false;
+
+  try {
+    while (true) {
+      if (options.signal?.aborted) {
+        throw new KodraError(ErrorReason.Cancelled, 'Request was cancelled.');
+      }
+
+      const currentTimeoutMs = firstTokenReceived ? idleChunkTimeout : firstTokenTimeout;
+
+      let timer: NodeJS.Timeout | null = null;
+      let abortListener: (() => void) | null = null;
+
+      try {
+        const nextPromise = iterator.next();
+
+        const timeoutPromise = new Promise<never>((_, reject) => {
+          if (currentTimeoutMs > 0) {
+            timer = setTimeout(() => {
+              if (!firstTokenReceived) {
+                reject(
+                  new KodraError(
+                    ErrorReason.ProviderTimeout,
+                    `Request timed out waiting for model to respond (${Math.round(currentTimeoutMs / 1000)}s). The provider may be unresponsive or loading a large model.`,
+                  ),
+                );
+              } else {
+                reject(
+                  new KodraError(
+                    ErrorReason.ProviderTimeout,
+                    `Model stream stalled: No response tokens received for ${Math.round(currentTimeoutMs / 1000)} seconds.`,
+                  ),
+                );
+              }
+            }, currentTimeoutMs);
+          }
+
+          if (options.signal) {
+            abortListener = () => {
+              reject(new KodraError(ErrorReason.Cancelled, 'Request was cancelled by user.'));
+            };
+            options.signal.addEventListener('abort', abortListener, { once: true });
+          }
+        });
+
+        const result = await Promise.race([nextPromise, timeoutPromise]);
+
+        if (timer) {
+          clearTimeout(timer);
+        }
+        if (options.signal && abortListener) {
+          options.signal.removeEventListener('abort', abortListener);
+        }
+
+        if (result.done) {
+          break;
+        }
+
+        if (!firstTokenReceived) {
+          firstTokenReceived = true;
+          options.onFirstToken?.();
+        }
+
+        yield result.value;
+      } finally {
+        if (timer) {
+          clearTimeout(timer);
+        }
+        if (options.signal && abortListener) {
+          options.signal.removeEventListener('abort', abortListener);
+        }
+      }
+    }
+  } finally {
+    try {
+      const returnPromise = iterator.return?.();
+      if (returnPromise) {
+        await Promise.race([
+          returnPromise,
+          new Promise((resolve) => setTimeout(resolve, 50)),
+        ]).catch(() => {});
+      }
+    } catch {
+      // ignore stream closure error
+    }
+  }
+}
+
+import { ApprovalDecisionType, IApprovalGate } from './terminal/types';
 
 export class AgentRuntime {
   private readonly eventBus: IAgentEventBus;
@@ -57,6 +172,7 @@ export class AgentRuntime {
       eventBus?: IAgentEventBus;
       toolExecutor?: IToolExecutor;
       contextManager?: IContextManager;
+      approvalGate?: IApprovalGate;
     },
   ) {
     this.toolRegistry = toolRegistry;
@@ -64,7 +180,7 @@ export class AgentRuntime {
     this.eventBus = options?.eventBus ?? new AgentEventBus();
     this.toolExecutor =
       options?.toolExecutor ??
-      new ToolExecutor(this.toolRegistry, this.permissionManager, this.eventBus);
+      new ToolExecutor(this.toolRegistry, this.permissionManager, this.eventBus, options?.approvalGate);
     this.contextManager = options?.contextManager ?? new ContextManager();
   }
 
@@ -127,12 +243,12 @@ export class AgentRuntime {
   /**
    * Resolve an approval request from the user/UI.
    */
-  resolveApproval(approved: boolean, requestId?: string): boolean {
+  resolveApproval(decision: boolean | ApprovalDecisionType, requestId?: string): boolean {
     if (requestId) {
-      return this.permissionManager.resolveRequest(requestId, approved);
+      return this.permissionManager.resolveRequest(requestId, decision);
     }
     if (this.permissionManager instanceof PermissionManager) {
-      return this.permissionManager.resolveLatest(approved);
+      return this.permissionManager.resolveLatest(decision);
     }
     return false;
   }
@@ -193,6 +309,8 @@ export class AgentRuntime {
       timestamp: Date.now(),
     });
 
+    logger.info(`[KODRA Lifecycle] Request started executionId=${executionId} turnId=${turnId} maxIterations=${maxIterations}`);
+
     // Build complete messages list using ContextManager if not already fully built
     let messages: ChatMessage[];
     const hasSystemMessage = conversationHistory.some((m) => m.role === 'system');
@@ -243,7 +361,19 @@ export class AgentRuntime {
 
         // 2. Stream response from model
         try {
-          const stream = provider.streamChat(messages, completionOptions);
+          const tStream = Date.now();
+          logger.info(`[KODRA Lifecycle] Provider request initiated executionId=${executionId} iteration=${iteration + 1} model=${options.model || '(default)'}`);
+
+          const rawStream = provider.streamChat(messages, completionOptions);
+          const stream = withStreamTimeout(rawStream, {
+            firstTokenTimeoutMs: options.firstTokenTimeoutMs,
+            idleChunkTimeoutMs: options.idleChunkTimeoutMs,
+            signal,
+            onFirstToken: () => {
+              const ttft = Date.now() - tStream;
+              logger.info(`[KODRA Lifecycle] First chunk received executionId=${executionId} ttft=${ttft}ms`);
+            },
+          });
 
           for await (const chunk of stream) {
             if (signal.aborted) {
@@ -260,6 +390,8 @@ export class AgentRuntime {
               toolCalls.push(...(chunk.toolCalls as ToolCall[]));
             }
           }
+
+          logger.info(`[KODRA Lifecycle] Provider stream ended executionId=${executionId} iteration=${iteration + 1} contentTokens=${iterationContent.length} toolCalls=${toolCalls.length} elapsed=${Date.now() - tStream}ms`);
         } catch (error: unknown) {
           if (isCancellationError(error) || signal.aborted) {
             this.handleCancelled();
@@ -301,7 +433,12 @@ export class AgentRuntime {
             return;
           }
 
-          const execResponse = await this.toolExecutor.executeToolCall(toolCall, executionId, signal);
+          const execResponse = await this.toolExecutor.executeToolCall(
+            toolCall,
+            executionId,
+            signal,
+            { mode: options.mode, workspaceId: options.workspaceId, cwd: options.cwd },
+          );
 
           // Record in execution state
           this.currentExecution.toolCalls.push({
@@ -334,6 +471,7 @@ export class AgentRuntime {
       yield `\n\n[Warning: ${limitError}]`;
     } finally {
       this.abortController = null;
+      Logger.getInstance().info(`[KODRA Lifecycle] Cleanup completed executionId=${executionId}`);
     }
   }
 
@@ -363,6 +501,8 @@ export class AgentRuntime {
     this.currentExecution.endTime = Date.now();
     const durationMs = this.currentExecution.endTime - this.currentExecution.startTime;
 
+    Logger.getInstance().info(`[KODRA Lifecycle] Request completed executionId=${this.currentExecution.executionId} duration=${durationMs}ms`);
+
     this.eventBus.emit({
       type: 'agent.completed',
       executionId: this.currentExecution.executionId,
@@ -378,6 +518,9 @@ export class AgentRuntime {
     this.currentExecution.status = 'failed';
     this.currentExecution.endTime = Date.now();
     this.currentExecution.error = error;
+    const durationMs = this.currentExecution.endTime - this.currentExecution.startTime;
+
+    Logger.getInstance().info(`[KODRA Lifecycle] Request failed executionId=${this.currentExecution.executionId} error="${error.replace(/\r?\n/g, ' ')}" duration=${durationMs}ms`);
 
     this.eventBus.emit({
       type: 'agent.failed',
@@ -393,6 +536,9 @@ export class AgentRuntime {
     }
     this.currentExecution.status = 'cancelled';
     this.currentExecution.endTime = Date.now();
+    const durationMs = this.currentExecution.endTime - this.currentExecution.startTime;
+
+    Logger.getInstance().info(`[KODRA Lifecycle] Request cancelled executionId=${this.currentExecution.executionId} duration=${durationMs}ms`);
 
     this.eventBus.emit({
       type: 'agent.cancelled',

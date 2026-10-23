@@ -139,6 +139,14 @@ const StyledMarkdown = styled.div<{
     word-break: break-word;
   }
 
+  > *:first-child {
+    margin-top: 0 !important;
+  }
+
+  > p:first-child {
+    margin-top: 0 !important;
+  }
+
   > *:last-child {
     margin-bottom: 0;
   }

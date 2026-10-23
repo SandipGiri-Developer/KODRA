@@ -6,16 +6,34 @@
  * or network access.
  */
 
+import {
+  ApprovalDecisionType,
+  ApprovalPolicy,
+  CreatePolicyInput,
+  PolicyScope,
+  UpdatePolicyInput,
+} from '../agent/terminal/types';
 import { IndexingProgress } from '../indexing/types';
 import { DiscoveredModel, ProviderSettings, WorkspaceModel } from '../providers/types';
 
 // ─── Messages from Webview to Extension ────────────────────────────────────
 
 export type WebviewToExtensionMessage =
-  | { type: 'sendMessage'; text: string; contextFiles?: string[] }
+  | { type: 'sendMessage'; text: string; contextFiles?: string[]; sessionId?: string }
   | { type: 'cancelGeneration' }
   | { type: 'newChat' }
-  | { type: 'approveAction'; approved: boolean }
+  | {
+      type: 'approveAction';
+      approved?: boolean;
+      decision?: ApprovalDecisionType;
+      requestId?: string;
+    }
+  | { type: 'revealTerminal'; executionId: string }
+  | { type: 'policy/list'; scope?: PolicyScope; workspaceId?: string }
+  | { type: 'policy/create'; policy: CreatePolicyInput }
+  | { type: 'policy/update'; id: string; updates: UpdatePolicyInput }
+  | { type: 'policy/delete'; id: string }
+  | { type: 'policy/enable'; id: string; enabled: boolean }
   | { type: 'getConfig' }
   | { type: 'openFile'; filepath: string }
   | { type: 'setProvider'; provider: string; providerConfigId?: string }
@@ -46,7 +64,19 @@ export type ExtensionToWebviewMessage =
   | { type: 'toolCall'; toolName: string; args: Record<string, unknown>; toolCallId?: string }
   | { type: 'toolStarted'; toolName: string; toolCallId: string }
   | { type: 'toolResult'; toolName: string; content: string; success: boolean; toolCallId?: string; durationMs?: number }
-  | { type: 'approvalRequest'; toolName: string; description: string; command?: string; diff?: string; filepath?: string }
+  | {
+      type: 'approvalRequest';
+      toolName: string;
+      description: string;
+      command?: string;
+      diff?: string;
+      filepath?: string;
+      requestId?: string;
+      executionId?: string;
+    }
+  | { type: 'policyList'; policies: ApprovalPolicy[] }
+  | { type: 'policyUpdated'; policy: ApprovalPolicy }
+  | { type: 'policyDeleted'; id: string }
   | { type: 'config'; provider: string; model: string; hasApiKey: boolean; availableProviders: string[]; providerConfigId?: string }
   | { type: 'connectionResult'; success: boolean; models?: string[]; error?: string }
   | { type: 'modelsDiscovered'; provider: string; models?: DiscoveredModel[]; error?: string }
@@ -54,11 +84,7 @@ export type ExtensionToWebviewMessage =
   | { type: 'indexStatus'; indexed: boolean; entryCount: number; fileCount: number; inProgress: boolean }
   | { type: 'addContext'; filepath: string; content?: string; selection?: string }
   | { type: 'settingsData'; providers: ProviderSettings[]; workspaceModels: WorkspaceModel[] }
-  /**
-   * Real-time agent activity event for the "Worked" panel.
-   * Emitted by the extension host for each meaningful runtime event so
-   * the webview can build the activity timeline without a second event bus.
-   */
+  | { type: 'sessionTitleUpdated'; sessionId: string; title: string }
   | {
       type: 'agentActivity';
       executionId: string;
@@ -72,7 +98,6 @@ export type ExtensionToWebviewMessage =
         | { kind: 'failed'; error: string; timestamp: number }
         | { kind: 'cancelled'; timestamp: number };
     };
-
 
 /**
  * Validate that a message from the webview is well-formed.
@@ -89,7 +114,8 @@ export function validateWebviewMessage(data: unknown): WebviewToExtensionMessage
   }
 
   const validTypes: Set<string> = new Set([
-    'sendMessage', 'cancelGeneration', 'newChat', 'approveAction',
+    'sendMessage', 'cancelGeneration', 'newChat', 'approveAction', 'revealTerminal',
+    'policy/list', 'policy/create', 'policy/update', 'policy/delete', 'policy/enable',
     'getConfig', 'setProvider', 'setModel', 'setApiKey',
     'testConnection', 'discoverModels', 'startIndexing', 'cancelIndexing',
     'getIndexStatus', 'executeCommand', 'webviewReady', 'openFile',
@@ -107,9 +133,87 @@ export function validateWebviewMessage(data: unknown): WebviewToExtensionMessage
       if (typeof msg.text !== 'string' || msg.text.trim().length === 0) {
         return null;
       }
+      if (msg.sessionId !== undefined && typeof msg.sessionId !== 'string') {
+        return null;
+      }
       break;
     case 'approveAction':
-      if (typeof msg.approved !== 'boolean') {
+      if (msg.decision !== undefined) {
+        const validDecisions = ['allow_once', 'always_allow_workspace', 'always_allow_global', 'deny', 'cancel'];
+        if (!validDecisions.includes(msg.decision as string)) {
+          return null;
+        }
+      } else if (typeof msg.approved !== 'boolean') {
+        return null;
+      }
+      if (msg.requestId !== undefined && (typeof msg.requestId !== 'string' || !msg.requestId.trim())) {
+        return null;
+      }
+      break;
+    case 'revealTerminal':
+      if (typeof msg.executionId !== 'string' || !msg.executionId.trim()) {
+        return null;
+      }
+      break;
+    case 'policy/list':
+      if (msg.scope !== undefined && msg.scope !== 'global' && msg.scope !== 'workspace') {
+        return null;
+      }
+      if (msg.workspaceId !== undefined && typeof msg.workspaceId !== 'string') {
+        return null;
+      }
+      break;
+    case 'policy/create': {
+      const pol = msg.policy as any;
+      if (!pol || typeof pol !== 'object') {
+        return null;
+      }
+      if (typeof pol.commandPattern !== 'string' || !pol.commandPattern.trim()) {
+        return null;
+      }
+      if (pol.scope !== 'global' && pol.scope !== 'workspace') {
+        return null;
+      }
+      if (pol.decision !== undefined && pol.decision !== 'allow' && pol.decision !== 'deny') {
+        return null;
+      }
+      if (pol.ruleType !== undefined && pol.ruleType !== 'exact' && pol.ruleType !== 'prefix' && pol.ruleType !== 'pattern') {
+        return null;
+      }
+      break;
+    }
+    case 'policy/update': {
+      if (typeof msg.id !== 'string' || !msg.id.trim()) {
+        return null;
+      }
+      const upd = msg.updates as any;
+      if (!upd || typeof upd !== 'object') {
+        return null;
+      }
+      if (upd.decision !== undefined && upd.decision !== 'allow' && upd.decision !== 'deny') {
+        return null;
+      }
+      if (upd.ruleType !== undefined && upd.ruleType !== 'exact' && upd.ruleType !== 'prefix' && upd.ruleType !== 'pattern') {
+        return null;
+      }
+      if (upd.commandPattern !== undefined && (typeof upd.commandPattern !== 'string' || !upd.commandPattern.trim())) {
+        return null;
+      }
+      if (upd.enabled !== undefined && typeof upd.enabled !== 'boolean') {
+        return null;
+      }
+      break;
+    }
+    case 'policy/delete':
+      if (typeof msg.id !== 'string' || !msg.id.trim()) {
+        return null;
+      }
+      break;
+    case 'policy/enable':
+      if (typeof msg.id !== 'string' || !msg.id.trim()) {
+        return null;
+      }
+      if (typeof msg.enabled !== 'boolean') {
         return null;
       }
       break;

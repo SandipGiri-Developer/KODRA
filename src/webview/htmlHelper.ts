@@ -227,25 +227,6 @@ export function getNonce(): string {
   return text;
 }
 
-function getMissingBuildHtml(indexPath: string): string {
-  return `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <style>
-    body { padding: 24px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, monospace; background: #1e1e1e; color: #f48771; }
-    code { background: rgba(255,255,255,0.1); padding: 2px 6px; border-radius: 3px; color: #fff; }
-  </style>
-</head>
-<body>
-  <h3>Kodra Webview Bundle Not Found</h3>
-  <p>The compiled webview file was not found at:</p>
-  <code>${indexPath}</code>
-  <p style="margin-top: 16px;">Please run <code>npm run build:webview</code> in the extension directory to build it.</p>
-</body>
-</html>`;
-}
-
 function getErrorHtml(message: string, error: unknown): string {
   const detail = error instanceof Error ? (error.stack || error.message) : String(error);
   return `<!DOCTYPE html>

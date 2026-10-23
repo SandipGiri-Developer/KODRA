@@ -11,17 +11,22 @@ import { AgentRuntime } from './agentRuntime';
 import { ContextManager } from './contextManager';
 import { IToolRegistry } from './toolRegistry';
 import { AgentEvent, ITool } from './types';
+import { IContextEngine } from './contextEngine';
 import { IWorkspaceService } from './workspaceService';
+import { ApprovalDecisionType } from './terminal/types';
 export declare class AgentLoop {
     private readonly indexer?;
     private readonly requireApproval;
     private readonly runtime;
     private readonly registry;
     private readonly permissionManager;
+    private readonly approvalGate;
     private readonly contextManager;
     private readonly workspaceService;
+    private readonly contextEngine;
     private readonly eventBus;
-    constructor(indexer?: CodebaseIndexer | undefined, requireApproval?: boolean, initialTools?: ITool[], workspaceService?: IWorkspaceService);
+    private readonly pendingContextOps;
+    constructor(indexer?: CodebaseIndexer | undefined, requireApproval?: boolean, initialTools?: ITool[], workspaceService?: IWorkspaceService, contextEngine?: IContextEngine);
     /**
      * Get the underlying ToolRegistry.
      */
@@ -34,6 +39,10 @@ export declare class AgentLoop {
      * Get the underlying ContextManager.
      */
     getContextManager(): ContextManager;
+    /**
+     * Get the underlying ContextEngine.
+     */
+    getContextEngine(): IContextEngine;
     /**
      * Get the underlying WorkspaceService.
      */
@@ -48,6 +57,11 @@ export declare class AgentLoop {
         maxTokens?: number;
         contextFiles?: string[];
         toolCalling?: boolean;
+        firstTokenTimeoutMs?: number;
+        idleChunkTimeoutMs?: number;
+        mode?: string;
+        workspaceId?: string;
+        cwd?: string;
     }): AsyncGenerator<AgentEvent>;
     /**
      * Cancel the active agent run.
@@ -56,6 +70,6 @@ export declare class AgentLoop {
     /**
      * Resolve an approval request.
      */
-    resolveApproval(approved: boolean, requestId?: string): void;
+    resolveApproval(decision: boolean | ApprovalDecisionType, requestId?: string): void;
 }
 //# sourceMappingURL=agentLoop.d.ts.map

@@ -21,9 +21,10 @@ export const InputBoxDiv = styled.div<{}>`
   color: ${vscForeground};
 
   border: 1px solid ${vscCommandCenterInactiveBorder};
-  transition: border-color 0.15s ease-in-out;
+  transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
   &:focus-within {
-    border: 1px solid ${vscCommandCenterActiveBorder};
+    border: 1px solid var(--vscode-focusBorder, ${vscCommandCenterActiveBorder});
+    box-shadow: 0 0 0 1px var(--vscode-focusBorder, ${vscCommandCenterActiveBorder});
   }
 
   outline: none;

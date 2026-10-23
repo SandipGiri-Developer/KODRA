@@ -1,4 +1,3 @@
-const refreshSessionMetadata = (a: any) => ({type: "dummy"});
 import { BaseSessionMetadata } from "core";
 import MiniSearch from "minisearch";
 import React, {
@@ -20,10 +19,11 @@ import {
   setAllSessionMetadata,
 } from "../../redux/slices/sessionSlice";
 import { setDialogMessage, setShowDialog } from "../../redux/slices/uiSlice";
+import { refreshSessionMetadata } from "../../redux/thunks/session";
 
 import { getFontSize, getPlatform } from "../../util";
 import { ROUTES } from "../../util/navigation";
-const ConfirmationDialog = ({open}: any) => <></>;
+import { ConfirmationDialog } from "../dialogs/ConfirmationDialog";
 import { Button } from "../ui";
 import { HistoryTableRow } from "./HistoryTableRow";
 import { groupSessionsByDate, parseDate } from "./util";
@@ -35,6 +35,11 @@ export function History() {
   const ideMessenger = useContext(IdeMessengerContext);
 
   const [searchTerm, setSearchTerm] = useState("");
+  const [selectedWorkspace, setSelectedWorkspace] = useState<string>("all");
+
+  useEffect(() => {
+    void dispatch(refreshSessionMetadata({}));
+  }, [dispatch]);
 
   const minisearch = useRef<MiniSearch>(
     new MiniSearch({
@@ -49,6 +54,16 @@ export function History() {
   const isSessionMetadataLoading = useAppSelector(
     (state) => state.session.isSessionMetadataLoading,
   );
+
+  const availableWorkspaces = useMemo(() => {
+    const set = new Set<string>();
+    allSessionMetadata.forEach((s) => {
+      if (s.workspaceDirectory) {
+        set.add(s.workspaceDirectory);
+      }
+    });
+    return Array.from(set);
+  }, [allSessionMetadata]);
 
   useEffect(() => {
     try {
@@ -107,14 +122,17 @@ export function History() {
 
     return allSessionMetadata
       .filter((session) => {
-        return searchTerm === "" || sessionIds.includes(session.sessionId);
+        const matchesSearch = searchTerm === "" || sessionIds.includes(session.sessionId);
+        const matchesWorkspace =
+          selectedWorkspace === "all" || session.workspaceDirectory === selectedWorkspace;
+        return matchesSearch && matchesWorkspace;
       })
       .sort(
         (a, b) =>
           parseDate(b.dateCreated).getTime() -
           parseDate(a.dateCreated).getTime(),
       );
-  }, [allSessionMetadata, searchTerm, minisearch]);
+  }, [allSessionMetadata, searchTerm, selectedWorkspace, minisearch]);
 
   const sessionGroups = useMemo(() => {
     return groupSessionsByDate(filteredAndSortedSessions);
@@ -124,19 +142,29 @@ export function History() {
     dispatch(
       setDialogMessage(
         <ConfirmationDialog
-          title={`Clear sessions`}
-          text={`Are you sure you want to permanently delete all chat sessions, including the current chat session?`}
+          title="Clear all chat sessions"
+          text={`Are you sure you want to permanently delete all past chat sessions?\n\nThis will permanently delete all stored conversations, messages, execution history, and generated artifacts.\n\nYour workspace files, models, vector indexes, and secrets will NOT be touched.`}
+          confirmText="Permanently Delete All"
           onConfirm={async () => {
-            // optimistic update
-            dispatch(setAllSessionMetadata([]));
-
-            // actual update + refresh
-            await ideMessenger.request("history/clear", undefined);
-            void dispatch(refreshSessionMetadata({}));
-
-            // start a new session
-            dispatch(newSession());
-            navigate(ROUTES.HOME);
+            try {
+              const res = await ideMessenger.request("history/clear", undefined);
+              if (res.status === "error") {
+                throw new Error(res.error || "Failed to clear history on disk");
+              }
+              dispatch(setAllSessionMetadata([]));
+              dispatch(newSession());
+              navigate(ROUTES.HOME);
+            } catch (err: any) {
+              void dispatch(refreshSessionMetadata({}));
+              dispatch(
+                setDialogMessage(
+                  <div className="p-4 text-sm text-red-400">
+                    Failed to clear history: {err?.message || String(err)}
+                  </div>
+                )
+              );
+              dispatch(setShowDialog(true));
+            }
           }}
         />,
       ),
@@ -170,6 +198,28 @@ export function History() {
           />
         )}
       </div>
+
+      {availableWorkspaces.length > 1 && (
+        <div className="my-1 mb-2 flex items-center space-x-2 px-1 text-xs text-vsc-descriptionForeground">
+          <span className="flex-shrink-0">Workspace:</span>
+          <select
+            className="bg-vsc-input-background text-vsc-foreground flex-1 rounded border border-none py-1 px-1.5 text-xs outline-none focus:outline-none cursor-pointer"
+            value={selectedWorkspace}
+            onChange={(e) => setSelectedWorkspace(e.target.value)}
+          >
+            <option value="all">All Workspaces ({allSessionMetadata.length})</option>
+            {availableWorkspaces.map((ws) => {
+              const name = ws.split(/[/\\]/).filter(Boolean).pop() || ws;
+              const count = allSessionMetadata.filter((s) => s.workspaceDirectory === ws).length;
+              return (
+                <option key={ws} value={ws}>
+                  {name} ({count})
+                </option>
+              );
+            })}
+          </select>
+        </div>
+      )}
 
       <div className="thin-scrollbar flex w-full flex-1 flex-col overflow-y-auto">
         {filteredAndSortedSessions.length === 0 && (

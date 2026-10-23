@@ -16,6 +16,7 @@ import { PermissionManager } from './permissionManager';
 import { IToolRegistry, ToolRegistry } from './toolRegistry';
 import { getAllTools } from './tools';
 import { AgentEvent, AgentNormalizedEvent, ITool } from './types';
+import { ContextEngine, IContextEngine } from './contextEngine';
 import { IWorkspaceService, VSCodeWorkspaceService } from './workspaceService';
 
 /**
@@ -59,30 +60,67 @@ class AsyncEventQueue<T> {
   }
 }
 
+import { ApprovalGate } from './terminal/approvalGate';
+import { ApprovalPolicyService } from './terminal/approvalPolicyService';
+import { ApprovalDecisionType, IApprovalGate } from './terminal/types';
+
 export class AgentLoop {
   private readonly runtime: AgentRuntime;
   private readonly registry: IToolRegistry;
   private readonly permissionManager: PermissionManager;
+  private readonly approvalGate: IApprovalGate;
   private readonly contextManager: ContextManager;
   private readonly workspaceService: IWorkspaceService;
+  private readonly contextEngine: IContextEngine;
   private readonly eventBus: AgentEventBus;
+
+  private readonly pendingContextOps: Promise<void>[] = [];
 
   constructor(
     private readonly indexer?: CodebaseIndexer,
     private readonly requireApproval: boolean = true,
     initialTools?: ITool[],
     workspaceService?: IWorkspaceService,
+    contextEngine?: IContextEngine,
   ) {
     this.workspaceService = workspaceService ?? new VSCodeWorkspaceService();
+    this.contextEngine = contextEngine ?? ContextEngine.createForWorkspace(this.workspaceService);
     const toolsToRegister = initialTools ?? getAllTools(this.workspaceService);
     this.registry = new ToolRegistry(toolsToRegister);
     this.permissionManager = new PermissionManager(!this.requireApproval);
     this.eventBus = new AgentEventBus();
-    this.contextManager = new ContextManager(this.workspaceService);
+    this.approvalGate = new ApprovalGate(
+      ApprovalPolicyService.getInstance(),
+      this.permissionManager,
+      this.eventBus,
+    );
+    this.contextManager = new ContextManager(this.workspaceService, this.contextEngine);
 
     this.runtime = new AgentRuntime(this.registry, this.permissionManager, {
       eventBus: this.eventBus,
       contextManager: this.contextManager,
+      approvalGate: this.approvalGate,
+    });
+
+    // Update ContextEngine on tool completion and persist on agent completion
+    this.eventBus.on((event: AgentNormalizedEvent) => {
+      try {
+        if (event.type === 'tool.completed') {
+          const p = this.contextEngine
+            .recordToolCompletion(event.toolName, event.args || {}, event.result)
+            .catch((err) => {
+              Logger.getInstance().warn('ContextEngine event processing error (non-fatal)', err);
+            });
+          this.pendingContextOps.push(p);
+        } else if (event.type === 'agent.completed') {
+          const p = this.contextEngine.save().catch((err) => {
+            Logger.getInstance().warn('ContextEngine save error (non-fatal)', err);
+          });
+          this.pendingContextOps.push(p);
+        }
+      } catch (err) {
+        Logger.getInstance().warn('ContextEngine event dispatch error (non-fatal)', err);
+      }
     });
   }
 
@@ -108,6 +146,13 @@ export class AgentLoop {
   }
 
   /**
+   * Get the underlying ContextEngine.
+   */
+  getContextEngine(): IContextEngine {
+    return this.contextEngine;
+  }
+
+  /**
    * Get the underlying WorkspaceService.
    */
   getWorkspaceService(): IWorkspaceService {
@@ -128,6 +173,11 @@ export class AgentLoop {
       maxTokens?: number;
       contextFiles?: string[];
       toolCalling?: boolean;
+      firstTokenTimeoutMs?: number;
+      idleChunkTimeoutMs?: number;
+      mode?: string;
+      workspaceId?: string;
+      cwd?: string;
     } = {},
   ): AsyncGenerator<AgentEvent> {
     const logger = Logger.getInstance();
@@ -168,6 +218,8 @@ export class AgentLoop {
             command: event.command,
             filepath: event.filepath,
             diff: event.diff,
+            requestId: (event as any).requestId,
+            executionId: event.executionId,
           });
           break;
 
@@ -208,10 +260,18 @@ export class AgentLoop {
     // Start background runtime execution
     (async () => {
       try {
+        // Automatically ensure ContextEngine state is loaded before message construction
+        try {
+          await this.contextEngine.ensureLoaded();
+        } catch {
+          // non-fatal
+        }
+
         // Build initial messages with ContextManager
         const messages = await this.contextManager.buildMessages(userMessage, conversationHistory, {
           indexer: this.indexer,
           contextFiles: options.contextFiles,
+          contextEngine: this.contextEngine,
         });
 
         const textStream = this.runtime.run(userMessage, messages, provider, {
@@ -219,6 +279,11 @@ export class AgentLoop {
           model: options.model,
           maxTokens: options.maxTokens,
           toolCalling: options.toolCalling,
+          firstTokenTimeoutMs: options.firstTokenTimeoutMs,
+          idleChunkTimeoutMs: options.idleChunkTimeoutMs,
+          mode: options.mode,
+          workspaceId: options.workspaceId,
+          cwd: options.cwd,
         });
 
         for await (const chunk of textStream) {
@@ -228,6 +293,11 @@ export class AgentLoop {
         logger.error('Error during agent execution in AgentLoop', err);
         eventQueue.push({ type: 'error', error: err.message || String(err) });
       } finally {
+        try {
+          await Promise.all(this.pendingContextOps);
+        } catch {
+          // non-fatal
+        }
         eventQueue.finish();
       }
     })();
@@ -255,7 +325,8 @@ export class AgentLoop {
   /**
    * Resolve an approval request.
    */
-  resolveApproval(approved: boolean, requestId?: string): void {
-    this.runtime.resolveApproval(approved, requestId);
+  resolveApproval(decision: boolean | ApprovalDecisionType, requestId?: string): void {
+    this.runtime.resolveApproval(decision, requestId);
   }
 }
+

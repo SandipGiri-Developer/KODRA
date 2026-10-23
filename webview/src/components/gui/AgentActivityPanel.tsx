@@ -5,8 +5,16 @@
  * Groups tools and thoughts by the resource they explore.
  */
 
-import { useEffect, useState } from "react";
-import { WrenchScrewdriverIcon, XMarkIcon, EllipsisHorizontalIcon } from "@heroicons/react/24/outline";
+import { useEffect, useRef, useState } from "react";
+import {
+  WrenchScrewdriverIcon,
+  XMarkIcon,
+  EllipsisHorizontalIcon,
+  SparklesIcon,
+  ExclamationCircleIcon,
+  StopIcon,
+} from "@heroicons/react/24/outline";
+import { formatDuration } from "../../util/time";
 
 // ─── Activity event types ────────────────────────────────────────────────────
 
@@ -164,6 +172,11 @@ function InnerToolRow({ tool, now, hideLabel }: { tool: ToolActivity; now: numbe
         >
           <span
             onClick={() => {
+              if (tool.toolName === 'terminal') {
+                const execId = (tool.metadata?.executionId as string) || (tool.args?.executionId as string) || '';
+                (window as any).vscode?.postMessage({ type: "revealTerminal", executionId: execId });
+                return;
+              }
               const { fullPath } = extractTarget(tool.args);
               if (fullPath && tool.toolName !== 'list_directory' && tool.toolName !== 'list_dir') {
                 (window as any).vscode?.postMessage({ type: "openFile", filepath: fullPath });
@@ -175,9 +188,10 @@ function InnerToolRow({ tool, now, hideLabel }: { tool: ToolActivity; now: numbe
               overflow: "hidden",
               textOverflow: "ellipsis",
               whiteSpace: "nowrap",
-              cursor: (extractTarget(tool.args).fullPath && tool.toolName !== 'list_directory' && tool.toolName !== 'list_dir') ? "pointer" : "default",
+              cursor: (tool.toolName === 'terminal' || (extractTarget(tool.args).fullPath && tool.toolName !== 'list_directory' && tool.toolName !== 'list_dir')) ? "pointer" : "default",
             }}
-            className={(extractTarget(tool.args).fullPath && tool.toolName !== 'list_directory' && tool.toolName !== 'list_dir') ? "hover:underline hover:text-[var(--vscode-foreground,#cccccc)] transition-colors" : ""}
+            className={(tool.toolName === 'terminal' || (extractTarget(tool.args).fullPath && tool.toolName !== 'list_directory' && tool.toolName !== 'list_dir')) ? "hover:underline hover:text-[var(--vscode-foreground,#cccccc)] transition-colors" : ""}
+            title={tool.toolName === 'terminal' ? "Click to reveal terminal in VS Code" : undefined}
           >
             {label}
           </span>
@@ -263,15 +277,22 @@ function GroupRow({ group, now }: { group: ActivityGroup; now: number }) {
           onClick={(e) => {
             const firstItem = group.items.find(i => i.type === 'tool' && i.tool.args);
             if (firstItem && firstItem.type === 'tool') {
-              const { fullPath } = extractTarget(firstItem.tool.args);
               const toolName = firstItem.tool.toolName;
+              if (toolName === 'terminal' || toolName === 'run_command') {
+                e.stopPropagation();
+                const execId = (firstItem.tool.metadata?.executionId as string) || (firstItem.tool.args?.executionId as string) || '';
+                (window as any).vscode?.postMessage({ type: "revealTerminal", executionId: execId });
+                return;
+              }
+              const { fullPath } = extractTarget(firstItem.tool.args);
               if (fullPath && toolName !== 'list_directory' && toolName !== 'list_dir') {
                 e.stopPropagation();
                 (window as any).vscode?.postMessage({ type: "openFile", filepath: fullPath });
               }
             }
           }}
-          className={(group.items.some(i => i.type === 'tool' && extractTarget(i.tool.args).fullPath && i.tool.toolName !== 'list_directory' && i.tool.toolName !== 'list_dir')) ? "hover:underline" : ""}
+          className={(group.items.some(i => i.type === 'tool' && (i.tool.toolName === 'terminal' || i.tool.toolName === 'run_command' || (extractTarget(i.tool.args).fullPath && i.tool.toolName !== 'list_directory' && i.tool.toolName !== 'list_dir')))) ? "hover:underline cursor-pointer" : ""}
+          title={(group.items.some(i => i.type === 'tool' && (i.tool.toolName === 'terminal' || i.tool.toolName === 'run_command'))) ? "Click to reveal terminal in VS Code" : undefined}
           style={{
             fontSize: 11,
             color: hover ? "var(--vscode-editor-foreground, #ffffff)" : "var(--vscode-descriptionForeground, #9d9d9d)",
@@ -335,12 +356,22 @@ function GroupRow({ group, now }: { group: ActivityGroup; now: number }) {
 interface AgentActivityPanelProps {
   /** All activity messages for this turn. */
   activities: AgentActivityMessage[];
+  /** Whether the generation for this message is currently active. */
+  isStreaming?: boolean;
 }
 
-export function AgentActivityPanel({ activities }: AgentActivityPanelProps) {
-  const [open, setOpen] = useState(true);
+export function AgentActivityPanel({ activities, isStreaming = false }: AgentActivityPanelProps) {
+  const [open, setOpen] = useState(() => Boolean(isStreaming));
   const [hover, setHover] = useState(false);
   const [now, setNow] = useState(Date.now());
+  const prevStreamingRef = useRef(isStreaming);
+
+  useEffect(() => {
+    if (prevStreamingRef.current && !isStreaming) {
+      setOpen(false);
+    }
+    prevStreamingRef.current = isStreaming;
+  }, [isStreaming]);
 
   // 1. Process flat list of root events
   let startTs: number | null = null;
@@ -364,6 +395,15 @@ export function AgentActivityPanel({ activities }: AgentActivityPanelProps) {
     }
   }
 
+  // If generation is no longer streaming and no terminal activity was recorded,
+  // reconcile state so panel does not stay stuck in "running" / "Thinking...".
+  if (!isStreaming && runStatus === "running") {
+    runStatus = "completed";
+    if (startTs) {
+      totalDurationMs = Math.max(0, now - startTs);
+    }
+  }
+
   // 2. Build entries (Thoughts and Tools)
   const entries: Entry[] = [];
   let currentThought: { type: "thought"; id: string; startTime: number; endTime?: number } | null = null;
@@ -384,6 +424,7 @@ export function AgentActivityPanel({ activities }: AgentActivityPanelProps) {
         args: ev.args,
         startTime: ev.timestamp,
         status: "running",
+        metadata: { executionId: msg.executionId },
       };
       toolMap.set(ev.toolCallId, t);
       entries.push({ type: "tool", tool: t });
@@ -448,17 +489,17 @@ export function AgentActivityPanel({ activities }: AgentActivityPanelProps) {
     }
   }
 
-  // Live elapsed timer while running
+  // Live elapsed timer while genuinely running and streaming
   useEffect(() => {
-    if (runStatus !== "running" || !startTs) return;
+    if (runStatus !== "running" || !isStreaming || !startTs) return;
     const interval = setInterval(() => {
       setNow(Date.now());
-    }, 500);
+    }, 1000);
     return () => clearInterval(interval);
-  }, [runStatus, startTs]);
+  }, [runStatus, isStreaming, startTs]);
 
   const elapsed = runStatus === "running" && startTs ? now - startTs : totalDurationMs;
-  const elapsedSec = (elapsed / 1000).toFixed(elapsed >= 10000 ? 0 : 1);
+  const durationText = formatDuration(elapsed / 1000);
 
   // Compact summary line
   const statusVerb =
@@ -475,50 +516,108 @@ export function AgentActivityPanel({ activities }: AgentActivityPanelProps) {
   }
 
   return (
-    <div role="region" aria-label="Agent activity" style={{ marginBottom: 8, userSelect: "text" }}>
-      {/* ── Collapsible header ─────────────────────────────────────── */}
+    <div
+      role="region"
+      aria-label="Agent activity"
+      style={{
+        marginTop: 2,
+        marginBottom: open ? 6 : 2,
+        marginLeft: 8,
+        marginRight: 8,
+        userSelect: "text",
+      }}
+    >
+      {/* ── Collapsible header pill ─────────────────────────────────────── */}
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
         onMouseEnter={() => setHover(true)}
         onMouseLeave={() => setHover(false)}
         style={{
-          display: "flex",
+          display: "inline-flex",
           alignItems: "center",
-          gap: 5,
-          background: "none",
-          border: "none",
+          gap: 6,
+          background: hover
+            ? "var(--vscode-toolbar-hoverBackground, rgba(255, 255, 255, 0.08))"
+            : "var(--vscode-badge-background, rgba(255, 255, 255, 0.04))",
+          border: "1px solid",
+          borderColor: hover
+            ? "var(--vscode-focusBorder, rgba(255, 255, 255, 0.2))"
+            : "var(--vscode-widget-border, rgba(255, 255, 255, 0.08))",
+          borderRadius: 14,
           cursor: "pointer",
-          padding: "2px 0",
-          fontSize: 12,
+          padding: "2.5px 9px 2.5px 7px",
+          fontSize: 11.5,
           fontWeight: 500,
+          color: hover
+            ? "var(--vscode-editor-foreground, #ffffff)"
+            : "var(--vscode-descriptionForeground, #9d9d9d)",
+          transition: "all 0.15s ease",
+          boxShadow: hover ? "0 1px 3px rgba(0, 0, 0, 0.15)" : "none",
         }}
         aria-expanded={open}
+        title={open ? "Click to collapse agent activity" : "Click to view agent activity"}
       >
-        <span
-          style={{
-            color: hover ? "var(--vscode-editor-foreground, #ffffff)" : "var(--vscode-descriptionForeground, #9d9d9d)",
-            transition: "color 0.1s ease",
-          }}
-        >
-          {statusVerb} for {elapsedSec}s
-        </span>
-        <span style={{ color: "var(--vscode-descriptionForeground, #9d9d9d)", opacity: hover ? 0.8 : 0.5, display: "inline-flex", alignItems: "center", transition: "opacity 0.1s ease" }}>
-          <Chevron open={open} />
-        </span>
-        {runStatus === "running" && (
-          <span
+        {/* Status indicator icon */}
+        {runStatus === "running" ? (
+          <svg
             style={{
-              display: "inline-block",
-              width: 6,
-              height: 6,
-              borderRadius: "50%",
-              backgroundColor: "var(--vscode-progressBar-background, #0e70c0)",
-              marginLeft: 2,
-              animation: "pulse 1.4s ease-in-out infinite",
+              width: 12,
+              height: 12,
+              animation: "activity-spin 0.9s linear infinite",
+              color: "var(--vscode-progressBar-background, #3b82f6)",
+              flexShrink: 0,
+            }}
+            viewBox="0 0 16 16"
+            fill="none"
+          >
+            <circle cx="8" cy="8" r="6" stroke="currentColor" strokeOpacity="0.25" strokeWidth="2" />
+            <path d="M8 2a6 6 0 0 1 6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+          </svg>
+        ) : runStatus === "completed" ? (
+          <SparklesIcon
+            style={{
+              width: 12,
+              height: 12,
+              color: "#a78bfa",
+              flexShrink: 0,
+            }}
+          />
+        ) : runStatus === "failed" ? (
+          <ExclamationCircleIcon
+            style={{
+              width: 12,
+              height: 12,
+              color: "var(--vscode-editorError-foreground, #f14c4c)",
+              flexShrink: 0,
+            }}
+          />
+        ) : (
+          <StopIcon
+            style={{
+              width: 12,
+              height: 12,
+              color: "var(--vscode-descriptionForeground, #9d9d9d)",
+              flexShrink: 0,
             }}
           />
         )}
+
+        <span>
+          {statusVerb} for {durationText}
+        </span>
+
+        <span
+          style={{
+            color: "var(--vscode-descriptionForeground, #9d9d9d)",
+            opacity: hover ? 0.9 : 0.6,
+            display: "inline-flex",
+            alignItems: "center",
+            transition: "opacity 0.15s ease",
+          }}
+        >
+          <Chevron open={open} />
+        </span>
       </button>
 
       {/* ── Expanded content ───────────────────────────────────────── */}
@@ -528,11 +627,12 @@ export function AgentActivityPanel({ activities }: AgentActivityPanelProps) {
           maxHeight: open ? 2000 : 0,
           opacity: open ? 1 : 0,
           transition: "max-height 200ms ease, opacity 150ms ease",
+          marginTop: open ? 4 : 0,
         }}
         aria-hidden={!open}
       >
-        <div style={{ paddingLeft: 15, paddingTop: 4, paddingBottom: 4 }}>
-          {groups.length === 0 && runStatus === "running" && (
+        <div style={{ paddingLeft: 10, paddingTop: open ? 4 : 0, paddingBottom: open ? 4 : 0 }}>
+          {groups.length === 0 && runStatus === "running" && isStreaming && (
             <div
               style={{
                 fontSize: 11,
@@ -542,6 +642,19 @@ export function AgentActivityPanel({ activities }: AgentActivityPanelProps) {
               }}
             >
               Thinking…
+            </div>
+          )}
+
+          {groups.length === 0 && runStatus === "completed" && (
+            <div
+              style={{
+                fontSize: 11,
+                color: "var(--vscode-descriptionForeground, #9d9d9d)",
+                opacity: 0.6,
+                fontStyle: "italic",
+              }}
+            >
+              Direct response (no tool calls)
             </div>
           )}
 
@@ -567,8 +680,12 @@ export function AgentActivityPanel({ activities }: AgentActivityPanelProps) {
         </div>
       </div>
 
-      {/* Inline keyframe for the running pulse dot */}
+      {/* Inline keyframes */}
       <style>{`
+        @keyframes activity-spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
         @keyframes pulse {
           0%, 100% { opacity: 1; }
           50% { opacity: 0.35; }

@@ -53,12 +53,13 @@ export function ConversationStarterCards() {
         ))}
       </div>
       {bookmarkedSlashCommands.length > NUM_CARDS_TO_RENDER && (
-        <span
-          className="text-lightgray mt-1 cursor-pointer text-xs hover:underline"
+        <button
+          type="button"
+          className="text-[var(--vscode-textLink-foreground,#3794ff)] bg-transparent border-none p-0 mt-1 cursor-pointer text-xs hover:underline text-left self-start focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--vscode-focusBorder)]"
           onClick={() => setShowAll(!showAll)}
         >
           {showAll ? "Show less" : `Show ${remainingCount} more...`}
-        </span>
+        </button>
       )}
     </div>
   );

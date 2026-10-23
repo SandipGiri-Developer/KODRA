@@ -8,7 +8,12 @@
 
 import { ToolCall } from '../providers/types';
 import { toError } from '../utils/errors';
+import { Logger } from '../utils/logger';
 import { IAgentEventBus } from './agentEventBus';
+import * as fs from 'fs';
+import * as path from 'path';
+import * as vscode from 'vscode';
+import { WorkspaceRegistry } from '../storage/workspaceRegistry';
 import { IPermissionManager } from './permissionManager';
 import { IToolRegistry } from './toolRegistry';
 import { PermissionRequest, ToolResult } from './types';
@@ -20,25 +25,48 @@ export interface ToolExecutionResponse {
   durationMs: number;
 }
 
+export interface TrustedExecutionContext {
+  mode?: string;
+  workspaceId?: string;
+  cwd?: string;
+}
+
 export interface IToolExecutor {
   executeToolCall(
     toolCall: ToolCall,
     executionId: string,
     signal?: AbortSignal,
+    context?: TrustedExecutionContext,
   ): Promise<ToolExecutionResponse>;
+  setExecutionContext?(context: TrustedExecutionContext): void;
 }
 
+import { IApprovalGate } from './terminal/types';
+
 export class ToolExecutor implements IToolExecutor {
+  private executionContext: TrustedExecutionContext = {};
+
   constructor(
     private readonly toolRegistry: IToolRegistry,
     private readonly permissionManager: IPermissionManager,
     private readonly eventBus: IAgentEventBus,
-  ) {}
+    private readonly approvalGate?: IApprovalGate,
+    context?: TrustedExecutionContext,
+  ) {
+    if (context) {
+      this.executionContext = { ...context };
+    }
+  }
+
+  public setExecutionContext(context: TrustedExecutionContext): void {
+    this.executionContext = { ...this.executionContext, ...context };
+  }
 
   async executeToolCall(
     toolCall: ToolCall,
     executionId: string,
     signal?: AbortSignal,
+    context?: TrustedExecutionContext,
   ): Promise<ToolExecutionResponse> {
     const callId = toolCall.id || `call_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
     const toolName = toolCall.function.name;
@@ -104,35 +132,137 @@ export class ToolExecutor implements IToolExecutor {
       };
     }
 
+    let effectiveCwd: string | undefined;
+
+    // Distinguish overall agent run ID from individual command execution ID
+    const agentRunId = executionId;
+    let commandExecutionId: string | undefined;
+    if (tool.name === 'terminal') {
+      if (typeof parsedArgs.executionId === 'string' && parsedArgs.executionId.trim()) {
+        commandExecutionId = parsedArgs.executionId.trim();
+      } else {
+        commandExecutionId = `cmd_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+      }
+    }
+
     // 3. Permission / Approval handling
-    if (tool.requiresApproval) {
+    const isTerminalReadOnlyAction =
+      tool.name === 'terminal' &&
+      typeof parsedArgs.action === 'string' &&
+      ['status', 'wait', 'list_sessions'].includes(parsedArgs.action.trim());
+
+    if (tool.requiresApproval && !isTerminalReadOnlyAction) {
+      const command = typeof parsedArgs.command === 'string' ? parsedArgs.command : undefined;
+      const filepath =
+        typeof parsedArgs.file === 'string'
+          ? parsedArgs.file
+          : typeof parsedArgs.filePath === 'string'
+          ? parsedArgs.filePath
+          : undefined;
+
       const permReq: PermissionRequest = {
-        requestId: `req_${Date.now()}_${callId}`,
-        executionId,
+        requestId: `req_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+        executionId: commandExecutionId || agentRunId,
         toolCallId: callId,
         toolName: tool.name,
         description: `Requesting user permission to execute tool "${tool.name}"`,
-        command: typeof parsedArgs.command === 'string' ? parsedArgs.command : undefined,
-        filepath:
-          typeof parsedArgs.file === 'string'
-            ? parsedArgs.file
-            : typeof parsedArgs.filePath === 'string'
-            ? parsedArgs.filePath
-            : undefined,
+        command,
+        filepath,
       };
 
-      this.eventBus.emit({
-        type: 'tool.approval_required',
-        executionId,
-        toolCallId: callId,
-        toolName: tool.name,
-        description: permReq.description,
-        command: permReq.command,
-        filepath: permReq.filepath,
-        timestamp: Date.now(),
-      });
+      let approved = false;
+      let rejectionReason: string | undefined;
 
-      const approved = await this.permissionManager.requestPermission(permReq);
+      // Trusted context derivation (never trust unverified model-supplied mode/workspaceId)
+      let trustedWsId = context?.workspaceId || this.executionContext.workspaceId;
+      if (!trustedWsId) {
+        try {
+          trustedWsId = WorkspaceRegistry.getWorkspaceInfo().id;
+        } catch {
+          trustedWsId = 'global';
+        }
+      }
+
+      const trustedMode = (context?.mode || this.executionContext.mode || 'agent').toLowerCase();
+      // Fail closed for missing or invalid security-sensitive mode context
+      if (!['agent', 'chat', 'plan', 'goal'].includes(trustedMode)) {
+        const modeError = `Invalid or missing execution mode "${trustedMode}". Autonomous execution halted.`;
+        this.eventBus.emit({
+          type: 'tool.failed',
+          executionId: agentRunId,
+          toolCallId: callId,
+          toolName: tool.name,
+          error: modeError,
+          durationMs: 0,
+          timestamp: Date.now(),
+        });
+        return {
+          toolCallId: callId,
+          toolName: tool.name,
+          result: { content: modeError, success: false },
+          durationMs: 0,
+        };
+      }
+
+      // Working directory resolution and path containment check
+      let trustedCwd = context?.cwd || this.executionContext.cwd;
+      if (!trustedCwd) {
+        try {
+          trustedCwd = WorkspaceRegistry.getWorkspaceInfo().path;
+        } catch {
+          trustedCwd = process.cwd();
+        }
+      }
+
+      if (typeof parsedArgs.cwd === 'string' && parsedArgs.cwd.trim()) {
+        const candidate = path.resolve(trustedCwd || process.cwd(), parsedArgs.cwd.trim());
+        const wsFolders = vscode.workspace?.workspaceFolders?.map((f: any) => f.uri?.fsPath || f.fsPath) || [trustedCwd];
+        const isContained = wsFolders.some((root: string) => {
+          const rel = path.relative(root, candidate);
+          return !rel.startsWith('..') && !path.isAbsolute(rel);
+        });
+        if (isContained && fs.existsSync(candidate)) {
+          trustedCwd = candidate;
+        }
+      }
+      effectiveCwd = trustedCwd;
+
+      if (this.approvalGate && tool.name === 'terminal' && command) {
+        if ('setEventBus' in this.approvalGate && typeof (this.approvalGate as any).setEventBus === 'function') {
+          (this.approvalGate as any).setEventBus(this.eventBus);
+        }
+
+        const auth = await this.approvalGate.evaluateAndAuthorize(
+          {
+            command,
+            cwd: trustedCwd,
+            workspaceId: trustedWsId,
+            mode: trustedMode,
+            executionId: commandExecutionId,
+            toolCallId: callId,
+            description: permReq.description,
+          },
+          signal,
+        );
+        approved = auth.authorized;
+        if (!approved) {
+          rejectionReason = auth.reason;
+        }
+      } else {
+        this.eventBus.emit({
+          type: 'tool.approval_required',
+          executionId: agentRunId,
+          toolCallId: callId,
+          toolName: tool.name,
+          description: permReq.description,
+          command: permReq.command,
+          filepath: permReq.filepath,
+          requestId: permReq.requestId,
+          timestamp: Date.now(),
+        });
+
+        approved = await this.permissionManager.requestPermission(permReq, signal);
+      }
 
       if (signal?.aborted) {
         return {
@@ -144,17 +274,18 @@ export class ToolExecutor implements IToolExecutor {
       }
 
       if (!approved) {
+        const finalReason = rejectionReason || `User denied permission to execute tool "${tool.name}".`;
         this.eventBus.emit({
           type: 'tool.rejected',
-          executionId,
+          executionId: agentRunId,
           toolCallId: callId,
           toolName: tool.name,
-          reason: 'User denied permission to execute tool',
+          reason: finalReason,
           timestamp: Date.now(),
         });
 
         const rejectionResult: ToolResult = {
-          content: `User denied permission to execute tool "${tool.name}".`,
+          content: finalReason,
           success: false,
         };
 
@@ -168,7 +299,7 @@ export class ToolExecutor implements IToolExecutor {
 
       this.eventBus.emit({
         type: 'tool.approved',
-        executionId,
+        executionId: agentRunId,
         toolCallId: callId,
         toolName: tool.name,
         timestamp: Date.now(),
@@ -178,17 +309,28 @@ export class ToolExecutor implements IToolExecutor {
     // 4. Execute tool
     this.eventBus.emit({
       type: 'tool.started',
-      executionId,
+      executionId: agentRunId,
       toolCallId: callId,
       toolName: tool.name,
-      args: parsedArgs,
+      args: { ...parsedArgs, executionId: commandExecutionId || agentRunId },
       timestamp: Date.now(),
     });
+
+    Logger.getInstance().info(`[KODRA Lifecycle] Tool started tool=${tool.name} toolCallId=${callId} executionId=${agentRunId}`);
 
     const t0 = Date.now();
     let result: ToolResult;
     try {
-      result = await tool.execute(parsedArgs, signal);
+      const execArgs: Record<string, unknown> = {
+        ...parsedArgs,
+        executionId: commandExecutionId || agentRunId,
+        toolCallId: callId,
+        agentRunId,
+      };
+      if (tool.name === 'terminal' && effectiveCwd) {
+        execArgs.cwd = effectiveCwd;
+      }
+      result = await tool.execute(execArgs, signal);
     } catch (execErr: unknown) {
       const err = toError(execErr);
       result = {
@@ -197,6 +339,7 @@ export class ToolExecutor implements IToolExecutor {
       };
     }
     const durationMs = Date.now() - t0;
+    Logger.getInstance().info(`[KODRA Lifecycle] Tool ${result.success ? 'completed' : 'failed'} tool=${tool.name} toolCallId=${callId} duration=${durationMs}ms executionId=${executionId}`);
 
     if (result.success) {
       this.eventBus.emit({
@@ -204,6 +347,7 @@ export class ToolExecutor implements IToolExecutor {
         executionId,
         toolCallId: callId,
         toolName: tool.name,
+        args: parsedArgs,
         result,
         durationMs,
         timestamp: Date.now(),

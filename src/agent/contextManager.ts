@@ -9,12 +9,15 @@
 import { CodebaseIndexer } from '../indexing/indexer';
 import { SearchResult } from '../indexing/types';
 import { ChatMessage } from '../providers/types';
+import { IContextEngine } from './contextEngine';
 import { IWorkspaceService, VSCodeWorkspaceService } from './workspaceService';
 
 export interface BuildMessagesOptions {
   contextFiles?: string[];
   customInstructions?: string;
   indexer?: CodebaseIndexer;
+  contextEngine?: IContextEngine;
+  maxCombinedContextCharacters?: number;
 }
 
 export interface IContextManager {
@@ -27,7 +30,10 @@ export interface IContextManager {
 }
 
 export class ContextManager implements IContextManager {
-  constructor(private readonly workspaceService: IWorkspaceService = new VSCodeWorkspaceService()) {}
+  constructor(
+    private readonly workspaceService: IWorkspaceService = new VSCodeWorkspaceService(),
+    private readonly contextEngine?: IContextEngine,
+  ) {}
 
   buildSystemPrompt(options: { customInstructions?: string } = {}): string {
     const ws = this.workspaceService.getActiveWorkspaceFolder();
@@ -57,21 +63,21 @@ export class ContextManager implements IContextManager {
       '- `create_file`: Create new files with full content in the workspace.',
       '- `edit_file`: Replace specific target text with new text in existing files.',
       '- `terminal`: Execute shell commands (e.g., tests, build, git). Requires explicit user permission.',
+      '- `find_symbol`: Locate any named symbol (class, function, interface, type, variable) across the workspace by name. Use this instead of scanning files manually when you know the symbol name.',
+      '- `go_to_definition`: Navigate to the definition of a symbol given its file path and line/column. Use after `find_symbol` or `search_code` locates a usage and you need to find the declaration.',
+      '- `find_references`: Find all usages of a symbol across the workspace given its file position. Use to understand the blast radius of a change before modifying shared code.',
+      '- `git_context`: Read-only git operations — "log" (commit history), "blame" (line-by-line author attribution), "diff" (uncommitted changes), "status" (modified/staged files).',
       '',
-      'CRITICAL INSTRUCTION FOR AUTONOMOUS PROJECT UNDERSTANDING:',
-      'When the user asks questions about the current project or repository (for example:',
-      '  - "tell me something about the project"',
-      '  - "what files are in this project?"',
-      '  - "find where the main application starts"',
-      '  - "explain how this project is structured"',
-      '  - "read the package/configuration file and summarize it"',
-      '  or any other repository-level questions):',
+      'CRITICAL INSTRUCTION FOR AUTONOMOUS PROJECT UNDERSTANDING & EXPLORATION EFFICIENCY:',
+      'When addressing repository-level questions, code analysis, or modification tasks:',
       '1. NEVER state that you lack information about the project or ask the user to explain it manually.',
-      '2. You MUST autonomously inspect the workspace using your registered tools!',
-      '3. Use `list_directory` to explore the project structure and discover files in the root or subfolders.',
-      '4. Use `read_file` to read relevant project files such as package.json, README, configuration, or entry point files.',
-      '5. Use `search_code` to locate key functions, exports, or startup logic.',
-      '6. Dynamically choose what information you need and synthesize a clear, helpful, accurate answer based directly on the actual repository.',
+      '2. Start with the available verified context and evidence provided in this prompt. If verified knowledge already provides the required information, synthesize the answer directly without redundant directory listing or re-reading unchanged files.',
+      '3. When specific details, files, or symbols are missing or stale, perform targeted discovery using `find_symbol`, `search_code`, or `read_file`.',
+      '4. Distinguish clearly between search candidates, inspected excerpts, and verified findings. A search candidate is a target for inspection, not proof of behavior.',
+      '5. When changing shared functions, interfaces, or exports, use `find_references` to discover all callers BEFORE applying changes, then inspect relevant callers and regression tests.',
+      '6. Avoid repeatedly listing directory structures when the contents are already known and unchanged.',
+      '7. ALWAYS inspect the current source lines of a file with `read_file` before applying modifications with `edit_file`. Context memory is an optimization, not a replacement for verifying current source before code changes.',
+      '8. Dynamically choose what information you need and synthesize a clear, helpful, accurate answer based directly on the actual repository.',
       '',
       'General Guidelines:',
       '- Be concise, precise, and practical.',
@@ -94,20 +100,80 @@ export class ContextManager implements IContextManager {
 
     const messages: ChatMessage[] = [
       { role: 'system', content: systemPrompt },
-      ...conversationHistory,
     ];
 
-    // Gather codebase context via indexer if available
-    if (options.indexer) {
+    const maxBudget = options.maxCombinedContextCharacters ?? 8000;
+    let remainingBudget = maxBudget;
+    const attachedFileSet = new Set<string>();
+
+    // 1. User-specified attached context files (highest priority context)
+    const attachedMessages: ChatMessage[] = [];
+    if (options.contextFiles && options.contextFiles.length > 0) {
+      for (const filepath of options.contextFiles) {
+        if (remainingBudget <= 200) {
+          break;
+        }
+        try {
+          const content = await this.workspaceService.readFile(filepath);
+          const norm = filepath.replace(/\\/g, '/');
+          attachedFileSet.add(norm);
+          const maxFileChars = Math.min(content.length, remainingBudget - 100);
+          const safeContent = content.length > maxFileChars ? content.slice(0, maxFileChars) + '\n[...truncated to context budget]' : content;
+          const msgContent = `Attached File Context:\nFile: ${filepath}\n\n${safeContent}`;
+          attachedMessages.push({
+            role: 'system',
+            content: msgContent,
+          });
+          remainingBudget -= msgContent.length;
+        } catch {
+          // Skip unreadable files
+        }
+      }
+    }
+
+    // 2. Gather verified context from ContextEngine if available
+    const engine = options.contextEngine ?? this.contextEngine;
+    if (engine && remainingBudget > 300) {
+      try {
+        const verifiedContext = await engine.getVerifiedContext(userMessage, {
+          maxCharacters: Math.min(4000, remainingBudget),
+        });
+        if (verifiedContext && verifiedContext.trim().length > 0) {
+          messages.push({
+            role: 'system',
+            content: verifiedContext,
+          });
+          remainingBudget -= verifiedContext.length;
+        }
+      } catch {
+        // Non-fatal
+      }
+    }
+
+    // Include conversation history
+    messages.push(...conversationHistory);
+
+    // 3. Gather codebase context via indexer if available (deduplicated against attached files)
+    if (options.indexer && remainingBudget > 300) {
       try {
         const results = await options.indexer.search(userMessage, 8);
         if (results && results.length > 0) {
-          const contextText = this.formatSearchResults(results);
-          if (contextText.trim().length > 0) {
-            messages.push({
-              role: 'system',
-              content: `Relevant Codebase Context (from index):\n\n${contextText}`,
-            });
+          // Filter out chunks from files that are already attached
+          const filteredResults = results.filter((res) => {
+            const normPath = res.chunk.filepath.replace(/\\/g, '/');
+            return !attachedFileSet.has(normPath);
+          });
+
+          if (filteredResults.length > 0) {
+            const contextText = this.formatSearchResults(filteredResults, remainingBudget - 100);
+            if (contextText.trim().length > 0) {
+              const fullMsg = `Relevant Codebase Context (from index):\n\n${contextText}`;
+              messages.push({
+                role: 'system',
+                content: fullMsg,
+              });
+              remainingBudget -= fullMsg.length;
+            }
           }
         }
       } catch {
@@ -115,19 +181,9 @@ export class ContextManager implements IContextManager {
       }
     }
 
-    // Attach user-specified context files
-    if (options.contextFiles && options.contextFiles.length > 0) {
-      for (const filepath of options.contextFiles) {
-        try {
-          const content = await this.workspaceService.readFile(filepath);
-          messages.push({
-            role: 'system',
-            content: `Attached File Context:\nFile: ${filepath}\n\n${content}`,
-          });
-        } catch {
-          // Skip unreadable files
-        }
-      }
+    // Add attached file messages
+    if (attachedMessages.length > 0) {
+      messages.push(...attachedMessages);
     }
 
     // Ensure the current user message is at the end of the history
@@ -139,9 +195,10 @@ export class ContextManager implements IContextManager {
     return messages;
   }
 
-  private formatSearchResults(results: SearchResult[]): string {
+  private formatSearchResults(results: SearchResult[], maxChars: number = 4000): string {
     const chunks: string[] = [];
     const seenFiles = new Set<string>();
+    let totalLen = 0;
 
     for (const result of results) {
       const fileKey = `${result.chunk.filepath}:${result.chunk.startLine}`;
@@ -150,10 +207,15 @@ export class ContextManager implements IContextManager {
       }
       seenFiles.add(fileKey);
 
-      chunks.push(
+      const chunkStr =
         `--- ${result.chunk.filepath} (lines ${result.chunk.startLine + 1}-${result.chunk.endLine + 1}) ---\n` +
-          result.chunk.content,
-      );
+        result.chunk.content;
+
+      if (totalLen + chunkStr.length > maxChars) {
+        break;
+      }
+      chunks.push(chunkStr);
+      totalLen += chunkStr.length;
     }
 
     return chunks.join('\n\n');

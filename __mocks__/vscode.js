@@ -90,6 +90,32 @@ module.exports = {
     createWebviewPanel: jest.fn(createMockWebviewPanel),
     registerWebviewViewProvider: jest.fn(() => ({ dispose: jest.fn() })),
     registerWebviewPanelSerializer: jest.fn(() => ({ dispose: jest.fn() })),
+    _terminalCloseListeners: [],
+    createTerminal: jest.fn((options) => ({
+      name: options?.name || 'mock-terminal',
+      show: jest.fn(),
+      sendText: jest.fn(),
+      dispose: jest.fn(),
+      processId: Promise.resolve(1234),
+      creationOptions: options,
+      exitStatus: undefined,
+    })),
+    onDidCloseTerminal: jest.fn((listener) => {
+      const listeners = module.exports.window._terminalCloseListeners;
+      listeners.push(listener);
+      return {
+        dispose: jest.fn(() => {
+          const idx = listeners.indexOf(listener);
+          if (idx >= 0) listeners.splice(idx, 1);
+        })
+      };
+    }),
+    _triggerCloseTerminal: (terminal) => {
+      const listeners = [...module.exports.window._terminalCloseListeners];
+      for (const l of listeners) {
+        l(terminal);
+      }
+    },
     activeTextEditor: undefined,
   },
   commands: {
@@ -147,6 +173,68 @@ module.exports = {
         return entries.map((e) => [e.name, e.isDirectory() ? 2 : 1]);
       }),
     },
+    asRelativePath: jest.fn((pathOrUri, includeWorkspaceFolder) => {
+      const p = pathOrUri?.fsPath || (typeof pathOrUri === 'string' ? pathOrUri : '');
+      const pathModule = require('path');
+      const wsFolders = module.exports.workspace.workspaceFolders || [];
+      for (const f of wsFolders) {
+        const root = f.uri?.fsPath || f.fsPath;
+        if (root && p.startsWith(root)) {
+          const rel = pathModule.relative(root, p).replace(/\\/g, '/');
+          return includeWorkspaceFolder && f.name ? `${f.name}/${rel}` : rel;
+        }
+      }
+      return p.replace(/\\/g, '/');
+    }),
+  },
+  Position: class Position {
+    constructor(line, character) {
+      this.line = line;
+      this.character = character;
+    }
+  },
+  Range: class Range {
+    constructor(start, end) {
+      this.start = start;
+      this.end = end || start;
+    }
+  },
+  Location: class Location {
+    constructor(uri, rangeOrPosition) {
+      this.uri = uri;
+      this.range =
+        rangeOrPosition && rangeOrPosition.start !== undefined
+          ? rangeOrPosition
+          : { start: rangeOrPosition, end: rangeOrPosition };
+    }
+  },
+  SymbolKind: {
+    File: 0,
+    Module: 1,
+    Namespace: 2,
+    Package: 3,
+    Class: 4,
+    Method: 5,
+    Property: 6,
+    Field: 7,
+    Constructor: 8,
+    Enum: 9,
+    Interface: 10,
+    Function: 11,
+    Variable: 12,
+    Constant: 13,
+    String: 14,
+    Number: 15,
+    Boolean: 16,
+    Array: 17,
+    Object: 18,
+    Key: 19,
+    Null: 20,
+    EnumMember: 21,
+    Struct: 22,
+    Event: 23,
+    Operator: 24,
+    TypeParameter: 25,
   },
   EventEmitter: MockEventEmitter,
   Uri: {

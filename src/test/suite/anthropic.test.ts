@@ -84,7 +84,6 @@ describe('AnthropicProvider', () => {
     ];
 
     const stream = provider.streamChat(messages, { model: 'claude-3' });
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     for await (const _ of stream) { /* empty */ }
 
     expect(capturedBody).toBeDefined();

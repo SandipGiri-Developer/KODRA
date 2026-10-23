@@ -332,6 +332,7 @@ interface UnifiedTerminalCommandProps {
   toolCallState?: ToolCallState;
   toolCallId?: string;
   displayLines?: number;
+  executionId?: string;
 }
 
 export function UnifiedTerminalCommand({
@@ -342,6 +343,7 @@ export function UnifiedTerminalCommand({
   toolCallState,
   toolCallId,
   displayLines = 15,
+  executionId,
 }: UnifiedTerminalCommandProps) {
   const dispatch = useAppDispatch();
   const [isExpanded, setIsExpanded] = useState(true);
@@ -432,7 +434,16 @@ export function UnifiedTerminalCommand({
                 isExpanded ? "rotate-0" : "-rotate-90"
               }`}
             />
-            <span className="text-description ml-2 select-none">Terminal</span>
+            <span
+              className="text-description ml-2 select-none hover:underline cursor-pointer"
+              title="Click to reveal terminal in VS Code"
+              onClick={() => {
+                const execId = executionId || (toolCallState as any)?.executionId || '';
+                (window as any).vscode?.postMessage({ type: 'revealTerminal', executionId: execId });
+              }}
+            >
+              Terminal
+            </span>
           </div>
 
           <div className="flex items-center gap-2.5">

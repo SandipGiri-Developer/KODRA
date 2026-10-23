@@ -7,6 +7,7 @@
 
 import * as vscode from 'vscode';
 import { AgentLoop } from '../agent/agentLoop';
+import { ContextEngine, IContextEngine } from '../agent/contextEngine';
 import { CodebaseIndexer } from '../indexing/indexer';
 import { ProviderRegistry } from '../providers/registry';
 import { Logger } from '../utils/logger';
@@ -17,23 +18,69 @@ import { getWebviewContent } from './htmlHelper';
 import { OllamaManager } from '../utils/ollamaManager';
 import { ChatMessage } from '../providers/types';
 import { WebviewSettingsBridge, IWebviewMessagePoster } from './webviewSettingsBridge';
+import { TerminalExecutionManager } from '../agent/terminal/terminalExecutionManager';
+import { ApprovalPolicyService } from '../agent/terminal/approvalPolicyService';
+
+
+import * as path from 'path';
+import { v4 as uuidv4 } from 'uuid';
+import {
+  ArtifactManager,
+  ConversationRepository,
+  ExecutionJournal,
+  StorageManager,
+  StoredConversation,
+  WorkspaceRegistry,
+} from '../storage';
 
 export class KodraViewProvider implements vscode.WebviewViewProvider, IWebviewMessagePoster {
   public static readonly viewType = 'KODRA.chatView';
   
   private view?: vscode.WebviewView;
   private chatHistory: ChatMessage[] = [];
+  private currentSessionHistory: any[] = [];
+  private currentSessionId: string | null = null;
   private agent: AgentLoop | null = null;
   private readonly logger = Logger.getInstance();
   private readonly settingsBridge: WebviewSettingsBridge;
+  private conversationRepository?: ConversationRepository;
+  private executionJournal?: ExecutionJournal;
+  private artifactManager?: ArtifactManager;
+  private workspaceRegistry?: WorkspaceRegistry;
+  private contextEngine?: IContextEngine;
 
   constructor(
     private readonly extensionUri: vscode.Uri,
     private readonly providerRegistry: ProviderRegistry,
     private readonly indexer: CodebaseIndexer,
     settingsBridge?: WebviewSettingsBridge,
+    conversationRepository?: ConversationRepository,
+    executionJournal?: ExecutionJournal,
+    artifactManager?: ArtifactManager,
+    workspaceRegistry?: WorkspaceRegistry,
   ) {
     this.settingsBridge = settingsBridge ?? new WebviewSettingsBridge(this.providerRegistry);
+    this.conversationRepository = conversationRepository;
+    this.executionJournal = executionJournal;
+    this.artifactManager = artifactManager;
+    this.workspaceRegistry = workspaceRegistry;
+  }
+
+  private ensureStorageServices() {
+    if (!this.conversationRepository) {
+      try {
+        const sm = StorageManager.getInstance();
+        const wr = new WorkspaceRegistry(sm.storageRoot);
+        const ej = new ExecutionJournal(sm);
+        const am = new ArtifactManager(sm);
+        this.conversationRepository = new ConversationRepository(sm, wr, ej, am);
+        this.executionJournal = ej;
+        this.artifactManager = am;
+        this.workspaceRegistry = wr;
+      } catch {
+        // Fallback if StorageManager was not initialized
+      }
+    }
   }
 
   public resolveWebviewView(
@@ -96,6 +143,8 @@ export class KodraViewProvider implements vscode.WebviewViewProvider, IWebviewMe
    */
   public newChat() {
     this.chatHistory = [];
+    this.currentSessionHistory = [];
+    this.currentSessionId = null;
     this.agent?.cancel();
     this.agent = null;
     
@@ -162,6 +211,14 @@ export class KodraViewProvider implements vscode.WebviewViewProvider, IWebviewMe
   }
 
   private async handleMessage(data: unknown) {
+    this.ensureStorageServices();
+
+    // ── Handle IdeMessenger request-reply protocol from webview ─────────────
+    if (typeof data === 'object' && data !== null && 'messageType' in data && 'messageId' in data) {
+      await this.handleIdeMessengerMessage(data as { messageType: string; messageId: string; data?: any });
+      return;
+    }
+
     const msg = validateWebviewMessage(data);
     if (!msg) {
       this.logger.warn('Received invalid message from webview', data);
@@ -182,11 +239,18 @@ export class KodraViewProvider implements vscode.WebviewViewProvider, IWebviewMe
           break;
           
         case 'sendMessage':
-          await this.handleUserMessage(msg.text, msg.contextFiles);
+          await this.handleUserMessage(msg.text, msg.contextFiles, msg.sessionId, (msg as any).mode);
           break;
           
         case 'cancelGeneration':
           this.agent?.cancel();
+          if (this.currentSessionId) {
+            this.postMessage({
+              type: 'agentActivity',
+              executionId: '',
+              event: { kind: 'cancelled', timestamp: Date.now() },
+            });
+          }
           this.postMessage({ type: 'streamCancelled' });
           break;
           
@@ -225,10 +289,62 @@ export class KodraViewProvider implements vscode.WebviewViewProvider, IWebviewMe
           break;
           
         case 'approveAction':
-          if (this.agent) {
-            this.agent.resolveApproval(msg.approved);
+          if (this.agent && msg.requestId) {
+            const decision = msg.decision || (msg.approved ? 'allow_once' : 'deny');
+            this.agent.resolveApproval(decision, msg.requestId);
+          } else {
+            this.logger.warn(`approveAction: Missing or invalid requestId in webview message`);
           }
           break;
+
+        case 'revealTerminal':
+          if (msg.executionId) {
+            const revealed = TerminalExecutionManager.getInstance().revealTerminal(msg.executionId);
+            if (!revealed) {
+              this.logger.warn(`revealTerminal: Could not find or reveal terminal for "${msg.executionId}"`);
+            }
+          }
+          break;
+
+        case 'policy/list': {
+          const wsInfo = WorkspaceRegistry.getWorkspaceInfo();
+          const targetWorkspaceId = msg.scope === 'workspace' ? wsInfo.id : msg.workspaceId;
+          const policies = await ApprovalPolicyService.getInstance().listPolicies({
+            scope: msg.scope,
+            workspaceId: targetWorkspaceId,
+          });
+          this.postMessage({ type: 'policyList', policies });
+          break;
+        }
+
+        case 'policy/create': {
+          const wsInfo = WorkspaceRegistry.getWorkspaceInfo();
+          const safePolicy = {
+            ...msg.policy,
+            workspaceId: msg.policy.scope === 'workspace' ? wsInfo.id : undefined,
+          };
+          const policy = await ApprovalPolicyService.getInstance().createPolicy(safePolicy);
+          this.postMessage({ type: 'policyUpdated', policy });
+          break;
+        }
+
+        case 'policy/update': {
+          const policy = await ApprovalPolicyService.getInstance().updatePolicy(msg.id, msg.updates);
+          this.postMessage({ type: 'policyUpdated', policy });
+          break;
+        }
+
+        case 'policy/delete': {
+          await ApprovalPolicyService.getInstance().deletePolicy(msg.id);
+          this.postMessage({ type: 'policyDeleted', id: msg.id });
+          break;
+        }
+
+        case 'policy/enable': {
+          const policy = await ApprovalPolicyService.getInstance().enablePolicy(msg.id, msg.enabled);
+          this.postMessage({ type: 'policyUpdated', policy });
+          break;
+        }
           
         case 'startIndexing':
           this.indexer.indexWorkspace(msg.fullReindex);
@@ -247,10 +363,344 @@ export class KodraViewProvider implements vscode.WebviewViewProvider, IWebviewMe
     }
   }
 
-  private async handleUserMessage(text: string, contextFiles?: string[]) {
+  private async handleIdeMessengerMessage(req: { messageType: string; messageId: string; data?: any }) {
+    const { messageType, messageId, data } = req;
+    this.ensureStorageServices();
+
+    try {
+      switch (messageType) {
+        case 'history/list': {
+          const limit = data?.limit;
+          const offset = data?.offset;
+          const workspaceId = data?.workspaceId;
+          const search = data?.search;
+          const rawList = this.conversationRepository
+            ? await this.conversationRepository.listConversations({ limit, offset, workspaceId, search })
+            : [];
+          const content = rawList.map((item) => ({
+            sessionId: item.sessionId,
+            title: item.title,
+            dateCreated: item.dateCreated,
+            workspaceDirectory: item.workspaceDirectory,
+            messageCount: item.messageCount,
+            status: item.status,
+            hasInterruptedRun: item.hasInterruptedRun,
+          }));
+          this.respondToIdeMessenger(messageId, { status: 'success', content });
+          break;
+        }
+
+        case 'history/load': {
+          const id = data?.id;
+          if (!id) {
+            this.respondToIdeMessenger(messageId, { status: 'error', error: 'Missing session id' });
+            return;
+          }
+          const conv = this.conversationRepository ? await this.conversationRepository.getConversation(id) : null;
+          if (!conv) {
+            this.respondToIdeMessenger(messageId, { status: 'error', error: 'Conversation not found' });
+            return;
+          }
+          this.currentSessionId = conv.sessionId;
+          this.currentSessionHistory = conv.history || [];
+          this.chatHistory = this.currentSessionHistory.map((h: any) => h.message || h);
+          this.respondToIdeMessenger(messageId, { status: 'success', content: conv });
+          break;
+        }
+
+        case 'history/save': {
+          if (!data || !data.sessionId) {
+            this.respondToIdeMessenger(messageId, { status: 'error', error: 'Missing session data' });
+            return;
+          }
+          const saved = this.conversationRepository
+            ? await this.conversationRepository.saveConversation(data)
+            : data;
+          this.currentSessionId = data.sessionId;
+          this.currentSessionHistory = data.history || [];
+          this.chatHistory = this.currentSessionHistory.map((h: any) => (h.message ? h.message : h));
+          this.respondToIdeMessenger(messageId, { status: 'success', content: saved });
+          break;
+        }
+
+        case 'history/delete': {
+          const id = data?.id;
+          if (!id) {
+            this.respondToIdeMessenger(messageId, { status: 'error', error: 'Missing session id' });
+            return;
+          }
+          if (this.conversationRepository) {
+            await this.conversationRepository.deleteConversation(id);
+          }
+          if (this.currentSessionId === id) {
+            this.currentSessionId = null;
+            this.chatHistory = [];
+            this.currentSessionHistory = [];
+          }
+          this.respondToIdeMessenger(messageId, { status: 'success' });
+          break;
+        }
+
+        case 'history/clear': {
+          if (this.conversationRepository) {
+            await this.conversationRepository.clearAllConversations();
+          }
+          this.currentSessionId = null;
+          this.chatHistory = [];
+          this.currentSessionHistory = [];
+          this.respondToIdeMessenger(messageId, { status: 'success' });
+          break;
+        }
+
+        case 'chatDescriber/describe': {
+          const text = data?.text || '';
+          const title = await this.generateAiTitleFromContext(text);
+          this.respondToIdeMessenger(messageId, { status: 'success', content: title });
+          break;
+        }
+
+        case 'session/share': {
+          const id = data?.sessionId;
+          if (id && this.conversationRepository) {
+            const conv = await this.conversationRepository.getConversation(id);
+            if (conv) {
+              const md = this.formatSessionAsMarkdown(conv);
+              const doc = await vscode.workspace.openTextDocument({ content: md, language: 'markdown' });
+              await vscode.window.showTextDocument(doc);
+            }
+          }
+          this.respondToIdeMessenger(messageId, { status: 'success' });
+          break;
+        }
+
+        case 'history/interrupted': {
+          const interrupted = this.conversationRepository
+            ? await this.conversationRepository.getInterruptedConversations()
+            : [];
+          this.respondToIdeMessenger(messageId, { status: 'success', content: interrupted });
+          break;
+        }
+
+        case 'history/recover': {
+          if (data?.sessionId && this.conversationRepository) {
+            await this.conversationRepository.markStatus(data.sessionId, 'completed');
+          }
+          this.respondToIdeMessenger(messageId, { status: 'success' });
+          break;
+        }
+
+        case 'policy/list': {
+          const wsInfo = WorkspaceRegistry.getWorkspaceInfo();
+          const targetWsId = data?.scope === 'workspace' ? wsInfo.id : data?.workspaceId;
+          const policies = await ApprovalPolicyService.getInstance().listPolicies({
+            scope: data?.scope,
+            workspaceId: targetWsId,
+          });
+          this.respondToIdeMessenger(messageId, { status: 'success', content: policies });
+          break;
+        }
+
+        case 'policy/create': {
+          if (!data?.policy || typeof data.policy !== 'object') {
+            this.respondToIdeMessenger(messageId, { status: 'error', error: 'Missing policy payload' });
+            return;
+          }
+          const wsInfo = WorkspaceRegistry.getWorkspaceInfo();
+          const safePolicy = {
+            ...data.policy,
+            workspaceId: data.policy.scope === 'workspace' ? wsInfo.id : undefined,
+          };
+          const policy = await ApprovalPolicyService.getInstance().createPolicy(safePolicy);
+          this.respondToIdeMessenger(messageId, { status: 'success', content: policy });
+          break;
+        }
+
+        case 'policy/update': {
+          const policy = await ApprovalPolicyService.getInstance().updatePolicy(data?.id, data?.updates);
+          this.respondToIdeMessenger(messageId, { status: 'success', content: policy });
+          break;
+        }
+
+        case 'policy/delete': {
+          await ApprovalPolicyService.getInstance().deletePolicy(data?.id);
+          this.respondToIdeMessenger(messageId, { status: 'success' });
+          break;
+        }
+
+        case 'policy/enable': {
+          const policy = await ApprovalPolicyService.getInstance().enablePolicy(data?.id, data?.enabled);
+          this.respondToIdeMessenger(messageId, { status: 'success', content: policy });
+          break;
+        }
+
+        default:
+          this.respondToIdeMessenger(messageId, { status: 'error', error: `Unknown request type: ${messageType}` });
+          break;
+      }
+    } catch (err: any) {
+      this.logger.error(`Error handling IdeMessenger message ${messageType}:`, err);
+      this.respondToIdeMessenger(messageId, { status: 'error', error: err?.message || String(err) });
+    }
+  }
+
+  private respondToIdeMessenger(messageId: string, data: any) {
+    this.view?.webview.postMessage({
+      messageId,
+      data,
+    });
+  }
+
+  private generateTitleFromText(text: string): string {
+    if (!text) {
+      return 'New Session';
+    }
+    const clean = text.replace(/^[#\s*>-]+/, '').trim().split('\n')[0];
+    return clean.slice(0, 60) || 'New Session';
+  }
+
+  private async generateAiTitleFromContext(userText: string, assistantText?: string): Promise<string> {
+    try {
+      const config = await this.providerRegistry.readConfig();
+      if (!config || !config.provider) {
+        return this.generateTitleFromText(userText);
+      }
+      const provider = await this.providerRegistry.getProvider();
+      const modelName = config.modelName || provider.getDefaultModel();
+
+      const promptUser = userText.trim().slice(0, 300);
+      const promptAssistant = (assistantText || '').trim().slice(0, 300);
+
+      const messages: ChatMessage[] = [
+        {
+          role: 'system',
+          content:
+            'You are an expert conversation title generator. Output a concise 3 to 6 word title that captures the intent and topic of this conversation. Do NOT use quotes, punctuation, prefixes, or markdown. Output ONLY the title text.',
+        },
+        {
+          role: 'user',
+          content: promptAssistant
+            ? `User query: ${promptUser}\nAssistant response snippet: ${promptAssistant}`
+            : `User query: ${promptUser}`,
+        },
+      ];
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 6000);
+
+      let result = '';
+      try {
+        const stream = provider.streamChat(messages, {
+          model: modelName,
+          maxTokens: 25,
+          temperature: 0.3,
+          signal: controller.signal,
+        });
+
+        for await (const chunk of stream) {
+          if (chunk.content) {
+            result += chunk.content;
+          }
+        }
+      } finally {
+        clearTimeout(timeoutId);
+      }
+
+      const cleaned = result
+        .trim()
+        .replace(/^["'`]|["'`]$/g, '')
+        .replace(/^(Title|Topic):\s*/i, '')
+        .trim()
+        .split('\n')[0]
+        .slice(0, 70);
+
+      if (cleaned.length >= 3 && !cleaned.toLowerCase().includes('error')) {
+        return cleaned;
+      }
+    } catch (err) {
+      this.logger.debug('[KODRA AI Titling] Fallback to optimistic title generator', err);
+    }
+
+    return this.generateTitleFromText(userText);
+  }
+
+  private async triggerAiTitleGeneration(sessionId: string, userText: string, assistantText: string): Promise<void> {
+    try {
+      const aiTitle = await this.generateAiTitleFromContext(userText, assistantText);
+      const defaultTitle = this.generateTitleFromText(userText);
+      if (aiTitle && aiTitle !== defaultTitle && aiTitle !== 'New Session' && this.conversationRepository) {
+        const existing = await this.conversationRepository.getConversation(sessionId);
+        // Only update if current title is still the default/optimistic title (preserve user manual renames)
+        if (existing && (existing.title === defaultTitle || existing.title === 'New Session')) {
+          await this.conversationRepository.updateTitle(sessionId, aiTitle);
+          this.logger.info(`[KODRA AI Titling] Auto-titled conversation ${sessionId} as "${aiTitle}"`);
+          this.postMessage({
+            type: 'sessionTitleUpdated',
+            sessionId,
+            title: aiTitle,
+          });
+        }
+      }
+    } catch (err) {
+      this.logger.warn('[KODRA AI Titling] Failed to generate AI title', err);
+    }
+  }
+
+  private formatSessionAsMarkdown(conv: StoredConversation): string {
+    const lines: string[] = [`# ${conv.title || 'Chat Session'}\n`];
+    lines.push(`_Date: ${new Date(conv.dateCreated).toLocaleString()} | Workspace: ${conv.workspaceName}_\n`);
+    lines.push('---\n');
+
+    for (const item of conv.history || []) {
+      const msg = item.message || item;
+      const role = msg.role === 'user' ? 'User' : 'Kodra';
+      const content = typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content, null, 2);
+      lines.push(`### ${role}:\n\n${content}\n`);
+    }
+
+    return lines.join('\n');
+  }
+
+  private async handleUserMessage(text: string, contextFiles?: string[], sessionId?: string, mode?: string) {
     const t0 = Date.now();
     const logger = this.logger;
     let unsubscribeActivity: (() => void) | undefined;
+    let terminalSent = false;
+    let agentActivityTerminalSent = false;
+    let activeExecutionId = '';
+    let accumulatedContent = '';
+    this.ensureStorageServices();
+
+    const isFirstTurn = this.currentSessionHistory.length === 0;
+
+    if (sessionId) {
+      this.currentSessionId = sessionId;
+    } else if (!this.currentSessionId) {
+      this.currentSessionId = uuidv4();
+    }
+
+    this.chatHistory.push({ role: 'user', content: text });
+    this.currentSessionHistory.push({
+      message: { role: 'user', content: text, id: uuidv4() },
+      contextItems: [],
+    });
+
+    const wsInfo = WorkspaceRegistry.getWorkspaceInfo();
+    if (this.conversationRepository) {
+      const existing = await this.conversationRepository.getConversation(this.currentSessionId!);
+      const sessionTitle = existing?.title && existing.title !== 'New Session'
+        ? existing.title
+        : this.generateTitleFromText(text);
+
+      await this.conversationRepository.saveConversation({
+        sessionId: this.currentSessionId!,
+        title: sessionTitle,
+        workspaceDirectory: wsInfo.path,
+        workspaceId: wsInfo.id,
+        workspaceName: wsInfo.name,
+        history: this.currentSessionHistory,
+        status: 'active',
+      });
+    }
 
     try {
       // ─── Phase 1: Config (single read — eliminates 3x duplicate readConfig) ───
@@ -263,7 +713,7 @@ export class KodraViewProvider implements vscode.WebviewViewProvider, IWebviewMe
       if (config.provider === 'ollama') {
         const isRunning = await OllamaManager.ensureRunning(config.endpoint);
         if (!isRunning) {
-          this.postMessage({ type: 'streamError', error: 'Ollama is not running. Please start it to kodra.' });
+          this.postMessage({ type: 'streamError', error: 'Ollama is not running. Please start it to use Kodra.' });
           this.postMessage({ type: 'streamDone' });
           return;
         }
@@ -299,34 +749,66 @@ export class KodraViewProvider implements vscode.WebviewViewProvider, IWebviewMe
       );
 
       // ─── Phase 5: Run agent ───────────────────────────────────────────────────
-      this.chatHistory.push({ role: 'user', content: text });
+      const executionId = uuidv4();
+      activeExecutionId = executionId;
+      logger.info(
+        `[KODRA Lifecycle] Request started executionId=${executionId} sessionId=${this.currentSessionId} provider=${config.provider} model=${modelName}`
+      );
+      if (this.executionJournal) {
+        await this.executionJournal.startRun(this.currentSessionId!, executionId, wsInfo.id, {
+          text,
+          model: modelName,
+          provider: config.provider,
+          contextFiles,
+        });
+      }
 
       const requireApproval = vscode.workspace.getConfiguration('KODRA').get<boolean>('agent.requireApproval', true);
       const maxIterations = vscode.workspace.getConfiguration('KODRA').get<number>('agent.maxIterations', 15);
 
+      if (!this.contextEngine) {
+        this.contextEngine = ContextEngine.createForWorkspace();
+        await this.contextEngine.load();
+      }
+
       if (this.agent) {
         this.agent.cancel();
       }
-      this.agent = new AgentLoop(this.indexer, requireApproval);
+      this.agent = new AgentLoop(
+        this.indexer,
+        requireApproval,
+        undefined,
+        undefined,
+        this.contextEngine,
+      );
 
       // ── Bridge AgentEventBus → agentActivity IPC messages ────────────────────
-      // These drive the "Worked" panel in the webview via real runtime events.
       const agentStartTime = Date.now();
-      unsubscribeActivity = this.agent.getRuntime().onEvent((normalizedEvent) => {
-        const executionId = (normalizedEvent as any).executionId as string;
+      unsubscribeActivity = this.agent.getRuntime().onEvent(async (normalizedEvent) => {
+        const execId = (normalizedEvent as any).executionId as string || executionId;
         switch (normalizedEvent.type) {
           case 'agent.started':
             this.postMessage({
               type: 'agentActivity',
-              executionId,
+              executionId: execId,
               event: { kind: 'started', timestamp: normalizedEvent.timestamp },
             });
             break;
 
           case 'tool.started':
+            if (this.executionJournal) {
+              await this.executionJournal.appendEvent(this.currentSessionId!, execId, {
+                type: 'tool.started',
+                data: {
+                  toolName: normalizedEvent.toolName,
+                  toolCallId: normalizedEvent.toolCallId,
+                  args: normalizedEvent.args,
+                },
+              });
+            }
             this.postMessage({
               type: 'agentActivity',
-              executionId,
+              executionId: execId,
               event: {
                 kind: 'tool_started',
                 toolName: normalizedEvent.toolName,
@@ -338,13 +820,59 @@ export class KodraViewProvider implements vscode.WebviewViewProvider, IWebviewMe
             break;
 
           case 'tool.requested':
-            // tool_started covers the user-visible event; requested is internal routing.
+            if (this.executionJournal) {
+              await this.executionJournal.appendEvent(this.currentSessionId!, execId, {
+                type: 'tool.requested',
+                data: {
+                  toolName: normalizedEvent.toolName,
+                  toolCallId: normalizedEvent.toolCallId,
+                  args: normalizedEvent.args,
+                },
+              });
+            }
             break;
 
           case 'tool.completed':
+            if (this.executionJournal) {
+              await this.executionJournal.appendEvent(this.currentSessionId!, execId, {
+                type: 'tool.completed',
+                data: {
+                  toolName: normalizedEvent.toolName,
+                  toolCallId: normalizedEvent.toolCallId,
+                  durationMs: normalizedEvent.durationMs,
+                  success: normalizedEvent.result.success,
+                  metadata: normalizedEvent.result.metadata,
+                },
+              });
+            }
+            if (this.artifactManager && (normalizedEvent.result.diff || normalizedEvent.result.filepath)) {
+              const savedArt = await this.artifactManager.saveArtifact({
+                conversationId: this.currentSessionId!,
+                executionId: execId,
+                title: `${normalizedEvent.toolName}: ${normalizedEvent.result.filepath || 'Patch'}`,
+                type: normalizedEvent.result.diff ? 'patch' : 'file',
+                filepath: normalizedEvent.result.filepath,
+                filename: normalizedEvent.result.filepath ? path.basename(normalizedEvent.result.filepath) : undefined,
+                content: normalizedEvent.result.content,
+                diff: normalizedEvent.result.diff,
+                metadata: {
+                  toolCallId: normalizedEvent.toolCallId,
+                  toolName: normalizedEvent.toolName,
+                },
+              });
+              if (this.conversationRepository) {
+                await this.conversationRepository.addArtifactRef(this.currentSessionId!, {
+                  id: savedArt.id,
+                  type: savedArt.type,
+                  title: savedArt.title,
+                  filename: savedArt.filename,
+                  createdAt: savedArt.createdAt,
+                });
+              }
+            }
             this.postMessage({
               type: 'agentActivity',
-              executionId,
+              executionId: execId,
               event: {
                 kind: 'tool_completed',
                 toolName: normalizedEvent.toolName,
@@ -358,9 +886,20 @@ export class KodraViewProvider implements vscode.WebviewViewProvider, IWebviewMe
             break;
 
           case 'tool.failed':
+            if (this.executionJournal) {
+              await this.executionJournal.appendEvent(this.currentSessionId!, execId, {
+                type: 'tool.failed',
+                data: {
+                  toolName: normalizedEvent.toolName,
+                  toolCallId: normalizedEvent.toolCallId,
+                  error: normalizedEvent.error,
+                  durationMs: normalizedEvent.durationMs,
+                },
+              });
+            }
             this.postMessage({
               type: 'agentActivity',
-              executionId,
+              executionId: execId,
               event: {
                 kind: 'tool_failed',
                 toolName: normalizedEvent.toolName,
@@ -373,9 +912,13 @@ export class KodraViewProvider implements vscode.WebviewViewProvider, IWebviewMe
             break;
 
           case 'agent.completed':
+            agentActivityTerminalSent = true;
+            if (this.executionJournal) {
+              await this.executionJournal.completeRun(this.currentSessionId!, execId, normalizedEvent.usage);
+            }
             this.postMessage({
               type: 'agentActivity',
-              executionId,
+              executionId: execId,
               event: {
                 kind: 'completed',
                 durationMs: normalizedEvent.durationMs,
@@ -385,23 +928,30 @@ export class KodraViewProvider implements vscode.WebviewViewProvider, IWebviewMe
             break;
 
           case 'agent.failed':
+            agentActivityTerminalSent = true;
+            if (this.executionJournal) {
+              await this.executionJournal.failRun(this.currentSessionId!, execId, normalizedEvent.error);
+            }
             this.postMessage({
               type: 'agentActivity',
-              executionId,
+              executionId: execId,
               event: { kind: 'failed', error: normalizedEvent.error, timestamp: normalizedEvent.timestamp },
             });
             break;
 
           case 'agent.cancelled':
+            agentActivityTerminalSent = true;
+            if (this.executionJournal) {
+              await this.executionJournal.cancelRun(this.currentSessionId!, execId);
+            }
             this.postMessage({
               type: 'agentActivity',
-              executionId,
+              executionId: execId,
               event: { kind: 'cancelled', timestamp: normalizedEvent.timestamp },
             });
             break;
         }
       });
-
 
       const historyToPass = [...this.chatHistory];
       historyToPass.pop(); // remove last user message (passed separately)
@@ -410,19 +960,29 @@ export class KodraViewProvider implements vscode.WebviewViewProvider, IWebviewMe
       let ttftMs: number | null = null;
       let firstToken = true;
 
+      const requestTimeoutSec = vscode.workspace.getConfiguration('KODRA').get<number>('agent.requestTimeout', 120);
+      const stallTimeoutSec = vscode.workspace.getConfiguration('KODRA').get<number>('agent.streamStallTimeout', 60);
+
       const generator = this.agent.run(text, historyToPass, provider, {
         model: modelName,
         maxTokens: config.maxTokens,
         maxIterations: maxIterations,
         contextFiles,
         toolCalling,
+        firstTokenTimeoutMs: requestTimeoutSec > 0 ? requestTimeoutSec * 1000 : 0,
+        idleChunkTimeoutMs: stallTimeoutSec > 0 ? stallTimeoutSec * 1000 : 0,
+        mode: (mode as string) || 'agent',
+        workspaceId: wsInfo.id,
+        cwd: wsInfo.path,
       });
 
-      let accumulatedContent = '';
+      accumulatedContent = '';
+      let currentExecutionId: string | undefined = undefined;
 
       for await (const event of generator) {
         switch (event.type) {
           case 'agentStarted':
+            currentExecutionId = event.executionId;
             this.postMessage({ type: 'agentStarted', executionId: event.executionId });
             break;
 
@@ -452,7 +1012,9 @@ export class KodraViewProvider implements vscode.WebviewViewProvider, IWebviewMe
               success: event.result.success,
               toolCallId: event.toolCallId,
               durationMs: event.durationMs,
-            });
+              metadata: event.result.metadata,
+              executionId: (event.result.metadata as any)?.executionId,
+            } as any);
             break;
 
           case 'approval':
@@ -462,22 +1024,84 @@ export class KodraViewProvider implements vscode.WebviewViewProvider, IWebviewMe
               description: event.description,
               command: event.command,
               diff: event.diff,
-              filepath: event.filepath
+              filepath: event.filepath,
+              requestId: event.requestId,
+              executionId: event.executionId || currentExecutionId || activeExecutionId,
             });
             break;
 
           case 'error':
+            terminalSent = true;
             this.postMessage({ type: 'streamError', error: event.error });
+            if (this.conversationRepository) {
+              await this.conversationRepository.saveConversation({
+                sessionId: this.currentSessionId!,
+                history: this.currentSessionHistory,
+                status: 'error',
+              });
+            }
             break;
 
           case 'cancelled':
+            terminalSent = true;
             this.postMessage({ type: 'streamCancelled' });
+            if (this.conversationRepository) {
+              await this.conversationRepository.saveConversation({
+                sessionId: this.currentSessionId!,
+                history: this.currentSessionHistory,
+                status: 'interrupted',
+              });
+            }
             break;
 
           case 'done':
+            terminalSent = true;
             this.postMessage({ type: 'streamDone' });
             if (accumulatedContent) {
               this.chatHistory.push({ role: 'assistant', content: accumulatedContent });
+              this.currentSessionHistory.push({
+                message: { role: 'assistant', content: accumulatedContent, id: uuidv4() },
+                contextItems: [],
+              });
+            }
+            if (this.artifactManager && accumulatedContent && (
+              accumulatedContent.includes('# Plan') ||
+              accumulatedContent.includes('## Plan') ||
+              accumulatedContent.includes('# Implementation Plan') ||
+              accumulatedContent.includes('## Implementation Plan') ||
+              accumulatedContent.includes('# Task Breakdown') ||
+              accumulatedContent.includes('## Task Breakdown')
+            )) {
+              try {
+                const planArt = await this.artifactManager.saveArtifact({
+                  conversationId: this.currentSessionId!,
+                  executionId: currentExecutionId,
+                  title: 'Implementation Plan',
+                  type: 'plan',
+                  content: accumulatedContent,
+                });
+                if (this.conversationRepository) {
+                  await this.conversationRepository.addArtifactRef(this.currentSessionId!, {
+                    id: planArt.id,
+                    type: planArt.type,
+                    title: planArt.title,
+                    createdAt: planArt.createdAt,
+                  });
+                }
+              } catch (artErr) {
+                this.logger.warn('Failed to persist plan artifact', artErr);
+              }
+            }
+            if (this.conversationRepository) {
+              await this.conversationRepository.saveConversation({
+                sessionId: this.currentSessionId!,
+                history: this.currentSessionHistory,
+                status: 'completed',
+              });
+
+              if (isFirstTurn && accumulatedContent) {
+                this.triggerAiTitleGeneration(this.currentSessionId!, text, accumulatedContent).catch(() => {});
+              }
             }
             break;
         }
@@ -491,13 +1115,59 @@ export class KodraViewProvider implements vscode.WebviewViewProvider, IWebviewMe
 
     } catch (error) {
       this.logger.error('Failed to handle user message', error);
+      const errMsg = error instanceof Error ? error.message : String(error);
+      if (this.conversationRepository && this.currentSessionId) {
+        await this.conversationRepository.saveConversation({
+          sessionId: this.currentSessionId,
+          title: this.generateTitleFromText(text),
+          history: this.currentSessionHistory,
+          status: 'error',
+        });
+      }
+      terminalSent = true;
+      if (!agentActivityTerminalSent && activeExecutionId) {
+        agentActivityTerminalSent = true;
+        this.postMessage({
+          type: 'agentActivity',
+          executionId: activeExecutionId,
+          event: { kind: 'failed', error: errMsg, timestamp: Date.now() },
+        });
+      }
       this.postMessage({
         type: 'streamError',
-        error: error instanceof Error ? error.message : String(error)
+        error: errMsg,
       });
     } finally {
+      if (!terminalSent) {
+        terminalSent = true;
+        if (accumulatedContent) {
+          this.postMessage({ type: 'streamDone' });
+          if (!agentActivityTerminalSent && activeExecutionId) {
+            agentActivityTerminalSent = true;
+            this.postMessage({
+              type: 'agentActivity',
+              executionId: activeExecutionId,
+              event: { kind: 'completed', durationMs: Date.now() - t0, timestamp: Date.now() },
+            });
+          }
+        } else {
+          this.postMessage({
+            type: 'streamError',
+            error: 'Request terminated unexpectedly without completing.',
+          });
+          if (!agentActivityTerminalSent && activeExecutionId) {
+            agentActivityTerminalSent = true;
+            this.postMessage({
+              type: 'agentActivity',
+              executionId: activeExecutionId,
+              event: { kind: 'failed', error: 'Request terminated unexpectedly.', timestamp: Date.now() },
+            });
+          }
+        }
+      }
       unsubscribeActivity?.();
       this.agent = null;
+      logger.info(`[KODRA Lifecycle] Cleanup completed sessionId=${this.currentSessionId} executionId=${activeExecutionId} totalElapsed=${Date.now() - t0}ms`);
     }
   }
 

@@ -45,7 +45,8 @@ import {
 } from "../../redux/slices/sessionSlice";
 import { isJetBrains, isMetaEquivalentKeyPressed } from "../../util";
 import { ToolCallDiv } from "./ToolCallDiv";
-import { submitEditorAndInitAtIndex, streamUpdate, setInactive, addAgentActivity } from "../../redux/slices/sessionSlice";
+import { submitEditorAndInitAtIndex, streamUpdate, setInactive, addAgentActivity, finalizeAgentActivity, addAgentActivityToLatestAssistant } from "../../redux/slices/sessionSlice";
+import { store } from "../../redux/store";
 import { AgentActivityPanel } from "../../components/gui/AgentActivityPanel";
 
 export interface PendingApproval {
@@ -54,6 +55,8 @@ export interface PendingApproval {
   command?: string;
   filepath?: string;
   diff?: string;
+  requestId?: string;
+  executionId?: string;
 }
 
 function getTextFromJSONContent(content: any): string {
@@ -86,8 +89,18 @@ window.addEventListener('message', (event: MessageEvent) => {
     _toolActivityListeners.forEach((listener) => listener(msg));
   }
 
-  // Only route stream messages and agent activity.
-  if (!['streamContent', 'streamDone', 'streamError', 'streamCancelled', 'agentActivity'].includes(msg.type)) return;
+  // Route agent activity even if active stream dispatch has already completed
+  if (msg.type === 'agentActivity') {
+    if (_activeStreamDispatch) {
+      _activeStreamDispatch(msg);
+    } else {
+      store.dispatch(addAgentActivityToLatestAssistant(msg));
+    }
+    return;
+  }
+
+  // Only route stream messages.
+  if (!['streamContent', 'streamDone', 'streamError', 'streamCancelled'].includes(msg.type)) return;
 
   if (_activeStreamDispatch) {
     _activeStreamDispatch(msg);
@@ -108,15 +121,18 @@ const streamResponseThunk = (payload: any): any => (dispatch: any, getState: any
         dispatch(streamUpdate([{ role: "assistant", content: msg.content }]));
         break;
       case 'streamDone':
+        dispatch(finalizeAgentActivity({ index: index + 1, status: 'completed' }));
         dispatch(setInactive());
         _activeStreamDispatch = null;
         break;
       case 'streamError':
         dispatch(streamUpdate([{ role: "assistant", content: `\n\nError: ${msg.error}` }]));
+        dispatch(finalizeAgentActivity({ index: index + 1, status: 'failed', error: msg.error }));
         dispatch(setInactive());
         _activeStreamDispatch = null;
         break;
       case 'streamCancelled':
+        dispatch(finalizeAgentActivity({ index: index + 1, status: 'cancelled' }));
         dispatch(setInactive());
         _activeStreamDispatch = null;
         break;
@@ -128,7 +144,11 @@ const streamResponseThunk = (payload: any): any => (dispatch: any, getState: any
   };
 
   if ((window as any).vscode) {
-    (window as any).vscode.postMessage({ type: 'sendMessage', text });
+    (window as any).vscode.postMessage({
+      type: 'sendMessage',
+      text,
+      sessionId: state.session.id,
+    });
   } else {
     setTimeout(() => {
       _activeStreamDispatch?.({ type: 'streamContent', content: 'Mock response from local dev (not running in VS Code)' });
@@ -227,17 +247,21 @@ export function Chat() {
   }, []);
 
   const [pendingApproval, setPendingApproval] = useState<PendingApproval | null>(null);
+  const [approvalChoice, setApprovalChoice] = useState<'allow_once' | 'always_allow_workspace' | 'always_allow_global' | 'deny'>('allow_once');
 
   useEffect(() => {
     return subscribeToolActivity((msg) => {
       switch (msg.type) {
         case 'approvalRequest':
+          setApprovalChoice('allow_once');
           setPendingApproval({
             toolName: msg.toolName,
             description: msg.description,
             command: msg.command,
             filepath: msg.filepath,
             diff: msg.diff,
+            requestId: msg.requestId,
+            executionId: msg.executionId,
           });
           break;
 
@@ -250,11 +274,33 @@ export function Chat() {
     });
   }, []);
 
-  const handleApprovalDecision = useCallback((approved: boolean) => {
+  const handleApprovalDecision = useCallback((decision: 'allow_once' | 'always_allow_workspace' | 'always_allow_global' | 'deny' | boolean) => {
     if ((window as any).vscode) {
-      (window as any).vscode.postMessage({ type: 'approveAction', approved });
+      if (typeof decision === 'boolean') {
+        (window as any).vscode.postMessage({
+          type: 'approveAction',
+          approved: decision,
+          requestId: pendingApproval?.requestId,
+        });
+      } else {
+        (window as any).vscode.postMessage({
+          type: 'approveAction',
+          decision,
+          approved: decision !== 'deny',
+          requestId: pendingApproval?.requestId,
+        });
+      }
     }
     setPendingApproval(null);
+  }, [pendingApproval]);
+
+  const handleRevealTerminal = useCallback((executionId?: string) => {
+    if ((window as any).vscode && executionId) {
+      (window as any).vscode.postMessage({
+        type: 'revealTerminal',
+        executionId,
+      });
+    }
   }, []);
 
   const { userHasScrolled, scrollToBottom } = useAutoScroll(stepsDivRef, history);
@@ -419,7 +465,10 @@ export function Chat() {
       if (message.role === "assistant") {
         return (
           <>
-            <AgentActivityPanel activities={item.agentActivities || []} />
+            <AgentActivityPanel
+              activities={item.agentActivities || []}
+              isStreaming={isStreaming && index === history.length - 1}
+            />
             <div className="thread-message">
               <TimelineItem
                 item={item}
@@ -506,7 +555,7 @@ export function Chat() {
       <div className="relative flex-1 min-h-0 flex flex-col">
         <StepsDiv
           ref={stepsDivRef}
-        className={`pt-[8px] flex flex-col ${showScrollbar ? "thin-scrollbar" : "no-scrollbar"} min-h-0 flex-1 overflow-y-scroll`}
+        className={`pt-[8px] flex flex-col ${showScrollbar ? "thin-scrollbar" : "no-scrollbar"} min-h-0 flex-1 overflow-y-auto`}
       >
         <DeprecationBanner dismissable={true} />
         {highlights}
@@ -545,9 +594,9 @@ export function Chat() {
         <div className="absolute bottom-4 left-0 right-0 flex justify-center z-50 pointer-events-none">
           <button
             type="button"
-            onClick={scrollToBottom}
+            onClick={() => scrollToBottom(true)}
             aria-label="Jump to latest"
-            className="pointer-events-auto flex items-center justify-center w-8 h-8 rounded-full border border-[var(--vscode-widget-border,rgba(128,128,128,0.2))] bg-[var(--vscode-editor-background,#1e1e1e)] text-[var(--vscode-descriptionForeground,#9d9d9d)] hover:text-[var(--vscode-foreground,#cccccc)] hover:border-[var(--vscode-focusBorder,#007fd4)] transition-colors duration-100 shadow-md"
+            className="pointer-events-auto flex items-center justify-center w-8 h-8 rounded-full border border-[var(--vscode-widget-border,rgba(128,128,128,0.2))] bg-[var(--vscode-editor-background,#1e1e1e)] text-[var(--vscode-descriptionForeground,#9d9d9d)] hover:text-[var(--vscode-foreground,#cccccc)] hover:border-[var(--vscode-focusBorder,#007fd4)] active:scale-95 transition-all duration-150 shadow-md focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--vscode-focusBorder)] cursor-pointer"
           >
             <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" aria-hidden="true" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M6 9l6 6 6-6" />
@@ -591,24 +640,66 @@ export function Chat() {
             </div>
           )}
 
-          <div className="flex gap-2 mt-2 justify-end">
-            <button
-              type="button"
-              onClick={() => handleApprovalDecision(false)}
-              className="px-3 py-1 text-[11px] rounded bg-[var(--vscode-button-secondaryBackground,#3a3d41)] hover:bg-[var(--vscode-button-secondaryHoverBackground,#45494e)] text-[var(--vscode-button-secondaryForeground,#cccccc)] transition-colors duration-100 focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--vscode-focusBorder)]"
-              aria-label="Reject action"
-            >
-              Reject
-            </button>
-            <button
-              type="button"
-              onClick={() => handleApprovalDecision(true)}
-              className="px-3 py-1 text-[11px] rounded bg-[var(--vscode-button-background,#0e639c)] hover:bg-[var(--vscode-button-hoverBackground,#1177bb)] text-[var(--vscode-button-foreground,#ffffff)] font-medium transition-colors duration-100 focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--vscode-focusBorder)]"
-              aria-label="Approve action"
-            >
-              Approve
-            </button>
-          </div>
+          {pendingApproval.command ? (
+            <div className="flex flex-wrap items-center gap-2 mt-2 justify-end">
+              <label htmlFor="approval-choice-select" className="text-[11px] text-[var(--vscode-descriptionForeground,#9d9d9d)] select-none">
+                Action:
+              </label>
+              <select
+                id="approval-choice-select"
+                value={approvalChoice}
+                onChange={(e) => setApprovalChoice(e.target.value as any)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleApprovalDecision(approvalChoice);
+                  }
+                }}
+                className="px-2 py-1 text-[11px] rounded bg-[var(--vscode-dropdown-background,#252526)] text-[var(--vscode-dropdown-foreground,#cccccc)] border border-[var(--vscode-dropdown-border,#3c3c3c)] focus:outline focus:outline-1 focus:outline-[var(--vscode-focusBorder,#007fd4)] cursor-pointer"
+                aria-label="Select approval action"
+              >
+                <option value="allow_once">Allow Once</option>
+                <option value="always_allow_workspace">Allow in this Workspace</option>
+                <option value="always_allow_global">Always Allow Globally</option>
+                <option value="deny">Deny</option>
+              </select>
+              <button
+                type="button"
+                onClick={() => handleApprovalDecision(approvalChoice)}
+                className="px-3 py-1 text-[11px] rounded bg-[var(--vscode-button-background,#0e639c)] hover:bg-[var(--vscode-button-hoverBackground,#1177bb)] text-[var(--vscode-button-foreground,#ffffff)] font-medium transition-colors duration-100 focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--vscode-focusBorder)] cursor-pointer"
+                aria-label="Submit approval decision"
+              >
+                Enter
+              </button>
+              <button
+                type="button"
+                onClick={() => handleApprovalDecision('deny')}
+                className="px-2.5 py-1 text-[11px] rounded bg-[var(--vscode-button-secondaryBackground,#3a3d41)] hover:bg-[var(--vscode-button-secondaryHoverBackground,#45494e)] text-[var(--vscode-button-secondaryForeground,#cccccc)] transition-colors duration-100 focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--vscode-focusBorder)] cursor-pointer"
+                aria-label="Reject action"
+              >
+                Reject
+              </button>
+            </div>
+          ) : (
+            <div className="flex gap-2 mt-2 justify-end">
+              <button
+                type="button"
+                onClick={() => handleApprovalDecision(false)}
+                className="px-3 py-1 text-[11px] rounded bg-[var(--vscode-button-secondaryBackground,#3a3d41)] hover:bg-[var(--vscode-button-secondaryHoverBackground,#45494e)] text-[var(--vscode-button-secondaryForeground,#cccccc)] transition-colors duration-100 focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--vscode-focusBorder)]"
+                aria-label="Reject action"
+              >
+                Reject
+              </button>
+              <button
+                type="button"
+                onClick={() => handleApprovalDecision(true)}
+                className="px-3 py-1 text-[11px] rounded bg-[var(--vscode-button-background,#0e639c)] hover:bg-[var(--vscode-button-hoverBackground,#1177bb)] text-[var(--vscode-button-foreground,#ffffff)] font-medium transition-colors duration-100 focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--vscode-focusBorder)]"
+                aria-label="Approve action"
+              >
+                Approve
+              </button>
+            </div>
+          )}
         </div>
       )}
       <div className={"relative shrink-0"}>

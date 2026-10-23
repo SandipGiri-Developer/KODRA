@@ -54,16 +54,25 @@ export const refreshSessionMetadata = createAsyncThunk<
 export const deleteSession = createAsyncThunk<void, string, ThunkApiType>(
   "session/delete",
   async (id, { getState, dispatch, extra }) => {
-    dispatch(deleteSessionMetadata(id)); // optimistic
-    const state = getState();
-    if (id === state.session.id) {
-      await dispatch(loadLastSession());
+    const previousMetadata = getState().session.allSessionMetadata;
+    const wasActive = id === getState().session.id;
+
+    try {
+      const result = await extra.ideMessenger.request("history/delete", { id });
+      if (result.status === "error") {
+        throw new Error(result.error || "Failed to delete session on disk");
+      }
+
+      dispatch(deleteSessionMetadata(id));
+      if (wasActive) {
+        await dispatch(loadLastSession());
+      }
+      await dispatch(refreshSessionMetadata({}));
+    } catch (err: any) {
+      dispatch(setAllSessionMetadata(previousMetadata));
+      await dispatch(refreshSessionMetadata({}));
+      throw err;
     }
-    const result = await extra.ideMessenger.request("history/delete", { id });
-    if (result.status === "error") {
-      throw new Error(result.error);
-    }
-    void dispatch(refreshSessionMetadata({}));
   },
 );
 
