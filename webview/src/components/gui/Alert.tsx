@@ -1,3 +1,4 @@
+// Configurable alert notification banner supporting info, success, warning, and error types.
 import {
   CheckCircleIcon,
   ExclamationCircleIcon,

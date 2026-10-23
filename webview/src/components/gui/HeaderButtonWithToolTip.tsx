@@ -1,3 +1,4 @@
+// Toolbar header button wrapped with an informative tooltip.
 import React from "react";
 import { type PlacesType } from "react-tooltip";
 import { HeaderButton } from "..";
@@ -20,6 +21,7 @@ interface HeaderButtonWithToolTipProps {
   testId?: string;
 }
 
+// Renders a stylized header button that triggers a contextual tooltip on hover/focus.
 const HeaderButtonWithToolTip = React.forwardRef<
   HTMLButtonElement,
   HeaderButtonWithToolTipProps

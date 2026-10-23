@@ -140,7 +140,7 @@ export function getWebviewContent(
       console.warn('acquireVsCodeApi already called or not available', e);
     }
     window.vscMediaUrl = "${webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, 'media'))}";
-    window.vscLogoUrl = "${webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, 'KODRA.svg'))}";
+    window.vscLogoUrl = "${webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, fs.existsSync(path.join(extensionUri.fsPath, 'KODRA.svg')) ? 'KODRA.svg' : (fs.existsSync(path.join(extensionUri.fsPath, 'media/icon.svg')) ? 'media/icon.svg' : 'media/icon.png')))}";
     window.initialRoute = "${initialRoute}";
     window.isSettingsWindow = ${isSettingsWindow};
 

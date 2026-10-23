@@ -1,6 +1,8 @@
+// Hook managing auto-scroll behavior during chat streaming and user scroll interruptions.
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { ChatHistoryItemWithMessageId } from "../../redux/slices/sessionSlice";
 
+// Counts the number of user messages present in chat history.
 function getNumUserMsgs(history: ChatHistoryItemWithMessageId[]) {
   return history.filter((msg) => msg.message.role === "user").length;
 }
@@ -12,6 +14,7 @@ export interface UseAutoScrollResult {
   scrollToBottom: (smooth?: boolean) => void;
 }
 
+// Hook providing scroll container auto-scroll logic, user override detection, and scroll-to-bottom.
 export const useAutoScroll = (
   ref: React.RefObject<HTMLDivElement>,
   history: ChatHistoryItemWithMessageId[],

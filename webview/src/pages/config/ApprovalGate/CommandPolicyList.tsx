@@ -1,3 +1,4 @@
+// Filterable and searchable table listing active terminal command approval policies.
 import React, { useState, useMemo } from "react";
 import {
   MagnifyingGlassIcon,

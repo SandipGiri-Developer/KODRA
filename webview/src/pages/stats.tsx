@@ -1,3 +1,4 @@
+// Statistics page visualizing token usage metrics per day and per model.
 import { useContext, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import styled from "styled-components";
@@ -29,10 +30,12 @@ const Td = styled.td`
   border: 1px solid ${lightGray};
 `;
 
+// Formats a 2D array of data into an ASCII table string for clipboard copying.
 function generateTable(data: unknown[][]) {
   return table(data);
 }
 
+// Page component displaying tabular token consumption statistics by day and model.
 function Stats() {
   useNavigationListener();
   const navigate = useNavigate();

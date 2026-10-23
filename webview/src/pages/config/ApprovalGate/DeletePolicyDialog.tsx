@@ -1,3 +1,4 @@
+// Confirmation modal dialog for deleting an existing terminal approval policy.
 import React from "react";
 import { ExclamationTriangleIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import { ApprovalPolicy } from "./types";

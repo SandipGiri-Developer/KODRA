@@ -1,3 +1,4 @@
+// Shared styled components and VS Code theme color token bindings.
 import styled from "styled-components";
 import { varWithFallback } from "../styles/theme";
 

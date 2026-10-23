@@ -1,3 +1,4 @@
+// Redux slice managing configuration profiles and user preferences per profile.
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 import { SlashCommandDescWithSource } from "core";
 export interface ProfileDescription {
@@ -44,16 +45,20 @@ export const INITIAL_PROFILES_STATE: ProfilesState = {
   ],
 };
 
+// Slice maintaining profile definitions and per-profile user customizations.
 export const profilesSlice = createSlice({
   name: "profiles",
   initialState: INITIAL_PROFILES_STATE,
   reducers: {
+    // Sets the active configuration profile ID.
     setSelectedProfile: (state, { payload }: PayloadAction<string | null>) => {
       state.selectedProfileId = payload;
     },
+    // Replaces the collection of available configuration profiles.
     setProfiles: (state, { payload }: PayloadAction<ProfileDescription[]>) => {
       state.profiles = payload;
     },
+    // Initializes default preference values for a newly loaded or switched profile.
     initializeProfilePreferences: (
       state,
       action: PayloadAction<{
@@ -85,6 +90,7 @@ export const profilesSlice = createSlice({
         };
       }
     },
+    // Adds a slash command to the bookmarked commands list for the current profile.
     bookmarkSlashCommand: (
       state,
       action: PayloadAction<{ commandName: string }>,
@@ -99,6 +105,7 @@ export const profilesSlice = createSlice({
         preferences.bookmarkedSlashCommands.push(commandName);
       }
     },
+    // Removes a slash command from the bookmarked commands list for the current profile.
     unbookmarkSlashCommand: (
       state,
       action: PayloadAction<{ commandName: string }>,
@@ -118,6 +125,7 @@ export const profilesSlice = createSlice({
     },
   },
   selectors: {
+    // Selects the full profile object corresponding to the currently selected profile ID.
     selectSelectedProfile: (state) => {
       return (
         (state.profiles ?? []).find(
@@ -126,16 +134,19 @@ export const profilesSlice = createSlice({
       );
     },
 
+    // Selects all available configuration profiles.
     selectProfiles: (state) => {
       return state.profiles ?? [];
     },
 
+    // Selects the bookmarked slash commands for the active profile.
     selectBookmarkedSlashCommands: (state) => {
       if (!state.selectedProfileId) return [];
       const preferences = state.preferencesByProfileId[state.selectedProfileId];
       return preferences?.bookmarkedSlashCommands || [];
     },
 
+    // Selects the preferences mapping dictionary keyed by profile ID.
     selectPreferencesByProfileId: (state) => state.preferencesByProfileId,
   },
 });

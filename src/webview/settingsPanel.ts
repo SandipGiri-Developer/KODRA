@@ -75,8 +75,8 @@ export class SettingsPanel implements IWebviewMessagePoster {
     // Set panel icon
     try {
       this.panel.iconPath = {
-        light: vscode.Uri.joinPath(this.extensionUri, 'media', 'icon.png'),
-        dark: vscode.Uri.joinPath(this.extensionUri, 'media', 'icon.png'),
+        light: vscode.Uri.joinPath(this.extensionUri, 'media', 'icon.svg'),
+        dark: vscode.Uri.joinPath(this.extensionUri, 'media', 'icon.svg'),
       };
     } catch {
       // Ignore if icon not found

@@ -1,3 +1,4 @@
+// Header component for collapsible grouped tool call execution displays.
 import { FolderIcon } from "@heroicons/react/24/outline";
 import { ToolCallState } from "core";
 import { ToggleWithIcon } from "./ToggleWithIcon";
@@ -10,6 +11,7 @@ interface GroupedToolCallHeaderProps {
   onToggle: () => void;
 }
 
+// Renders a collapsable header showing the summary action verb and count of grouped tool executions.
 export function GroupedToolCallHeader({
   toolCallStates,
   activeCalls,

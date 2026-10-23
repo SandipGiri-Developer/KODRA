@@ -1,3 +1,4 @@
+// Vite configuration for the KODRA webview build, asset bundling, and test environment.
 import react from "@vitejs/plugin-react-swc";
 import { resolve } from "path";
 import { defineConfig } from "vitest/config";
@@ -22,6 +23,7 @@ export default defineConfig({
         entryFileNames: `assets/[name].js`,
         chunkFileNames: `assets/[name].js`,
         assetFileNames: `assets/[name].[ext]`,
+        // Groups vendor dependencies into separate chunks to optimize asset caching and loading.
         manualChunks: (id) => {
           if (id.includes("node_modules/highlight.js") || id.includes("node_modules/lowlight")) {
             return "syntax-highlighter";
@@ -51,6 +53,7 @@ export default defineConfig({
     globals: true,
     environment: "jsdom",
     setupFiles: "./src/util/test/setupTests.ts",
+    // Suppresses benign console warnings during test execution to keep test output clean.
     onConsoleLog(log, type) {
       if (type === "stderr") {
         if (

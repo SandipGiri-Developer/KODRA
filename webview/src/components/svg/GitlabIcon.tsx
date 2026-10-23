@@ -1,7 +1,9 @@
+// SVG icon component for the GitLab logo.
 interface CustomGitlabIconProps extends React.SVGProps<SVGSVGElement> {
   size?: number;
 }
 
+// Renders the GitLab brand SVG vector icon.
 export function GitlabIcon({
   size = 24,
   className,

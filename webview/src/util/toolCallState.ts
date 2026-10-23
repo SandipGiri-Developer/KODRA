@@ -1,6 +1,7 @@
+// Streaming tool call state management and argument delta aggregation.
 import { ToolCallDelta, ToolCallState } from "core";
 
-
+// Safely attempts to parse partially or fully streamed JSON strings into an object.
 function incrementalParseJson(jsonString: string): [string, any] {
   try {
     return [jsonString, JSON.parse(jsonString)];
@@ -9,9 +10,7 @@ function incrementalParseJson(jsonString: string): [string, any] {
   }
 }
 
-// Merge streamed tool calls
-// See example of data coming in here:
-// https://platform.openai.com/docs/guides/function-calling?api-mode=chat#streaming
+// Accumulates streamed tool call chunk deltas into the active tool execution state.
 export function addToolCallDeltaToState(
   toolCallDelta: ToolCallDelta,
   currentState: ToolCallState | undefined,
@@ -81,6 +80,7 @@ const editToolNames: string[] = [
   "single_find_and_replace",
   "multi_edit",
 ];
+// Checks whether a given tool name corresponds to a file editing capability.
 export function isEditTool(toolName: string) {
   return editToolNames.includes(toolName);
 }

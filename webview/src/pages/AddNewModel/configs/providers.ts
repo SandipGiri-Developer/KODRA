@@ -1,3 +1,4 @@
+// Provider registry and input descriptors for AI model providers and endpoints.
 import { HTMLInputTypeAttribute } from "react";
 import { ModelProviderTags } from "../../../components/modelSelection/utils";
 import { completionParamsInputs } from "./completionParamsInputs";
@@ -41,10 +42,12 @@ const openSourceModels = Object.values(models).filter(
   ({ isOpenSource }) => isOpenSource,
 );
 
+// Models supported natively by local Ollama execution.
 export const ollamaStaticModels = Object.values(models).filter(
   ({ providerOptions }) => providerOptions?.includes("ollama"),
 );
 
+// Standard input descriptor for custom API base URL configuration.
 export const apiBaseInput: InputDescriptor = {
   inputType: "text",
   key: "apiBase",
@@ -53,6 +56,7 @@ export const apiBaseInput: InputDescriptor = {
   required: false,
 };
 
+// Registry of LLM provider metadata, documentation links, and configuration forms.
 export const providers: Partial<Record<string, ProviderInfo>> = {
   cometapi: {
     title: "CometAPI",

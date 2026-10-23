@@ -1,3 +1,4 @@
+// Custom hooks for initiating conversation history compaction and deleting compaction summaries.
 import { useContext } from "react";
 import { IdeMessengerContext } from "../context/IdeMessenger";
 import { useAppDispatch, useAppSelector } from "../redux/hooks";
@@ -7,6 +8,7 @@ import {
 } from "../redux/slices/sessionSlice";
 import { loadSession, saveCurrentSession } from "../redux/thunks/session";
 
+// Triggers background AI compaction of previous messages up to the specified turn index.
 export const useCompactConversation = () => {
   const dispatch = useAppDispatch();
   const ideMessenger = useContext(IdeMessengerContext);
@@ -42,6 +44,7 @@ export const useCompactConversation = () => {
   };
 };
 
+// Removes a compaction summary at the specified index and persists updated session state.
 export const useDeleteCompaction = () => {
   const dispatch = useAppDispatch();
 

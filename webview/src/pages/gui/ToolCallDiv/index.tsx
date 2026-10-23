@@ -1,3 +1,4 @@
+// Container component rendering individual or grouped tool call execution cards.
 import { ArrowRightIcon } from "@heroicons/react/24/outline";
 import { ToolCallState } from "core";
 import { useState } from "react";
@@ -12,6 +13,7 @@ interface ToolCallDivProps {
   historyIndex: number;
 }
 
+// Renders tool call statuses, grouping multiple calls when complete or showing individual call cards.
 export function ToolCallDiv({
   toolCallStates,
   historyIndex,
@@ -33,6 +35,7 @@ export function ToolCallDiv({
   );
   const pendingCalls = toolCallStates.filter((call) => call.status !== "done");
 
+  // Renders a single tool call item with matching status and tool icon.
   const renderToolCall = (toolCallState: ToolCallState) => {
     const tool = availableTools.find(
       (tool) => toolCallState.toolCall.function?.name === tool.function.name,

@@ -1,3 +1,4 @@
+// Interactive card component presenting a recommended slash command prompt.
 import { ChatBubbleLeftIcon } from "@heroicons/react/24/outline";
 import { SlashCommandDescWithSource } from "core";
 
@@ -6,6 +7,7 @@ interface ConversationStarterCardProps {
   onClick: (command: SlashCommandDescWithSource) => void;
 }
 
+// Renders an individual prompt suggestion card with command name and description.
 export function ConversationStarterCard({
   command,
   onClick,

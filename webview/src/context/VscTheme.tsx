@@ -1,3 +1,4 @@
+// Syntax highlighting theme mapper converting VS Code TextMate theme rules to highlight.js CSS tokens.
 import { createContext, useContext, useState } from "react";
 import { useWebviewListener } from "../hooks/useWebviewListener";
 import { parseHexColor } from "../styles/utils";
@@ -53,6 +54,7 @@ const hljsToTextMate: Record<string, string[]> = {
   ".hljs-params": ["variable", "operator", "number"],
 };
 
+// Translates TextMate token coloring rules into highlight.js class color mappings.
 function constructTheme(
   tmTheme: typeof window.fullColorTheme,
 ): Record<string, string> {
@@ -84,6 +86,7 @@ function constructTheme(
   return theme;
 }
 
+// Supplies static dark and light syntax highlighting fallbacks when dynamic theme data is unavailable.
 function fallbackTheme(): Record<string, string> {
   const darkFallback: Record<string, string> = {
     ".hljs-comment": "#6A9955",
@@ -162,6 +165,7 @@ interface VscThemeContextType {
   theme: Record<string, string>;
 }
 
+// Computes the initial syntax highlighting theme during context initialization.
 function getInitialTheme(): Record<string, string> {
   try {
     return constructTheme((typeof window !== "undefined" && window.fullColorTheme) || {});
@@ -177,6 +181,7 @@ export const VscThemeContext = createContext<VscThemeContextType>(
   initialVscThemeContext,
 );
 
+// Context provider tracking dynamic VS Code theme updates and distributing syntax highlight tokens.
 export const VscThemeProvider = ({
   children,
 }: {
@@ -198,4 +203,5 @@ export const VscThemeProvider = ({
   );
 };
 
+// Hook to consume the current VS Code syntax highlighting theme.
 export const useVscTheme = () => useContext(VscThemeContext);

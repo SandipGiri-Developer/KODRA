@@ -1,3 +1,4 @@
+// Primary chat view rendering message history, streamed responses, tool calls, and user input editor.
 const useOnboardingCard = () => ({show: false}); const cancelStream = () => ({type: "dummy"});
 import {
   ArrowLeftIcon,
@@ -10,6 +11,7 @@ import { useNavigate } from "react-router-dom";
 import { Editor, JSONContent } from "@tiptap/react";
 import { ChatHistoryItem, InputModifiers } from "core";
 import { ChatMessage } from "core";
+// Serializes chat message content to a string format.
 const renderChatMessage = (message: ChatMessage) => typeof message.content === "string" ? message.content : JSON.stringify(message.content);
 import {
   useCallback,
@@ -59,6 +61,7 @@ export interface PendingApproval {
   executionId?: string;
 }
 
+// Recursively extracts plain text from a TipTap editor JSON content tree.
 function getTextFromJSONContent(content: any): string {
   if (!content) return "";
   if (typeof content === "string") return content;
@@ -73,6 +76,7 @@ function getTextFromJSONContent(content: any): string {
 let _activeStreamDispatch: ((msg: any) => void) | null = null;
 let _toolActivityListeners: Array<(msg: any) => void> = [];
 
+// Registers a subscriber callback for streaming tool activities and approvals.
 function subscribeToolActivity(fn: (msg: any) => void) {
   _toolActivityListeners.push(fn);
   return () => {
@@ -107,6 +111,7 @@ window.addEventListener('message', (event: MessageEvent) => {
   }
 });
 
+// Redux async thunk initializing message streaming and handling incoming content chunks.
 const streamResponseThunk = (payload: any): any => (dispatch: any, getState: any) => {
   const state = getState();
   const index = payload.index ?? state.session.history.length;
@@ -197,6 +202,7 @@ const StepsDiv = styled.div`
 
 export const MAIN_EDITOR_INPUT_ID = "main-editor-input";
 
+// Fallback error UI displayed if an error occurs within the chat step container.
 function fallbackRender({ error, resetErrorBoundary }: any) {
   // Call resetErrorBoundary() to reset the error boundary and retry the render.
 
@@ -217,6 +223,7 @@ function fallbackRender({ error, resetErrorBoundary }: any) {
   );
 }
 
+// Main chat component orchestrating tabs, message history, agent activity, and user prompt submission.
 export function Chat() {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
@@ -465,6 +472,7 @@ export function Chat() {
       if (message.role === "assistant") {
         return (
           <>
+            {/* AgentActivityPanel: Displays agent reasoning, actions, and background activity items */}
             <AgentActivityPanel
               activities={item.agentActivities || []}
               isStreaming={isStreaming && index === history.length - 1}
@@ -482,6 +490,7 @@ export function Chat() {
                 }
                 onToggle={() => {}}
               >
+                {/* StepContainer: Renders assistant markdown text, diff previews, and tool suggestions */}
                 <StepContainer
                   index={index}
                   isLast={index === history.length - 1}
@@ -491,6 +500,7 @@ export function Chat() {
               </TimelineItem>
             </div>
 
+            {/* ToolCallDiv: Visualizes function calls and parameter executions made by the LLM */}
             {toolCallStates && (
               <ToolCallDiv
                 toolCallStates={toolCallStates}
@@ -703,6 +713,7 @@ export function Chat() {
         </div>
       )}
       <div className={"relative shrink-0"}>
+        {/* KODRAInputBox: Rich TipTap input box accepting user text, @-mentions, context items, and slash commands */}
         <KODRAInputBox
           isMainInput
           isLastUserInput={false}

@@ -9,7 +9,7 @@
     "node": ">=22.0.0"
   },
   "main": "./dist/extension.js",
-  "icon": "media/icon.webp",
+  "icon": "media/icon.png",
   "license": "MIT",
   "repository": {
     "type": "git",

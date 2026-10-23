@@ -1,3 +1,4 @@
+// Time and duration formatting utilities for human-readable display.
 /**
  * Formats a duration in seconds into a human-readable string.
  *

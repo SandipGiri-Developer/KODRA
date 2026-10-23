@@ -1,9 +1,11 @@
+// Common platform detection, keyboard modifier resolution, font size calculation, and runtime environment utilities.
 type ProfileDescription = any;
 import { KeyboardEvent as ReactKeyboardEvent } from "react";
 import { getLocalStorage } from "./localStorage";
 
 export type Platform = "mac" | "linux" | "windows" | "unknown";
 
+// Determines the current operating system platform from the browser navigator.
 export function getPlatform(): Platform {
   const platform = window.navigator.platform.toUpperCase();
   if (platform.indexOf("MAC") >= 0) {
@@ -17,6 +19,7 @@ export function getPlatform(): Platform {
   }
 }
 
+// Checks whether the platform-appropriate primary modifier key (Command on Mac, Ctrl on Windows/Linux) was pressed.
 export function isMetaEquivalentKeyPressed({
   metaKey,
   ctrlKey,
@@ -33,10 +36,12 @@ export function isMetaEquivalentKeyPressed({
   }
 }
 
+// Returns the platform-specific visual label for the primary modifier key.
 export function getMetaKeyLabel(): string {
   return getPlatform() === "mac" ? "⌘" : "Ctrl";
 }
 
+// Returns the platform-specific visual label for the alternate modifier key.
 export function getAltKeyLabel(): string {
   const platform = getPlatform();
   switch (platform) {
@@ -47,20 +52,25 @@ export function getAltKeyLabel(): string {
   }
 }
 
+// Retrieves the configured or default base font size in pixels.
 export function getFontSize(): number {
   return getLocalStorage("fontSize") ?? (isJetBrains() ? 15 : 14);
 }
 
+// Computes a CSS pixel size string offset from the base font size.
 export function fontSize(n: number): string {
   return `${getFontSize() + n}px`;
 }
 
+// Checks whether the webview is hosted within a JetBrains IDE.
 export function isJetBrains() {
   return getLocalStorage("ide") === "jetbrains";
 }
 
+// Checks whether session sharing is supported in the current IDE environment.
 export const isShareSessionSupported = () => !isJetBrains();
 
+// Determines whether the application is running in a browser rather than an Electron wrapper.
 export function isWebEnvironment(): boolean {
   return (
     typeof window !== "undefined" &&
@@ -69,6 +79,7 @@ export function isWebEnvironment(): boolean {
   );
 }
 
+// Detects if the current extension release is a preview/prerelease build based on minor version parity.
 export function isPrerelease() {
   const extensionVersion = getLocalStorage("extensionVersion");
   if (!extensionVersion) {
@@ -84,6 +95,7 @@ export function isPrerelease() {
   return false;
 }
 
+// Verifies whether a given profile configuration is stored locally.
 export function isLocalProfile(_profile: ProfileDescription): boolean {
   return true;
 }

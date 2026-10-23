@@ -1,3 +1,4 @@
+// React boundary capturing unexpected render crashes and preventing blank webview screens.
 import { Component, ErrorInfo, ReactNode } from "react";
 
 interface Props {
@@ -10,6 +11,7 @@ interface State {
   errorInfo: ErrorInfo | null;
 }
 
+// Catches unhandled React render errors, displays diagnostics, and allows UI reload/reset.
 export class RootErrorBoundary extends Component<Props, State> {
   public state: State = {
     hasError: false,

@@ -1,3 +1,4 @@
+// Modal editor dialog for creating or editing terminal command approval rules.
 import React, { useState, useEffect } from "react";
 import {
   GlobeAltIcon,

@@ -1,3 +1,4 @@
+// Utility helper functions for tool call UI status formatting, icons, and context item mapping.
 import * as Icons from "@heroicons/react/24/outline";
 import {
   ContextItem,
@@ -60,6 +61,7 @@ type IconName = keyof typeof Icons;
 
 type Icon = ComponentType<SVGProps<SVGSVGElement>> | undefined;
 
+// Resolves a Heroicon component by its string icon name.
 export function getIconByName(name: string): Icon | null {
   if (name in Icons) {
     return Icons[name as IconName] as Icon;
@@ -67,6 +69,7 @@ export function getIconByName(name: string): Icon | null {
   return null;
 }
 
+// Returns the corresponding status icon or loading spinner for a tool status.
 export function getStatusIcon(state: ToolStatus) {
   switch (state) {
     case "generating":
@@ -82,6 +85,7 @@ export function getStatusIcon(state: ToolStatus) {
   }
 }
 
+// Converts tool call output context items into uniquely identified context items.
 export function toolCallStateToContextItems(
   toolCallState: ToolCallState | undefined,
 ): ContextItemWithId[] {
@@ -95,6 +99,7 @@ export function toolCallStateToContextItems(
   );
 }
 
+// Attaches tool call provider metadata and ID to a context item.
 export function toolCallCtxItemToCtxItemWithId(
   ctxItem: ContextItem,
   toolCallId: string,

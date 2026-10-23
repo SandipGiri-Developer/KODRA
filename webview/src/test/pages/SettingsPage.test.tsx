@@ -117,5 +117,20 @@ describe("SettingsPage", () => {
       expect(mockPostMessage).toHaveBeenCalledWith({ type: "policy/list" });
     });
   });
+
+  it("toggles sidebar collapsed state when hamburger button is clicked", () => {
+    renderPage();
+    const toggleBtn = screen.getByTitle("Collapse sidebar");
+    expect(toggleBtn).toBeDefined();
+
+    // Click to collapse
+    fireEvent.click(toggleBtn);
+    expect(screen.getByTitle("Expand sidebar")).toBeDefined();
+
+    // Click to expand again
+    fireEvent.click(screen.getByTitle("Expand sidebar"));
+    expect(screen.getByTitle("Collapse sidebar")).toBeDefined();
+    expect(screen.getByText("Settings")).toBeDefined();
+  });
 });
 

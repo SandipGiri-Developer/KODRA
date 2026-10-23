@@ -1,3 +1,4 @@
+// Terminal Approval Gate settings panel for configuring global and workspace command policies.
 import React, { useState, useEffect, useCallback } from "react";
 import {
   ShieldCheckIcon,

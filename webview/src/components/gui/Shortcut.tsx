@@ -1,3 +1,4 @@
+// Keyboard shortcut formatter rendering platform-aware modifier keys and badges.
 import React from "react";
 import "../../../src/index.css";
 import {
@@ -60,6 +61,7 @@ const capitalizeKey = (key: string) =>
 const isSingleCharNonModifier = (key: string) =>
   key && key.length === 1 && /^[a-zA-Z0-9]$/.test(key);
 
+// Renders localized keyboard key badges (<kbd>) matching Mac or Windows conventions.
 const Shortcut: React.FC<ShortcutProps> = ({ children }) => {
   const platform = getPlatform();
   if (!children || typeof children !== "string") {

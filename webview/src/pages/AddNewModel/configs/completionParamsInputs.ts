@@ -1,5 +1,7 @@
+// Configuration input descriptors for LLM completion parameters (e.g. temperature, topP, contextLength).
 import { InputDescriptor } from "./providers";
 
+// Input field descriptors for fine-tuning LLM generation hyperparameters.
 export const completionParamsInputs: Record<string, InputDescriptor> = {
   contextLength: {
     inputType: "number",

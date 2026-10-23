@@ -1,3 +1,4 @@
+// Container component rendering bookmarked conversation starter cards in empty chat sessions.
 import { SlashCommandDescWithSource } from "core";
 import { useState } from "react";
 import { useBookmarkedSlashCommands } from "../../hooks/useBookmarkedSlashCommands";
@@ -7,9 +8,7 @@ import { ConversationStarterCard } from "./ConversationStarterCard";
 
 const NUM_CARDS_TO_RENDER = 5;
 
-/**
- * Displays a grid of conversation starter cards for bookmarked slash commands
- */
+// Displays a grid of conversation starter cards for bookmarked slash commands.
 export function ConversationStarterCards() {
   const dispatch = useAppDispatch();
   const { mainEditor } = useMainEditor();

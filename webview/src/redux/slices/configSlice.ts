@@ -1,3 +1,4 @@
+// Redux slice for managing serialized configuration state, validation errors, and loading indicators.
 export type ConfigResult<T> = { config: T; errors?: any[] };
 export type ConfigValidationError = any;
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
@@ -44,10 +45,12 @@ export const INITIAL_CONFIG_SLICE: ConfigState = {
   loading: false,
 };
 
+// Slice managing user configuration state and selected models across roles.
 export const configSlice = createSlice({
   name: "config",
   initialState: INITIAL_CONFIG_SLICE,
   reducers: {
+    // Sets the loaded configuration result and records any validation errors.
     setConfigResult: (
       state,
       {
@@ -72,26 +75,31 @@ export const configSlice = createSlice({
       }
       state.loading = false;
     },
+    // Updates the current configuration object directly in the state.
     updateConfig: (
       state,
       { payload: config }: PayloadAction<BrowserSerializedKODRAConfig>,
     ) => {
       state.config = config;
     },
+    // Sets the loading state indicating whether configuration is being fetched.
     setConfigLoading: (state, { payload: loading }: PayloadAction<boolean>) => {
       state.loading = loading;
     },
   },
   selectors: {
+    // Selects the context length limit for the currently selected chat model.
     selectSelectedChatModelContextLength: (state): number => {
       return (
         state.config.selectedModelByRole.chat?.contextLength ||
         DEFAULT_CONTEXT_LENGTH
       );
     },
+    // Selects the currently selected model descriptor for the chat role.
     selectSelectedChatModel: (state) => {
       return state.config.selectedModelByRole.chat;
     },
+    // Selects the custom UI configuration object.
     selectUIConfig: (state) => {
       return state.config?.ui ?? null;
     },

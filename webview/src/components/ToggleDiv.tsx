@@ -1,3 +1,4 @@
+// Collapsible disclosure container with animated chevron and smooth expand/collapse transitions.
 import { ChevronDownIcon, ChevronRightIcon } from "@heroicons/react/24/outline";
 import { ComponentType, useState } from "react";
 import { vscBackground } from ".";
@@ -10,6 +11,7 @@ interface ToggleProps {
   defaultOpen?: boolean;
 }
 
+// Renders an expandable section with title, icon, and animated content drawer.
 function ToggleDiv({
   children,
   title,

@@ -1,3 +1,4 @@
+// Error boundary page component displaying route error details and recovery actions.
 import { ArrowPathIcon, FlagIcon } from "@heroicons/react/24/outline";
 
 import { useContext, useEffect, useState } from "react";
@@ -8,6 +9,7 @@ import { GithubIcon } from "../components/svg/GithubIcon";
 import { IdeMessengerContext } from "../context/IdeMessenger";
 import { newSession } from "../redux/slices/sessionSlice";
 
+// Page component displayed when an uncaught React Router error occurs.
 const ErrorPage: React.FC = () => {
   const error: any = useRouteError();
   console.error(error);
@@ -15,6 +17,7 @@ const ErrorPage: React.FC = () => {
   const navigate = useNavigate();
 
   const messenger = useContext(IdeMessengerContext);
+  // Opens an external URL via the IDE extension host.
   const openUrl = (url: string) => {
     if (messenger) {
       messenger.post("openUrl", url);

@@ -1,3 +1,4 @@
+// Individual policy row component displaying policy scope, rule pattern, and action buttons.
 import React from "react";
 import {
   GlobeAltIcon,

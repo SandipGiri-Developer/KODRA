@@ -1,3 +1,4 @@
+// Modal dialog component for user confirmation of destructive or irreversible actions.
 import React from "react";
 import { ExclamationTriangleIcon } from "@heroicons/react/24/outline";
 import { useAppDispatch } from "../../redux/hooks";
@@ -14,6 +15,7 @@ export interface ConfirmationDialogProps {
   isDestructive?: boolean;
 }
 
+// Modal dialog prompting user confirmation with custom action buttons and danger styling.
 export const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
   title,
   text,
