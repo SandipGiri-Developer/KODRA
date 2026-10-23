@@ -1,3 +1,4 @@
+// Color definitions, fallback mappings, and style injection utilities for VS Code theme synchronization.
 // All vscode variables https://gist.github.com/estruyf/ba49203e1a7d6868e9320a4ea480c27a
 // Examples for vscode https://github.com/githubocto/tailwind-vscode/blob/main/index.js
 
@@ -215,6 +216,7 @@ export const getRecursiveVar = (vars: string[], defaultColor: string) => {
   }, defaultColor);
 };
 
+// Generates a CSS var() expression with cascading fallbacks for the specified theme color key.
 export const varWithFallback = (colorName: keyof typeof THEME_COLORS) => {
   const themeVals = THEME_COLORS[colorName];
   if (!themeVals) {
@@ -223,6 +225,7 @@ export const varWithFallback = (colorName: keyof typeof THEME_COLORS) => {
   return getRecursiveVar(themeVals.vars, themeVals.default);
 };
 
+// Injects received theme color mappings into root document CSS properties and local storage.
 export const setDocumentStylesFromTheme = (
   theme: Record<string, string | undefined | null>,
 ) => {
@@ -265,6 +268,7 @@ export const setDocumentStylesFromTheme = (
   return missingColors;
 };
 
+// Applies cached theme colors from local storage to document CSS properties.
 export const setDocumentStylesFromLocalStorage = (checkCache: boolean) => {
   for (const [colorName, themeVals] of Object.entries(THEME_COLORS)) {
     for (const cssVar of themeVals.vars) {
@@ -279,6 +283,7 @@ export const setDocumentStylesFromLocalStorage = (checkCache: boolean) => {
   }
 };
 
+// Purges cached theme color entries from browser local storage.
 export const clearThemeLocalCache = () => {
   for (const colorName of Object.keys(THEME_COLORS)) {
     localStorage.removeItem(colorName);

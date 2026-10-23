@@ -1,3 +1,4 @@
+// SVG logo components for major AI model providers (Ollama, OpenAI, Anthropic, Gemini, Groq, DeepSeek, Nvidia).
 import React from "react";
 
 export interface IconProps extends React.SVGProps<SVGSVGElement> {
@@ -6,6 +7,7 @@ export interface IconProps extends React.SVGProps<SVGSVGElement> {
   style?: React.CSSProperties;
 }
 
+// Renders the Ollama provider brand SVG logo.
 export const Ollama: React.FC<IconProps> = ({
   size = 24,
   className = "",

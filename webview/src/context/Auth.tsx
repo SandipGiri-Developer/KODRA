@@ -1,3 +1,4 @@
+// Context provider and hook for managing authenticated profiles and configuration refresh actions.
 type ProfileDescription = any;
 import React, { createContext, useCallback, useContext } from "react";
 import { useAppDispatch, useAppSelector } from "../redux/hooks";
@@ -16,6 +17,7 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// Supplies active profile metadata and profile refresh capabilities down the React component tree.
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
@@ -26,6 +28,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const profiles = useAppSelector(selectProfiles);
   const selectedProfile = useAppSelector(selectSelectedProfile);
 
+  // Requests updated profile configurations from the IDE extension host.
   const refreshProfiles = useCallback(
     async (reason?: string) => {
       try {
@@ -57,6 +60,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   );
 };
 
+// Hook to consume the current profile authentication context.
 export const useAuth = (): AuthContextType => {
   const context = useContext(AuthContext);
   if (!context) {

@@ -1,3 +1,4 @@
+// History item row component with rename, share, delete, and session restore capabilities.
 const exitEdit = (a: any) => ({type: "dummy"}); const getUriPathBasename = (a: any) => a;
 import {
   ArrowDownOnSquareIcon,
@@ -26,6 +27,7 @@ import { ToolTip } from "../gui/Tooltip";
 
 const shareSessionSupported = isShareSessionSupported();
 
+// Renders an individual conversation history row with inline actions.
 export function HistoryTableRow({
   sessionMetadata,
   index,

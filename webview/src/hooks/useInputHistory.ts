@@ -1,8 +1,10 @@
+// Hook managing command/prompt input history traversal and persistence across sessions.
 import { JSONContent } from "@tiptap/react";
 import { useState } from "react";
 import { getLocalStorage, setLocalStorage } from "../util/localStorage";
 import useUpdatingRef from "./useUpdatingRef";
 
+// Constructs a blank TipTap JSON document structure.
 const emptyJsonContent = () => ({
   type: "doc",
   content: [{ type: "paragraph", content: [{ type: "text", text: "" }] }],
@@ -10,6 +12,7 @@ const emptyJsonContent = () => ({
 
 const MAX_HISTORY_LENGTH = 100;
 
+// Tracks sequential input history, allowing Up/Down navigation through previous prompt submissions.
 export function useInputHistory(historyKey: string) {
   const [inputHistory, setInputHistory] = useState<JSONContent[]>(
     getLocalStorage(`inputHistory_${historyKey}`)?.slice(-MAX_HISTORY_LENGTH) ??
@@ -19,6 +22,7 @@ export function useInputHistory(historyKey: string) {
     useState<JSONContent>(emptyJsonContent());
   const [currentIndex, setCurrentIndex] = useState(inputHistory.length);
 
+  // Navigates backwards to the previous submitted input entry in history.
   function prev(currentInput: JSONContent) {
     let index = currentIndex;
 
@@ -32,6 +36,7 @@ export function useInputHistory(historyKey: string) {
     }
   }
 
+  // Navigates forward toward newer submissions or restores the pending draft.
   function next() {
     let index = currentIndex;
     if (index >= 0 && index < inputHistory.length) {
@@ -43,6 +48,7 @@ export function useInputHistory(historyKey: string) {
     }
   }
 
+  // Appends a newly submitted input document to history and local storage.
   function add(inputValue: JSONContent) {
     setPendingInput(emptyJsonContent());
 

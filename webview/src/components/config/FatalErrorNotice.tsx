@@ -1,3 +1,4 @@
+// Error banner indicating fatal configuration or profile load failures.
 import { useContext, useMemo } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/Auth";
@@ -6,6 +7,7 @@ import { useAppSelector } from "../../redux/hooks";
 import { CONFIG_ROUTES } from "../../util/navigation";
 import Alert from "../gui/Alert";
 
+// Renders an alert when fatal config errors occur, offering reload and help actions.
 export const FatalErrorIndicator = () => {
   const { refreshProfiles } = useAuth();
   const configError = useAppSelector((store) => store.config.configError);

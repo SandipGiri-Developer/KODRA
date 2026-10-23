@@ -1,12 +1,20 @@
+// Placeholder view shown in new or empty chat sessions with shortcut hints and starter prompts.
 const OnboardingCard = () => <></>;
 import { ConversationStarterCards } from "../../components/ConversationStarters";
 import { getMetaKeyLabel } from "../../util";
-const kodraLogo = (window as any).vscLogoUrl || ((window as any).vscMediaUrl ? `${(window as any).vscMediaUrl}/icon.webp` : "");
+import kodraLogoSvg from "../../kodraLogo.svg";
+
+const kodraLogo =
+  (window as any).vscLogoUrl ||
+  kodraLogoSvg ||
+  ((window as any).vscMediaUrl ? `${(window as any).vscMediaUrl}/icon.svg` : "") ||
+  ((window as any).vscMediaUrl ? `${(window as any).vscMediaUrl}/kodraLogo.svg` : "");
 
 export interface EmptyChatBodyProps {
   showOnboardingCard?: boolean;
 }
 
+// Renders logo branding, quick-focus keyboard shortcuts, and conversation starter prompt cards.
 export function EmptyChatBody({ showOnboardingCard }: EmptyChatBodyProps) {
   if (showOnboardingCard) {
     return (
@@ -25,6 +33,15 @@ export function EmptyChatBody({ showOnboardingCard }: EmptyChatBodyProps) {
           <img
             src={kodraLogo}
             alt="KODRA Logo"
+            onError={(e) => {
+              const target = e.currentTarget;
+              const vscMedia = (window as any).vscMediaUrl;
+              if (vscMedia && !target.src.includes('media/icon.svg')) {
+                target.src = `${vscMedia}/icon.svg`;
+              } else if (kodraLogoSvg && target.src !== kodraLogoSvg) {
+                target.src = kodraLogoSvg;
+              }
+            }}
             className="w-20 h-20 max-w-[80px] max-h-[80px] object-contain mb-4 opacity-85 hover:opacity-100 transition-opacity duration-300 drop-shadow select-none"
           />
         )}

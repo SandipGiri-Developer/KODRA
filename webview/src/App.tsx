@@ -1,3 +1,4 @@
+// Main application component; configures memory routing, theme provider, rich text editor context, and background listeners.
 import { lazy, Suspense } from "react";
 import { RouterProvider, createMemoryRouter } from "react-router-dom";
 import Layout from "./components/Layout";
@@ -14,6 +15,7 @@ const History = lazy(() => import("./pages/history"));
 const Stats = lazy(() => import("./pages/stats"));
 const ThemePage = lazy(() => import("./styles/ThemePage"));
 
+// Fallback indicator displayed while lazy-loaded route views are being resolved.
 const RouteFallback = () => (
   <div style={{ padding: "16px", fontSize: "12px", opacity: 0.7 }}>Loading...</div>
 );
@@ -23,6 +25,7 @@ const initialRoute =
     ? (window as any).initialRoute
     : ROUTES.HOME;
 
+// Memory router defining route hierarchy between Chat, History, Settings, Stats, and Theme within Layout.
 const router = createMemoryRouter(
   [
     {
@@ -79,10 +82,8 @@ const router = createMemoryRouter(
   }
 );
 
-/*
-  ParallelListeners prevents entire app from rerendering on any change in the listeners,
-  most of which interact with redux etc.
-*/
+// Assembles the core application shell: VscThemeProvider manages theme CSS variables, MainEditorProvider shares editor state,
+// RouterProvider controls view routing within Layout, and ParallelListeners processes background extension IPC messages.
 function App() {
   return (
     <VscThemeProvider>

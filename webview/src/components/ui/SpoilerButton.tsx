@@ -1,7 +1,9 @@
+// Styled expandable spoiler button for revealing hidden or truncated content.
 import styled from "styled-components";
 import { defaultBorderRadius, lightGray, vscBackground } from "../index";
 import { getFontSize } from "../../util";
 
+// Styled container for click-to-reveal spoiler content blocks.
 export const SpoilerButton = styled.div`
   background-color: ${vscBackground};
   width: fit-content;

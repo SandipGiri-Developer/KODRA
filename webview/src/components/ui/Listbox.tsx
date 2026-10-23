@@ -1,3 +1,4 @@
+// Styled select/listbox component built on Headless UI primitives.
 import {
   ListboxButton as HLButton,
   ListboxOption as HLOption,
@@ -13,6 +14,7 @@ type ListboxButtonProps = React.ComponentProps<typeof HLButton> & {
   fontSizeModifier?: FontSizeModifier;
 };
 
+// Trigger button component for the listbox dropdown.
 const ListboxButton = React.forwardRef<HTMLButtonElement, ListboxButtonProps>(
   ({ fontSizeModifier = -3, ...props }, ref) => {
     const fontSize = useFontSize(fontSizeModifier);
@@ -37,6 +39,7 @@ const ListboxButton = React.forwardRef<HTMLButtonElement, ListboxButtonProps>(
 type ListboxOptionsProps = React.ComponentProps<typeof HLOptions> & {
   fontSizeModifier?: FontSizeModifier;
 };
+// Floating dropdown options menu container for the listbox.
 const ListboxOptions = React.forwardRef<HTMLUListElement, ListboxOptionsProps>(
   ({ fontSizeModifier = -3, ...props }, ref) => {
     const fontSize = useFontSize(fontSizeModifier);
@@ -64,6 +67,7 @@ const ListboxOptions = React.forwardRef<HTMLUListElement, ListboxOptionsProps>(
 type ListboxOptionProps = React.ComponentProps<typeof HLOption> & {
   fontSizeModifier?: FontSizeModifier;
 };
+// Individual selectable item in the listbox menu.
 const ListboxOption = React.forwardRef<HTMLLIElement, ListboxOptionProps>(
   ({ fontSizeModifier = -3, ...props }, ref) => {
     const fontSize = useFontSize(fontSizeModifier);

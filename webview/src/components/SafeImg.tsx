@@ -1,3 +1,4 @@
+// Image component with local storage caching and graceful fallback handling on load failure.
 import React, { useEffect, useState } from "react";
 
 interface SafeImg {
@@ -8,6 +9,7 @@ interface SafeImg {
   fallback: React.ReactNode;
 }
 
+// Renders an image with automatic caching and fallback render if loading fails.
 const SafeImg: React.FC<SafeImg> = ({
   src,
   height,

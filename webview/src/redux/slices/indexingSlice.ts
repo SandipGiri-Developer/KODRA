@@ -1,3 +1,4 @@
+// Redux slice tracking codebase and documentation indexing statuses and peek visibility.
 import { PayloadAction, createSlice } from "@reduxjs/toolkit";
 import { IndexingStatus } from "core";
 
@@ -17,10 +18,12 @@ export const INITIAL_INDEXING_STATE: IndexingState = {
   },
 };
 
+// Slice managing progress and visibility for background indexing jobs.
 export const indexingSlice = createSlice({
   name: "indexing",
   initialState: INITIAL_INDEXING_STATE,
   reducers: {
+    // Updates progress status for a specific indexing operation and resets peek visibility if needed.
     updateIndexingStatus: (
       state,
       { payload }: PayloadAction<IndexingStatus>,
@@ -43,6 +46,7 @@ export const indexingSlice = createSlice({
         };
       }
     },
+    // Sets whether the chat peek card for a specific indexer type is collapsed or hidden.
     setIndexingChatPeekHidden: (
       state,
       {

@@ -1,3 +1,4 @@
+// Banner notification component alerting users about deprecation or migration milestones.
 import { XMarkIcon } from "@heroicons/react/24/outline";
 import { useContext, useState } from "react";
 import { vscButtonBackground, vscButtonForeground } from ".";
@@ -13,6 +14,7 @@ interface DeprecationBannerProps {
   dismissable?: boolean;
 }
 
+// Displays a dismissable notice regarding configuration migration with relevant action links.
 export function DeprecationBanner({
   dismissable = true,
 }: DeprecationBannerProps) {

@@ -1,3 +1,4 @@
+// Route paths and configuration navigation URL helpers across webview pages.
 // Valid config tab names
 export type ConfigTab =
   | "models"
@@ -18,7 +19,7 @@ export const ROUTES = {
   // EXAMPLE_ROUTE_WITH_PARAMS: (params: ParamsType) => `/route/${params}`,
 };
 
-// Helper function to build config URLs with tabs
+// Builds a parameterized configuration URL for the specified settings subtab.
 export const buildConfigRoute = (tab?: ConfigTab): string => {
   return tab ? `${ROUTES.CONFIG}?tab=${tab}` : ROUTES.CONFIG;
 };

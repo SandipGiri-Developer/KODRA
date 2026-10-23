@@ -1,3 +1,4 @@
+// Icon wrapper component supporting interactive hover-to-chevron expand/collapse toggles.
 import { ChevronRightIcon } from "@heroicons/react/24/outline";
 import { ComponentType, useState } from "react";
 
@@ -10,6 +11,7 @@ interface ToggleWithIconProps {
   isClickable?: boolean;
 }
 
+// Displays a tool icon that dynamically transforms into a rotating chevron toggle on hover.
 export function ToggleWithIcon({
   icon: Icon,
   isToggleable = false,
@@ -21,12 +23,14 @@ export function ToggleWithIcon({
   const [isHovered, setIsHovered] = useState(false);
   const showChevron = isToggleable && (isHovered || open);
 
+  // Dispatches click callback if the icon is configured to be toggleable or clickable.
   function handleClick() {
     if ((isToggleable || isClickable) && onClick) {
       onClick();
     }
   }
 
+  // Renders either the directional chevron or default icon based on hover and open state.
   function renderIcon() {
     if (!Icon && !isToggleable) {
       return null;

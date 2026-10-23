@@ -1,7 +1,9 @@
+// SVG icon component for the Discord logo.
 interface DiscordIconProps extends React.SVGProps<SVGSVGElement> {
   size?: number;
 }
 
+// Renders the Discord brand SVG vector icon.
 export function DiscordIcon({
   size = 24,
   className,

@@ -1,3 +1,4 @@
+// Theme diagnostic and preview page for inspecting active CSS variables, fallbacks, and palette tokens.
 import {
   CheckCircleIcon,
   ExclamationCircleIcon,
@@ -16,6 +17,7 @@ import {
   varWithFallback,
 } from "./theme";
 
+// Renders a visual swatch row comparing active CSS variable color resolution against default values.
 const ThemeTailwindClassExample = ({
   colorName,
   varNames,
@@ -54,6 +56,7 @@ const ThemeTailwindClassExample = ({
   );
 };
 
+// Page view allowing developers to test and verify theme color resolutions across IDE environments.
 function ThemePage() {
   const navigate = useNavigate();
   const [listToggled, setListToggled] = useState(false);
@@ -63,6 +66,7 @@ function ThemePage() {
   }, []);
 
   const [missingVars, setMissingVars] = useState<string[]>([]);
+  // Queries current IDE color tokens or inspects computed CSS properties to identify missing variables.
   const refreshColors = () => {
     if (jetbrains) {
       // Jetbrains: get colors and check which ones are missing from theme

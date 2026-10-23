@@ -1,5 +1,7 @@
+// Date parsing and grouping utilities for organizing chat history records.
 import { BaseSessionMetadata } from "core";
 
+// Parses ISO date strings or millisecond timestamps into valid Date objects.
 export const parseDate = (date: string): Date => {
   let dateObj = new Date(date);
   if (isNaN(dateObj.getTime())) {

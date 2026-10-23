@@ -1,3 +1,4 @@
+// Redux Toolkit store configuration, reducer combination, safe storage fallback, and state persistence setup.
 import {
   combineReducers,
   configureStore,
@@ -140,6 +141,7 @@ const persistedReducer = persistReducer<ReturnType<typeof rootReducer>>(
   rootReducer,
 );
 
+// Configures and instantiates the Redux store with thunk middleware and persisted reducers.
 export function setupStore(options: { ideMessenger?: IIdeMessenger }) {
   const ideMessenger = options.ideMessenger ?? new IdeMessenger();
 

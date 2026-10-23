@@ -1,3 +1,4 @@
+// Collapsible agent execution activity panel tracking tool calls and thinking timeline.
 /**
  * AgentActivityPanel — "Worked for Xs" collapsible activity section.
  *

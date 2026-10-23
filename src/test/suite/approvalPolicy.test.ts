@@ -236,4 +236,43 @@ describe('ApprovalPolicyService (AC6, AC7, AC9, AC12)', () => {
       })
     ).rejects.toThrow(/compound/i);
   });
+
+  it('supports migrating policy scope between global and workspace', async () => {
+    const wsId = 'workspace-gamma';
+    const globalPolicy = await service.createPolicy({
+      scope: 'global',
+      commandPattern: 'eslint .',
+      ruleType: 'exact',
+      decision: 'allow',
+    });
+
+    expect(globalPolicy.scope).toBe('global');
+
+    // Migrate from global to workspace
+    const migratedToWs = await service.updatePolicy(globalPolicy.id, {
+      scope: 'workspace',
+      workspaceId: wsId,
+    });
+    expect(migratedToWs.scope).toBe('workspace');
+    expect(migratedToWs.workspaceId).toBe(wsId);
+
+    // Verify it is no longer in global list
+    const globals = await service.listPolicies({ scope: 'global' });
+    expect(globals.find((p) => p.id === globalPolicy.id)).toBeUndefined();
+
+    // Verify it is in workspace list
+    const wsList = await service.listPolicies({ scope: 'workspace', workspaceId: wsId });
+    expect(wsList.find((p) => p.id === globalPolicy.id)).toBeDefined();
+
+    // Migrate back from workspace to global
+    const migratedBackToGlobal = await service.updatePolicy(globalPolicy.id, {
+      scope: 'global',
+    });
+    expect(migratedBackToGlobal.scope).toBe('global');
+    expect(migratedBackToGlobal.workspaceId).toBeUndefined();
+
+    const globalsAfter = await service.listPolicies({ scope: 'global' });
+    expect(globalsAfter.find((p) => p.id === globalPolicy.id)).toBeDefined();
+  });
 });
+

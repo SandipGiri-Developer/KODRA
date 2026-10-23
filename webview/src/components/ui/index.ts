@@ -1,3 +1,4 @@
+// Barrel export for foundational UI components and hooks.
 export { Button } from "./Button";
 export { Card } from "./Card";
 export { Divider } from "./Divider";

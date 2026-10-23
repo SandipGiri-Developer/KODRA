@@ -1,7 +1,9 @@
+// SVG icon component for the GitHub logo.
 interface GithubIconProps extends React.SVGProps<SVGSVGElement> {
   size?: number;
 }
 
+// Renders the GitHub brand SVG vector icon.
 export function GithubIcon({
   size = 24,
   className,

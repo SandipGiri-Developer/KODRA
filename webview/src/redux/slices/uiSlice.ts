@@ -1,3 +1,4 @@
+// Redux slice managing UI modals, tool permissions, rule toggles, and view preferences.
 type OnboardingStatus = any;
 export type ToolPolicy = "allowedWithPermission" | "allowedWithoutPermission" | "disabled";
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
@@ -50,36 +51,42 @@ export const DEFAULT_UI_SLICE: UIState = {
   reasoningSettings: {},
 };
 
+// Slice governing general UI flags, dialog presentations, and tool/rule policies.
 export const uiSlice = createSlice({
   name: "ui",
   initialState: DEFAULT_UI_SLICE,
   reducers: {
+    // Updates onboarding card completion or display properties.
     setOnboardingCard: (
       state,
       action: PayloadAction<Partial<OnboardingCardState>>,
     ) => {
       state.onboardingCard = { ...state.onboardingCard, ...action.payload };
     },
+    // Sets the React component or element displayed within the main modal dialog.
     setDialogMessage: (
       state,
       action: PayloadAction<UIState["dialogMessage"]>,
     ) => {
       state.dialogMessage = action.payload;
     },
+    // Controls open/closed visibility state for the main modal dialog.
     setShowDialog: (state, action: PayloadAction<UIState["showDialog"]>) => {
       state.showDialog = action.payload;
     },
+    // Sets whether the explore features popup dialog is displayed.
     setIsExploreDialogOpen: (
       state,
       action: PayloadAction<UIState[LocalStorageKey.IsExploreDialogOpen]>,
     ) => {
       state.isExploreDialogOpen = action.payload;
     },
-    // Tools
+    // Registers a tool in state with its default permission policy.
     addTool: (state, action: PayloadAction<Tool>) => {
       state.toolSettings[action.payload.function.name] =
         action.payload.defaultToolPolicy ?? DEFAULT_TOOL_SETTING;
     },
+    // Assigns an explicit permission policy to a designated tool.
     setToolPolicy: (
       state,
       action: PayloadAction<{
@@ -89,9 +96,11 @@ export const uiSlice = createSlice({
     ) => {
       state.toolSettings[action.payload.toolName] = action.payload.policy;
     },
+    // Removes any customized policy entry for a given tool name.
     clearToolPolicy: (state, action: PayloadAction<string>) => {
       delete state.toolSettings[action.payload];
     },
+    // Cycles a tool permission setting between allowed-with-permission, allowed-without-permission, and disabled.
     toggleToolSetting: (state, action: PayloadAction<string>) => {
       const setting = state.toolSettings[action.payload];
 
@@ -110,6 +119,7 @@ export const uiSlice = createSlice({
           break;
       }
     },
+    // Toggles whether a designated tool group is included or excluded.
     toggleToolGroupSetting: (state, action: PayloadAction<string>) => {
       const setting = state.toolGroupSettings[action.payload] ?? "include";
 
@@ -119,10 +129,11 @@ export const uiSlice = createSlice({
         state.toolGroupSettings[action.payload] = "include";
       }
     },
-    // Rules
+    // Registers a rule setting in the UI state with default enabled status.
     addRule: (state, action: PayloadAction<RuleWithSource>) => {
       state.ruleSettings[action.payload.name!] = DEFAULT_RULE_SETTING;
     },
+    // Toggles an individual rule policy on or off.
     toggleRuleSetting: (state, action: PayloadAction<string>) => {
       const setting = state.ruleSettings[action.payload];
 
@@ -138,9 +149,11 @@ export const uiSlice = createSlice({
           break;
       }
     },
+    // Sets whether text-to-speech audio playback is active.
     setTTSActive: (state, { payload }: PayloadAction<boolean>) => {
       state.ttsActive = payload;
     },
+    // Configures reasoning token visualization preference for a specified model.
     setReasoningSetting: (
       state,
       action: PayloadAction<{ modelTitle: string; enabled: boolean }>,

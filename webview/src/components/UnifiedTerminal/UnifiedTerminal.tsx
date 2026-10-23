@@ -1,3 +1,4 @@
+// Terminal output viewer rendering command execution, ANSI colors, and output collapsing.
 import { ChevronDownIcon } from "@heroicons/react/24/outline";
 import Anser, { AnserJsonEntry } from "anser";
 import { ToolCallState } from "core";

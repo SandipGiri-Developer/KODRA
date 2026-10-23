@@ -1,3 +1,4 @@
+// Component rendering readable tense-aware description messages for tool call states.
 import { Tool, ToolCallState } from "core";
 import Mustache from "mustache";
 import { getStatusIntro } from "./utils";
@@ -7,6 +8,7 @@ interface ToolCallStatusMessageProps {
   toolCallState: ToolCallState;
 }
 
+// Renders natural language status sentences describing tool actions before, during, and after execution.
 export function ToolCallStatusMessage({
   tool,
   toolCallState,

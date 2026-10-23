@@ -1,3 +1,4 @@
+// Collapsible toggle section component with header, title, and chevron indicator.
 import { ChevronRightIcon } from "@heroicons/react/24/outline";
 
 interface ToggleProps {
@@ -8,6 +9,7 @@ interface ToggleProps {
   children: React.ReactNode;
 }
 
+// Collapsible disclosure panel with header title and animated chevron.
 export function Toggle({
   isOpen,
   onToggle,

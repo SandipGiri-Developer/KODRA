@@ -1,6 +1,5 @@
-/**
- * Custom spinner since HeroIcons doesn't have a good one
- */
+// Animated SVG spinner icon indicating loading or background operation status.
+// Custom spinner component for loading and waiting states.
 export default function Spinner() {
   return (
     <svg

@@ -1,3 +1,4 @@
+// Redux slice managing multi-tab chat navigation and associating tabs with chat sessions.
 import { PayloadAction, createSlice } from "@reduxjs/toolkit";
 
 export interface Tab {
@@ -21,13 +22,16 @@ export const INITIAL_TABS_STATE: TabsState = {
   ],
 };
 
+// Slice tracking open tabs, active tab focus, and corresponding session associations.
 export const tabsSlice = createSlice({
   name: "tabs",
   initialState: INITIAL_TABS_STATE,
   reducers: {
+    // Replaces the entire list of tabs in state.
     setTabs: (state, action: PayloadAction<Tab[]>) => {
       state.tabs = action.payload;
     },
+    // Updates partial attributes of a designated tab.
     updateTab: (
       state,
       action: PayloadAction<{ id: string; updates: Partial<Tab> }>,
@@ -37,6 +41,7 @@ export const tabsSlice = createSlice({
         tab.id === id ? { ...tab, ...updates } : tab,
       );
     },
+    // Adds a new tab to the tab list and handles focus.
     addTab: (state, action: PayloadAction<Tab>) => {
       state.tabs = state.tabs
         .map((tab) => ({
@@ -45,15 +50,18 @@ export const tabsSlice = createSlice({
         }))
         .concat(action.payload);
     },
+    // Closes and removes a tab by its ID.
     removeTab: (state, action: PayloadAction<string>) => {
       state.tabs = state.tabs.filter((tab) => tab.id !== action.payload);
     },
+    // Activates the tab with the specified ID while deactivating all other tabs.
     setActiveTab: (state, action: PayloadAction<string>) => {
       state.tabs = state.tabs.map((tab) => ({
         ...tab,
         isActive: tab.id === action.payload,
       }));
     },
+    // Synchronizes active tab identity and title when switching or loading chat sessions.
     handleSessionChange: (
       state,
       action: PayloadAction<{
