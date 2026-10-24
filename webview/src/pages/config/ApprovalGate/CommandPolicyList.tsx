@@ -4,6 +4,7 @@ import {
   MagnifyingGlassIcon,
   ShieldCheckIcon,
   PlusIcon,
+  XMarkIcon,
 } from "@heroicons/react/24/outline";
 import { ApprovalPolicy } from "./types";
 import { CommandPolicyRow } from "./CommandPolicyRow";
@@ -94,90 +95,173 @@ export function CommandPolicyList({
     );
   }
 
+  const searchInputClass = `
+  h-10 w-full rounded-lg border border-white/[0.08] bg-[#0A0D13]
+  pl-9 pr-9 text-[13px] text-[#F1F5F9] outline-none
+  placeholder:text-[#5E6A7E] transition-colors duration-150
+  hover:border-white/[0.16]
+  focus:border-[#2F48A1] focus:ring-2 focus:ring-[#2F48A1]/30
+`;
+
+  const filterBase = `
+  inline-flex h-8 flex-1 items-center justify-center gap-1.5 whitespace-nowrap
+  rounded-md border-0 px-3 text-[12px] font-medium
+  transition-all duration-150
+  focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2F48A1]/60
+  sm:flex-none
+`;
+
   return (
     <div className="flex flex-col gap-4">
       {/* Search Bar & Filter Tabs */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
         {/* Search Input */}
-        <div className="relative min-w-0 flex-1 max-w-[360px]">
-          <MagnifyingGlassIcon className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-[#64748B]" />
+        <div className="relative min-w-0 flex-1 sm:max-w-[360px]">
+          <MagnifyingGlassIcon
+            className="
+          pointer-events-none absolute left-3 top-1/2
+          h-4 w-4 -translate-y-1/2 text-[#5E6A7E]
+        "
+          />
           <input
             type="text"
             data-testid="search-policies-input"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search policies..."
-            className="
-              w-full rounded-lg border border-[#1E2333] bg-[#0A0C10] py-2 pr-3 pl-9
-              text-[12px] text-[#E5EAF1] placeholder-[#556075] transition-colors
-              focus:border-[#6366F1] focus:outline-none focus:ring-1 focus:ring-[#6366F1]
-            "
+            aria-label="Search policies"
+            className={searchInputClass}
           />
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={() => setSearchQuery("")}
+              aria-label="Clear search"
+              className="
+            absolute right-1.5 top-1/2 flex h-7 w-7 -translate-y-1/2
+            items-center justify-center rounded-md border-0
+            bg-transparent text-[#6B778C] transition-colors duration-150
+            hover:bg-white/[0.06] hover:text-[#F1F5F9]
+            focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2F48A1]/60
+          "
+            >
+              <XMarkIcon className="h-4 w-4" />
+            </button>
+          )}
         </div>
 
-        {/* Filter Pills */}
-        <div className="flex items-center gap-1 rounded-lg border border-[#1E2333] bg-[#0A0C10] p-1 self-start sm:self-auto">
+        {/* Filter Segmented Control */}
+        <div
+          role="group"
+          aria-label="Filter policies by scope"
+          className="
+        flex w-full items-center gap-1 rounded-lg
+        border border-white/[0.08] bg-[#0A0D13] p-1
+        sm:w-auto
+      "
+        >
           <button
             type="button"
             onClick={() => setScopeFilter("all")}
             data-testid="filter-all-btn"
+            aria-pressed={scopeFilter === "all"}
             className={`
-              rounded-md px-2.5 py-1 text-[11px] font-medium transition-colors
-              ${
-                scopeFilter === "all"
-                  ? "bg-[#1E2536] text-[#F1F5F9]"
-                  : "text-[#7A889B] hover:text-[#C7D0DD]"
+          ${filterBase}
+          ${scopeFilter === "all"
+                ? "bg-white/[0.09] text-[#F1F5F9] shadow-sm"
+                : "bg-transparent text-[#8B96A9] hover:bg-white/[0.04] hover:text-[#E2E8F0]"
               }
-            `}
+        `}
           >
-            All ({policies.length})
+            All
+            <span className="tabular-nums text-[11px] opacity-70">
+              {policies.length}
+            </span>
           </button>
+
           <button
             type="button"
             onClick={() => setScopeFilter("global")}
             data-testid="filter-global-btn"
+            aria-pressed={scopeFilter === "global"}
             className={`
-              rounded-md px-2.5 py-1 text-[11px] font-medium transition-colors
-              ${
-                scopeFilter === "global"
-                  ? "bg-[#1E2536] text-[#818CF8]"
-                  : "text-[#7A889B] hover:text-[#C7D0DD]"
+          ${filterBase}
+          ${scopeFilter === "global"
+                ? "bg-[#2F48A1]/25 text-[#B4C2F5] shadow-[inset_0_0_0_1px_rgba(47,72,161,0.45)]"
+                : "bg-transparent text-[#8B96A9] hover:bg-white/[0.04] hover:text-[#E2E8F0]"
               }
-            `}
+        `}
           >
-            Global ({globalCount})
+            Global
+            <span className="tabular-nums text-[11px] opacity-70">
+              {globalCount}
+            </span>
           </button>
+
           <button
             type="button"
             onClick={() => setScopeFilter("workspace")}
             data-testid="filter-workspace-btn"
+            aria-pressed={scopeFilter === "workspace"}
             className={`
-              rounded-md px-2.5 py-1 text-[11px] font-medium transition-colors
-              ${
-                scopeFilter === "workspace"
-                  ? "bg-[#1E2536] text-[#34D399]"
-                  : "text-[#7A889B] hover:text-[#C7D0DD]"
+          ${filterBase}
+          ${scopeFilter === "workspace"
+                ? "bg-emerald-500/15 text-emerald-300 shadow-[inset_0_0_0_1px_rgba(16,185,129,0.35)]"
+                : "bg-transparent text-[#8B96A9] hover:bg-white/[0.04] hover:text-[#E2E8F0]"
               }
-            `}
+        `}
           >
-            Workspace ({workspaceCount})
+            Workspace
+            <span className="tabular-nums text-[11px] opacity-70">
+              {workspaceCount}
+            </span>
           </button>
         </div>
       </div>
 
       {/* Filtered Results */}
       {filteredPolicies.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-xl border border-[#1E2333] bg-[#0A0C10] px-4 py-10 text-center">
-          <p className="text-[12px] text-[#7A889B] m-0">
-            No policies match your search or filter.
+        <div
+          className="
+        flex flex-col items-center justify-center rounded-xl
+        border border-dashed border-white/[0.1]
+        bg-gradient-to-b from-white/[0.03] to-transparent
+        px-6 py-10 text-center
+      "
+        >
+          <div
+            className="
+          mb-3 flex h-10 w-10 items-center justify-center rounded-xl
+          bg-[#2F48A1]/15 text-[#7C93E8]
+          ring-1 ring-inset ring-[#2F48A1]/30
+          shadow-[0_0_20px_-6px_rgba(47,72,161,0.6)]
+        "
+          >
+            <MagnifyingGlassIcon className="h-5 w-5" />
+          </div>
+
+          <p className="m-0 text-[14px] font-semibold leading-5 text-[#F1F5F9]">
+            No policies found
           </p>
+          <p className="m-0 mt-1 max-w-[320px] text-[12.5px] leading-5 text-[#8B96A9]">
+            Nothing matches your search or filter. Try different keywords or reset
+            the filters.
+          </p>
+
           <button
             type="button"
             onClick={() => {
               setSearchQuery("");
               setScopeFilter("all");
             }}
-            className="mt-2 text-[11px] font-medium text-[#818CF8] hover:underline focus:outline-none"
+            className="
+          mt-4 inline-flex h-8 items-center justify-center rounded-lg
+          border border-white/[0.1] bg-transparent px-3.5
+          text-[12px] font-medium text-[#B8C2D4]
+          transition-colors duration-150
+          hover:bg-white/[0.06] hover:text-[#F1F5F9]
+          focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2F48A1]/60
+        "
           >
             Reset filters
           </button>

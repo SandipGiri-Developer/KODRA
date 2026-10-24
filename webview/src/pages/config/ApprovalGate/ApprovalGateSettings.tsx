@@ -124,13 +124,13 @@ export function ApprovalGateSettings() {
             prev.map((p) =>
               p.id === formData.id
                 ? {
-                    ...p,
-                    commandPattern: formData.commandPattern,
-                    scope: formData.scope,
-                    ruleType: formData.ruleType,
-                    description: formData.description,
-                    updatedAt: new Date().toISOString(),
-                  }
+                  ...p,
+                  commandPattern: formData.commandPattern,
+                  scope: formData.scope,
+                  ruleType: formData.ruleType,
+                  description: formData.description,
+                  updatedAt: new Date().toISOString(),
+                }
                 : p
             )
           );
@@ -204,37 +204,62 @@ export function ApprovalGateSettings() {
       {notice && (
         <div
           role="status"
+          aria-live="polite"
           className={`
-            flex items-center gap-2 rounded-lg border p-3 text-[12px] leading-5 transition-all
-            ${
-              notice.type === "success"
-                ? "border-[#10B981]/30 bg-[#10B981]/10 text-[#6EE7B7]"
-                : "border-[#EF4444]/30 bg-[#EF4444]/10 text-[#FCA5A5]"
+        flex items-start gap-2.5 rounded-lg border px-3.5 py-3
+        text-[12.5px] leading-5 transition-all duration-200
+        ${notice.type === "success"
+              ? "border-emerald-500/25 bg-emerald-500/[0.08] text-emerald-300"
+              : "border-red-500/25 bg-red-500/[0.07] text-red-300"
             }
-          `}
+      `}
         >
           {notice.type === "success" ? (
-            <CheckCircleIcon className="h-4 w-4 flex-shrink-0 text-[#10B981]" />
+            <CheckCircleIcon className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" />
           ) : (
-            <XCircleIcon className="h-4 w-4 flex-shrink-0 text-[#EF4444]" />
+            <XCircleIcon className="mt-0.5 h-4 w-4 shrink-0 text-red-400" />
           )}
-          <span>{notice.message}</span>
+          <span className="min-w-0 break-words">{notice.message}</span>
         </div>
       )}
 
       {/* Overview & Security Info Card */}
-      <section className="rounded-xl border border-[#1E2333] bg-[#0E1118] p-5 shadow-sm">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-start gap-3.5">
-            <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl border border-[#2B354C] bg-[#161B27] shadow-sm">
-              <ShieldCheckIcon className="h-5 w-5 text-[#818CF8]" />
+      <section
+        className="
+      relative overflow-hidden rounded-2xl
+      border border-white/[0.06] bg-white/[0.02]
+      p-4 sm:p-6
+    "
+      >
+        {/* Soft glow */}
+        <div
+          aria-hidden="true"
+          className="
+        pointer-events-none absolute -left-10 -top-16 h-40 w-64
+        rounded-full bg-[#2F48A1]/15 blur-3xl
+      "
+        />
+
+        <div className="relative flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+          <div className="flex min-w-0 items-start gap-3.5">
+            <div
+              className="
+            flex h-10 w-10 shrink-0 items-center justify-center rounded-xl
+            bg-[#2F48A1]/15 text-[#7C93E8]
+            ring-1 ring-inset ring-[#2F48A1]/30
+            shadow-[0_0_20px_-6px_rgba(47,72,161,0.6)]
+          "
+            >
+              <ShieldCheckIcon className="h-5 w-5" />
             </div>
-            <div>
-              <h2 className="text-[15px] font-semibold text-[#F1F5F9] m-0">
+
+            <div className="min-w-0">
+              <h2 className="m-0 text-[15px] font-semibold leading-6 tracking-[-0.01em] text-[#F1F5F9]">
                 Command Execution Security Gate
               </h2>
-              <p className="mt-1 text-[12px] leading-relaxed text-[#7C899E] m-0 max-w-[620px]">
-                Commands in Agent mode require manual confirmation unless matched by an allowed policy. Manage pre-approved commands below.
+              <p className="m-0 mt-0.5 max-w-[620px] text-[12.5px] leading-5 text-[#8B96A9]">
+                Commands in Agent mode require manual confirmation unless matched by
+                an allowed policy. Manage pre-approved commands below.
               </p>
             </div>
           </div>
@@ -247,40 +272,82 @@ export function ApprovalGateSettings() {
             }}
             data-testid="add-policy-btn"
             className="
-              inline-flex min-h-[38px] items-center gap-2 rounded-lg border
-              border-[#6366F1] bg-[#4F46E5] px-4 text-[12px] font-medium text-white
-              shadow-sm transition-all hover:border-[#4F46E5] hover:bg-[#4338CA]
-              focus:outline-none focus:ring-2 focus:ring-[#6366F1]/40 flex-shrink-0
-            "
+          group inline-flex h-9 w-full shrink-0 items-center justify-center
+          gap-2 rounded-lg border-0 bg-[#2F48A1] px-4
+          text-[12.5px] font-medium text-white
+          shadow-md shadow-[#2F48A1]/30
+          transition-all duration-200
+          hover:-translate-y-px hover:bg-[#3A57C2]
+          active:translate-y-0 active:scale-[0.98]
+          focus:outline-none
+          focus-visible:ring-2 focus-visible:ring-[#2F48A1]/60
+          focus-visible:ring-offset-2 focus-visible:ring-offset-[#0D1017]
+          sm:w-auto
+        "
           >
-            <PlusIcon className="h-4 w-4" />
+            <PlusIcon className="h-4 w-4 transition-transform duration-200 group-hover:rotate-90" />
             Add Command Policy
           </button>
         </div>
 
-        {/* Scope Explanation Pills */}
-        <div className="mt-4 pt-4 border-t border-[#181D2A] grid grid-cols-1 sm:grid-cols-2 gap-3 text-[11.5px]">
-          <div className="flex items-center gap-2 text-[#8D99AE]">
-            <GlobeAltIcon className="h-4 w-4 flex-shrink-0 text-[#818CF8]" />
-            <span>
-              <strong className="text-[#C5D0E0]">Global Allowance:</strong> Pre-approves execution across all workspaces on this system.
-            </span>
+        {/* Scope Explanation */}
+        <div className="relative mt-5 grid grid-cols-1 gap-3 border-t border-white/[0.06] pt-5 sm:grid-cols-2">
+          <div className="flex items-start gap-3 rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
+            <div
+              className="
+            flex h-7 w-7 shrink-0 items-center justify-center rounded-lg
+            bg-[#2F48A1]/15 text-[#7C93E8]
+            ring-1 ring-inset ring-[#2F48A1]/30
+          "
+            >
+              <GlobeAltIcon className="h-4 w-4" />
+            </div>
+            <p className="m-0 text-[12px] leading-5 text-[#8B96A9]">
+              <strong className="font-semibold text-[#E2E8F0]">
+                Global Allowance
+              </strong>
+              <br />
+              Pre-approves execution across all workspaces on this system.
+            </p>
           </div>
-          <div className="flex items-center gap-2 text-[#8D99AE]">
-            <FolderIcon className="h-4 w-4 flex-shrink-0 text-[#34D399]" />
-            <span>
-              <strong className="text-[#C5D0E0]">Workspace Allowance:</strong> Pre-approves execution only within the current workspace directory.
-            </span>
+
+          <div className="flex items-start gap-3 rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
+            <div
+              className="
+            flex h-7 w-7 shrink-0 items-center justify-center rounded-lg
+            bg-emerald-500/10 text-emerald-400
+            ring-1 ring-inset ring-emerald-500/20
+          "
+            >
+              <FolderIcon className="h-4 w-4" />
+            </div>
+            <p className="m-0 text-[12px] leading-5 text-[#8B96A9]">
+              <strong className="font-semibold text-[#E2E8F0]">
+                Workspace Allowance
+              </strong>
+              <br />
+              Pre-approves execution only within the current workspace directory.
+            </p>
           </div>
         </div>
       </section>
 
       {/* Policies List Section */}
       <section className="flex flex-col gap-3">
-        <div className="flex items-center justify-between">
-          <h2 className="text-[14px] font-semibold text-[#E2E8F0] m-0">
-            Configured Policies ({policies.length})
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="m-0 text-[16px] font-semibold leading-6 tracking-[-0.01em] text-[#F1F5F9]">
+            Configured Policies
           </h2>
+
+          <span
+            className="
+          shrink-0 rounded-full bg-white/[0.05] px-2.5 py-1
+          text-[11px] font-medium tabular-nums text-[#8B96A9]
+          ring-1 ring-inset ring-white/[0.06]
+        "
+          >
+            {policies.length} {policies.length === 1 ? "policy" : "policies"}
+          </span>
         </div>
 
         <CommandPolicyList

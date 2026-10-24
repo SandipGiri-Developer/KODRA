@@ -1,10 +1,12 @@
 // Modal editor dialog for creating or editing terminal command approval rules.
 import React, { useState, useEffect } from "react";
 import {
-  GlobeAltIcon,
-  FolderIcon,
-  XMarkIcon,
+  CheckCircleIcon,
   ExclamationCircleIcon,
+  FolderIcon,
+  GlobeAltIcon,
+  ShieldCheckIcon,
+  XMarkIcon,
 } from "@heroicons/react/24/outline";
 import { ApprovalPolicy, PolicyScope } from "./types";
 
@@ -160,40 +162,86 @@ export function CommandPolicyEditor({
     });
   };
 
+  const labelClass =
+    "mb-1.5 block p-0 text-[11px] font-semibold uppercase tracking-[0.06em] text-[#8B96A9]";
+
+  const inputClass = `
+  box-border h-10 w-full min-w-0 rounded-lg border border-white/[0.08] bg-[#0A0D13] px-3
+  text-[13px] text-[#F1F5F9] outline-none placeholder:text-[#5E6A7E]
+  transition-colors duration-150
+  hover:border-white/[0.16]
+  focus:border-[#2F48A1] focus:ring-2 focus:ring-[#2F48A1]/30
+  disabled:cursor-not-allowed disabled:opacity-50
+`;
+
   return (
     <div
       role="dialog"
       aria-modal="true"
       aria-labelledby="policy-editor-title"
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm"
+      className="
+        fixed inset-0 z-50 flex items-end justify-center
+        bg-black/70 p-0 backdrop-blur-sm
+        sm:items-center sm:p-4
+      "
     >
       <div
         className="
-          relative w-full max-w-[540px] rounded-xl border border-[#262D3E]
-          bg-[#0E1118] p-6 shadow-2xl transition-all
+          relative flex max-h-[92vh] w-full max-w-[560px] flex-col
+          overflow-hidden rounded-t-2xl border border-white/[0.08] bg-[#0D1017]
+          shadow-[0_24px_64px_rgba(0,0,0,0.6)]
+          [&_*]:box-border
+          sm:rounded-2xl
         "
       >
+        {/* Soft glow */}
+        <div
+          aria-hidden="true"
+          className="
+            pointer-events-none absolute -left-10 -top-20 h-40 w-64
+            rounded-full bg-[#2F48A1]/20 blur-3xl
+          "
+        />
+
         {/* Header */}
-        <div className="flex items-center justify-between pb-4 border-b border-[#1E2333]">
-          <div>
-            <h3
-              id="policy-editor-title"
-              className="text-[17px] font-semibold text-[#F1F5F9] m-0"
+        <div className="relative flex shrink-0 items-start justify-between gap-4 border-b border-white/[0.06] p-5 sm:px-6">
+          <div className="flex min-w-0 items-start gap-3.5">
+            <div
+              className="
+                flex h-10 w-10 shrink-0 items-center justify-center rounded-xl
+                bg-[#2F48A1]/15 text-[#7C93E8]
+                ring-1 ring-inset ring-[#2F48A1]/30
+                shadow-[0_0_20px_-6px_rgba(47,72,161,0.6)]
+              "
             >
-              {isEditing ? "Edit Command Policy" : "Add Command Policy"}
-            </h3>
-            <p className="mt-1 text-[12px] text-[#7A889B] m-0">
-              Configure pre-approved terminal execution allowance.
-            </p>
+              <ShieldCheckIcon className="h-5 w-5" />
+            </div>
+
+            <div className="min-w-0">
+              <h3
+                id="policy-editor-title"
+                className="m-0 text-[16px] font-semibold leading-6 tracking-[-0.015em] text-[#F1F5F9]"
+              >
+                {isEditing ? "Edit Command Policy" : "Add Command Policy"}
+              </h3>
+              <p className="m-0 mt-0.5 text-[12.5px] leading-5 text-[#8B96A9]">
+                Configure pre-approved terminal execution allowance.
+              </p>
+            </div>
           </div>
+
           <button
             type="button"
             onClick={onClose}
             disabled={isSaving}
             aria-label="Close dialog"
             className="
-              rounded-md p-1.5 text-[#64748B] transition-colors
-              hover:bg-[#1E2333] hover:text-[#E2E8F0] focus:outline-none focus:ring-1 focus:ring-[#6366F1]
+              flex h-8 w-8 shrink-0 items-center justify-center rounded-lg
+              border-0 bg-transparent text-[#8B96A9]
+              transition-colors duration-150
+              hover:bg-white/[0.06] hover:text-[#F1F5F9]
+              focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2F48A1]/60
+              disabled:cursor-not-allowed disabled:opacity-50
             "
           >
             <XMarkIcon className="h-5 w-5" />
@@ -201,199 +249,240 @@ export function CommandPolicyEditor({
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="mt-5 space-y-5">
-          {/* Validation Error Alert */}
-          {error && (
-            <div
-              role="alert"
-              className="flex items-start gap-2.5 rounded-lg border border-[#EF4444]/30 bg-[#EF4444]/10 p-3 text-[12px] text-[#FCA5A5]"
-            >
-              <ExclamationCircleIcon className="mt-0.5 h-4 w-4 flex-shrink-0 text-[#EF4444]" />
-              <div className="leading-relaxed">{error}</div>
-            </div>
-          )}
-
-          {/* Command Pattern Input */}
-          <div>
-            <label
-              htmlFor="command-pattern-input"
-              className="block text-[12px] font-medium text-[#C7D0DD] mb-1.5"
-            >
-              Command Pattern <span className="text-[#EF4444]">*</span>
-            </label>
-            <input
-              id="command-pattern-input"
-              data-testid="policy-command-input"
-              type="text"
-              value={commandPattern}
-              onChange={(e) => setCommandPattern(e.target.value)}
-              placeholder="e.g. npm test, git status, cargo check*"
-              disabled={isSaving}
-              autoFocus
-              className="
-                w-full rounded-lg border border-[#262D3E] bg-[#0A0C10] px-3 py-2.5
-                font-mono text-[13px] text-[#F1F5F9] placeholder-[#556075] transition-colors
-                focus:border-[#6366F1] focus:outline-none focus:ring-1 focus:ring-[#6366F1]
-                disabled:opacity-50
-              "
-            />
-            <p className="mt-1.5 text-[11px] leading-relaxed text-[#727F93] m-0">
-              Enter an exact command or use wildcard <code className="text-[#818CF8] bg-[#161A26] px-1 rounded">*</code> for arguments. Chained commands (<code className="text-[#EF4444]">&amp;&amp;</code>, <code className="text-[#EF4444]">;</code>, <code className="text-[#EF4444]">|</code>) are prohibited.
-            </p>
-          </div>
-
-          {/* Allowance Choice (Strictly Global or Workspace) */}
-          <div>
-            <label className="block text-[12px] font-medium text-[#C7D0DD] mb-2">
-              Allowance Scope <span className="text-[#EF4444]">*</span>
-            </label>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {/* Global Option */}
-              <label
-                className={`
-                  relative flex cursor-pointer items-start gap-3 rounded-lg border p-3.5 transition-all
-                  ${
-                    scope === "global"
-                      ? "border-[#6366F1] bg-[#6366F1]/10 shadow-[0_0_15px_rgba(99,102,241,0.12)]"
-                      : "border-[#1E2333] bg-[#0A0C10] hover:border-[#2A3144] hover:bg-[#12151E]"
-                  }
-                `}
+        <form
+          onSubmit={handleSubmit}
+          className="relative flex min-h-0 flex-1 flex-col"
+        >
+          <div className="flex-1 space-y-5 overflow-y-auto overflow-x-hidden p-5 sm:px-6">
+            {/* Validation Error Alert */}
+            {error && (
+              <div
+                role="alert"
+                className="
+                  flex items-start gap-2.5 rounded-lg
+                  border border-red-500/25 bg-red-500/[0.07]
+                  px-3.5 py-3 text-[12.5px] leading-5 text-red-300
+                "
               >
-                <input
-                  type="radio"
-                  name="allowance-scope"
-                  value="global"
-                  checked={scope === "global"}
-                  onChange={() => setScope("global")}
-                  disabled={isSaving}
-                  className="sr-only"
-                />
-                <div
+                <ExclamationCircleIcon className="mt-0.5 h-4 w-4 shrink-0 text-red-400" />
+                <div className="min-w-0 break-words">{error}</div>
+              </div>
+            )}
+
+            {/* Command Pattern Input */}
+            <div>
+              <label htmlFor="command-pattern-input" className={labelClass}>
+                Command Pattern <span className="text-red-400">*</span>
+              </label>
+              <input
+                id="command-pattern-input"
+                data-testid="policy-command-input"
+                type="text"
+                value={commandPattern}
+                onChange={(e) => setCommandPattern(e.target.value)}
+                placeholder="e.g. npm test, git status, cargo check*"
+                disabled={isSaving}
+                autoFocus
+                className={`${inputClass} font-mono text-[12.5px]`}
+              />
+              <p className="m-0 mt-2 text-[11.5px] leading-5 text-[#7A869A]">
+                Enter an exact command or use wildcard{" "}
+                <code className="rounded bg-[#2F48A1]/20 px-1 py-0.5 font-mono text-[#9DB0F0]">
+                  *
+                </code>{" "}
+                for arguments. Chained commands (
+                <code className="font-mono text-red-400">&amp;&amp;</code>,{" "}
+                <code className="font-mono text-red-400">;</code>,{" "}
+                <code className="font-mono text-red-400">|</code>) are
+                prohibited.
+              </p>
+            </div>
+
+            {/* Allowance Scope */}
+            <fieldset className="m-0 min-w-0 border-0 p-0">
+              <legend className={labelClass}>
+                Allowance Scope <span className="text-red-400">*</span>
+              </legend>
+
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                {/* Global Option */}
+                <label
                   className={`
-                    mt-0.5 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md border
-                    ${
-                      scope === "global"
-                        ? "border-[#6366F1] bg-[#6366F1] text-white"
-                        : "border-[#2A3144] bg-[#151923] text-[#7A889B]"
+                    group relative flex min-w-0 cursor-pointer items-start gap-3
+                    rounded-xl border p-3.5 transition-all duration-150
+                    focus-within:ring-2 focus-within:ring-[#2F48A1]/60
+                    ${scope === "global"
+                      ? "border-[#2F48A1]/60 bg-[#2F48A1]/[0.14] shadow-[0_0_20px_-8px_rgba(47,72,161,0.7)]"
+                      : "border-white/[0.08] bg-white/[0.02] hover:border-white/[0.16] hover:bg-white/[0.04]"
                     }
                   `}
                 >
-                  <GlobeAltIcon className="h-4 w-4" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[13px] font-medium text-[#E2E8F0]">
+                  <input
+                    type="radio"
+                    name="allowance-scope"
+                    value="global"
+                    checked={scope === "global"}
+                    onChange={() => setScope("global")}
+                    disabled={isSaving}
+                    className="sr-only"
+                  />
+                  <div
+                    className={`
+                      flex h-8 w-8 shrink-0 items-center justify-center rounded-lg
+                      transition-colors duration-150
+                      ${scope === "global"
+                        ? "bg-[#2F48A1] text-white"
+                        : "bg-white/[0.05] text-[#8B96A9] ring-1 ring-inset ring-white/[0.08]"
+                      }
+                    `}
+                  >
+                    <GlobeAltIcon className="h-4 w-4" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <span className="block text-[13px] font-semibold text-[#F1F5F9]">
                       Global Allowance
                     </span>
+                    <p className="m-0 mt-0.5 text-[11.5px] leading-[18px] text-[#8B96A9]">
+                      Always pre-approve across all projects on this system.
+                    </p>
                   </div>
-                  <p className="mt-1 text-[11px] leading-relaxed text-[#7A889B] m-0">
-                    Always pre-approve across all projects on this system.
-                  </p>
-                </div>
-              </label>
+                  {scope === "global" && (
+                    <CheckCircleIcon className="h-4 w-4 shrink-0 text-[#8FA5F0]" />
+                  )}
+                </label>
 
-              {/* Workspace Option */}
-              <label
-                className={`
-                  relative flex cursor-pointer items-start gap-3 rounded-lg border p-3.5 transition-all
-                  ${
-                    scope === "workspace"
-                      ? "border-[#10B981] bg-[#10B981]/10 shadow-[0_0_15px_rgba(16,185,129,0.12)]"
-                      : "border-[#1E2333] bg-[#0A0C10] hover:border-[#2A3144] hover:bg-[#12151E]"
-                  }
-                `}
-              >
-                <input
-                  type="radio"
-                  name="allowance-scope"
-                  value="workspace"
-                  checked={scope === "workspace"}
-                  onChange={() => setScope("workspace")}
-                  disabled={isSaving}
-                  className="sr-only"
-                />
-                <div
+                {/* Workspace Option */}
+                <label
                   className={`
-                    mt-0.5 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md border
-                    ${
-                      scope === "workspace"
-                        ? "border-[#10B981] bg-[#10B981] text-white"
-                        : "border-[#2A3144] bg-[#151923] text-[#7A889B]"
+                    group relative flex min-w-0 cursor-pointer items-start gap-3
+                    rounded-xl border p-3.5 transition-all duration-150
+                    focus-within:ring-2 focus-within:ring-emerald-500/50
+                    ${scope === "workspace"
+                      ? "border-emerald-500/50 bg-emerald-500/[0.1] shadow-[0_0_20px_-8px_rgba(16,185,129,0.6)]"
+                      : "border-white/[0.08] bg-white/[0.02] hover:border-white/[0.16] hover:bg-white/[0.04]"
                     }
                   `}
                 >
-                  <FolderIcon className="h-4 w-4" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[13px] font-medium text-[#E2E8F0]">
+                  <input
+                    type="radio"
+                    name="allowance-scope"
+                    value="workspace"
+                    checked={scope === "workspace"}
+                    onChange={() => setScope("workspace")}
+                    disabled={isSaving}
+                    className="sr-only"
+                  />
+                  <div
+                    className={`
+                      flex h-8 w-8 shrink-0 items-center justify-center rounded-lg
+                      transition-colors duration-150
+                      ${scope === "workspace"
+                        ? "bg-emerald-500 text-white"
+                        : "bg-white/[0.05] text-[#8B96A9] ring-1 ring-inset ring-white/[0.08]"
+                      }
+                    `}
+                  >
+                    <FolderIcon className="h-4 w-4" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <span className="block text-[13px] font-semibold text-[#F1F5F9]">
                       Workspace Allowance
                     </span>
+                    <p className="m-0 mt-0.5 text-[11.5px] leading-[18px] text-[#8B96A9]">
+                      Pre-approve only when running inside the active workspace.
+                    </p>
                   </div>
-                  <p className="mt-1 text-[11px] leading-relaxed text-[#7A889B] m-0">
-                    Pre-approve only when running inside the active workspace.
-                  </p>
-                </div>
-              </label>
-            </div>
-          </div>
+                  {scope === "workspace" && (
+                    <CheckCircleIcon className="h-4 w-4 shrink-0 text-emerald-400" />
+                  )}
+                </label>
+              </div>
+            </fieldset>
 
-          {/* Optional Description */}
-          <div>
-            <label
-              htmlFor="policy-description-input"
-              className="block text-[12px] font-medium text-[#C7D0DD] mb-1.5"
-            >
-              Description / Notes <span className="text-[#556075] text-[11px] font-normal">(optional)</span>
-            </label>
-            <input
-              id="policy-description-input"
-              data-testid="policy-description-input"
-              type="text"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="e.g. Unit test verification runner"
-              disabled={isSaving}
-              className="
-                w-full rounded-lg border border-[#262D3E] bg-[#0A0C10] px-3 py-2.5
-                text-[12px] text-[#F1F5F9] placeholder-[#556075] transition-colors
-                focus:border-[#6366F1] focus:outline-none focus:ring-1 focus:ring-[#6366F1]
-                disabled:opacity-50
-              "
-            />
+            {/* Optional Description */}
+            <div>
+              <label htmlFor="policy-description-input" className={labelClass}>
+                Description / Notes{" "}
+                <span className="font-normal normal-case tracking-normal text-[#5E6A7E]">
+                  (optional)
+                </span>
+              </label>
+              <input
+                id="policy-description-input"
+                data-testid="policy-description-input"
+                type="text"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="e.g. Unit test verification runner"
+                disabled={isSaving}
+                className={inputClass}
+              />
+            </div>
           </div>
 
           {/* Action Buttons */}
-          <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-[#1E2333]">
+          <div
+            className="
+              flex shrink-0 flex-col-reverse gap-2.5
+              border-t border-white/[0.06] bg-white/[0.02] p-4
+              sm:flex-row sm:items-center sm:justify-end sm:px-6
+            "
+          >
             <button
               type="button"
               onClick={onClose}
               disabled={isSaving}
               className="
-                inline-flex min-h-[38px] items-center justify-center rounded-lg border
-                border-[#2A3143] bg-[#151923] px-4 text-[12px] font-medium text-[#C7D0DD]
-                transition-colors hover:border-[#3D4760] hover:bg-[#1D2230] hover:text-[#FFFFFF]
-                focus:outline-none focus:ring-1 focus:ring-[#6366F1] disabled:opacity-50
+                inline-flex h-10 w-full items-center justify-center
+                rounded-lg border border-white/[0.1] bg-transparent px-5
+                text-[12.5px] font-medium text-[#B8C2D4]
+                transition-colors duration-150
+                hover:bg-white/[0.06] hover:text-[#F1F5F9]
+                focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2F48A1]/60
+                disabled:cursor-not-allowed disabled:opacity-50
+                sm:w-auto
               "
             >
               Cancel
             </button>
+
             <button
               type="submit"
               disabled={isSaving || !commandPattern.trim()}
               data-testid="submit-policy-btn"
               className="
-                inline-flex min-h-[38px] items-center justify-center rounded-lg border
-                border-[#6366F1] bg-[#4F46E5] px-5 text-[12px] font-medium text-white
-                shadow-sm transition-all hover:border-[#4F46E5] hover:bg-[#4338CA]
-                focus:outline-none focus:ring-2 focus:ring-[#6366F1]/40 disabled:cursor-not-allowed disabled:opacity-50
+                inline-flex h-10 w-full items-center justify-center gap-2
+                rounded-lg border-0 bg-[#2F48A1] px-5
+                text-[12.5px] font-medium text-white
+                shadow-md shadow-[#2F48A1]/30
+                transition-all duration-200
+                hover:-translate-y-px hover:bg-[#3A57C2]
+                active:translate-y-0 active:scale-[0.98]
+                focus:outline-none
+                focus-visible:ring-2 focus-visible:ring-[#2F48A1]/60
+                focus-visible:ring-offset-2 focus-visible:ring-offset-[#0D1017]
+                disabled:translate-y-0 disabled:cursor-not-allowed
+                disabled:bg-[#2F48A1]/40 disabled:text-white/60 disabled:shadow-none
+                sm:w-auto
               "
             >
+              {isSaving && (
+                <svg
+                  viewBox="0 0 24 24"
+                  className="h-4 w-4 animate-spin"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                >
+                  <path d="M12 3a9 9 0 1 0 9 9" />
+                </svg>
+              )}
               {isSaving
                 ? "Saving..."
                 : isEditing
-                ? "Save Changes"
-                : "Add Command Policy"}
+                  ? "Save Changes"
+                  : "Add Command Policy"}
             </button>
           </div>
         </form>

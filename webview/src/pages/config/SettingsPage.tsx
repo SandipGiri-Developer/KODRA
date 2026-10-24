@@ -172,10 +172,9 @@ export default function SettingsPage() {
                   focus-visible:ring-1
                   focus-visible:ring-[#6366F1]
 
-                  ${
-                    isActive
-                      ? "bg-[#171B28] font-medium text-[#C7D2FE]"
-                      : "bg-transparent font-normal text-[#7D8798] hover:bg-[#151923] hover:text-[#D8DEE8]"
+                  ${isActive
+                    ? "bg-[#171B28] font-medium text-[#C7D2FE]"
+                    : "bg-transparent font-normal text-[#7D8798] hover:bg-[#151923] hover:text-[#D8DEE8]"
                   }
               `}
               >
@@ -196,10 +195,9 @@ export default function SettingsPage() {
                     w-[16px]
                     flex-shrink-0
                     stroke-[1.7]
-                    ${
-                      isActive
-                        ? "text-[#818CF8]"
-                        : "text-[#687386]"
+                    ${isActive
+                      ? "text-[#818CF8]"
+                      : "text-[#687386]"
                     }
                   `}
                 />

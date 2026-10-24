@@ -15,6 +15,8 @@ import {
   PencilIcon,
   EyeIcon,
   EyeSlashIcon,
+  ArrowLeftIcon,
+  CubeIcon,
   MagnifyingGlassIcon,
   XMarkIcon,
 } from "@heroicons/react/24/outline";
@@ -304,23 +306,24 @@ function ProviderCard({
   return (
     <div
       className={`
-    group/card relative grid w-full items-center
-    grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-3
-    rounded-xl border border-white/[0.06] bg-white/[0.02]
-    p-3 transition-all duration-200
-    hover:border-white/[0.12] hover:bg-white/[0.04]
-    sm:px-4 sm:py-3.5
-    md:grid-cols-[170px_190px_minmax(0,1fr)_auto] md:gap-x-4 md:py-3
-    ${menuOpen ? "z-30" : "z-0"}
-  `}
+      group/card relative box-border grid w-full min-w-0 max-w-full items-center
+      grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-3
+      rounded-xl border border-white/[0.06] bg-white/[0.02]
+      p-3 transition-all duration-200
+      hover:border-white/[0.12] hover:bg-white/[0.04]
+      sm:px-4 sm:py-3.5
+      md:grid-cols-[minmax(0,180px)_minmax(0,1fr)_auto] md:gap-x-3 md:py-3
+      [&_*]:box-border
+      ${menuOpen ? "z-30" : "z-0"}
+    `}
     >
       {/* Provider */}
       <div className="col-start-1 row-start-1 flex min-w-0 items-center gap-3 md:col-start-auto md:row-start-auto">
         <div
           className="
-        flex h-9 w-9 shrink-0 items-center justify-center rounded-lg
-        bg-white/[0.04] ring-1 ring-inset ring-white/[0.08]
-      "
+          flex h-9 w-9 shrink-0 items-center justify-center rounded-lg
+          bg-white/[0.04] ring-1 ring-inset ring-white/[0.08]
+        "
         >
           <ProviderIcon provider={provider.provider} />
         </div>
@@ -336,47 +339,13 @@ function ProviderCard({
         </span>
       </div>
 
-      {/* Connection */}
-      {/* <div
-        className="
-      col-span-2 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1
-      md:col-span-1 md:flex-col md:items-start md:gap-1
-    "
-      >
-        <span
-          className="
-        inline-flex shrink-0 items-center gap-1.5 rounded-full
-        bg-emerald-500/10 px-2 py-0.5
-        text-[11px] font-medium text-emerald-300
-        ring-1 ring-inset ring-emerald-500/20
-      "
-        >
-          <span
-            className="
-          h-1.5 w-1.5 rounded-full bg-emerald-400
-          shadow-[0_0_6px_rgba(52,211,153,0.6)]
-        "
-          />
-          Connected
-        </span>
-
-        {provider.endpoint && (
-          <div
-            title={provider.endpoint}
-            className="min-w-0 max-w-full flex-1 truncate font-mono text-[10.5px] leading-4 text-[#728096] md:flex-none"
-          >
-            {provider.endpoint}
-          </div>
-        )}
-      </div> */}
-
       {/* Models */}
       <div
         title={modelTooltip}
         className="
-      col-span-2 flex min-w-0 flex-wrap items-center gap-1.5
-      md:col-span-1 md:flex-nowrap md:overflow-hidden
-    "
+        col-span-2 flex min-w-0 flex-wrap items-center gap-1.5
+        md:col-span-1 md:flex-nowrap md:overflow-hidden
+      "
       >
         {models.length === 0 ? (
           <span className="text-[11.5px] italic text-[#667286]">
@@ -400,9 +369,9 @@ function ProviderCard({
       <div
         ref={menuRef}
         className="
-      relative z-20 col-start-2 row-start-1 flex items-center justify-self-end
-      md:col-start-auto md:row-start-auto
-    "
+        relative z-20 col-start-2 row-start-1 flex shrink-0 items-center justify-self-end
+        md:col-start-auto md:row-start-auto
+      "
       >
         <button
           type="button"
@@ -411,16 +380,16 @@ function ProviderCard({
           aria-haspopup="menu"
           aria-expanded={menuOpen}
           className={`
-        flex h-9 w-9 items-center justify-center rounded-lg border-0
-        transition-all duration-150
-        focus:outline-none
-        focus-visible:ring-2 focus-visible:ring-[#2F48A1]/60
-        md:h-8 md:w-8
-        ${menuOpen
+          flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border-0
+          transition-all duration-150
+          focus:outline-none
+          focus-visible:ring-2 focus-visible:ring-[#2F48A1]/60
+          md:h-8 md:w-8
+          ${menuOpen
               ? "bg-[#2F48A1]/20 text-[#9DB0F0]"
               : "bg-transparent text-[#8B96A9] hover:bg-white/[0.06] hover:text-[#F1F5F9]"
             }
-      `}
+        `}
         >
           <EllipsisHorizontalIcon className="h-[18px] w-[18px]" />
         </button>
@@ -429,11 +398,11 @@ function ProviderCard({
           <div
             role="menu"
             className="
-          absolute right-0 top-[calc(100%+6px)] z-[100] w-44
-          overflow-hidden rounded-xl
-          border border-white/[0.1] bg-[#141823]
-          p-1 shadow-[0_16px_40px_rgba(0,0,0,0.5)]
-        "
+            absolute right-0 top-[calc(100%+6px)] z-[100] w-44
+            overflow-hidden rounded-xl
+            border border-white/[0.1] bg-[#141823]
+            p-1 shadow-[0_16px_40px_rgba(0,0,0,0.5)]
+          "
           >
             <button
               autoFocus
@@ -444,13 +413,13 @@ function ProviderCard({
                 onEdit(provider);
               }}
               className="
-            flex min-h-[40px] w-full items-center gap-2.5 rounded-lg border-0
-            bg-transparent px-2.5 text-left text-[12.5px]
-            text-[#CBD5E1] transition-colors duration-150
-            hover:bg-white/[0.06] hover:text-[#F1F5F9]
-            focus:outline-none focus-visible:bg-white/[0.06]
-            md:min-h-[34px]
-          "
+              flex min-h-[40px] w-full items-center gap-2.5 rounded-lg border-0
+              bg-transparent px-2.5 text-left text-[12.5px]
+              text-[#CBD5E1] transition-colors duration-150
+              hover:bg-white/[0.06] hover:text-[#F1F5F9]
+              focus:outline-none focus-visible:bg-white/[0.06]
+              md:min-h-[34px]
+            "
             >
               <PencilIcon className="h-3.5 w-3.5" />
               Edit
@@ -466,13 +435,13 @@ function ProviderCard({
                 onDelete(provider.id);
               }}
               className="
-            flex min-h-[40px] w-full items-center gap-2.5 rounded-lg border-0
-            bg-transparent px-2.5 text-left text-[12.5px]
-            text-[#F87171] transition-colors duration-150
-            hover:bg-red-500/10 hover:text-[#FCA5A5]
-            focus:outline-none focus-visible:bg-red-500/10
-            md:min-h-[34px]
-          "
+              flex min-h-[40px] w-full items-center gap-2.5 rounded-lg border-0
+              bg-transparent px-2.5 text-left text-[12.5px]
+              text-[#F87171] transition-colors duration-150
+              hover:bg-red-500/10 hover:text-[#FCA5A5]
+              focus:outline-none focus-visible:bg-red-500/10
+              md:min-h-[34px]
+            "
             >
               <TrashIcon className="h-3.5 w-3.5" />
               Remove
@@ -754,6 +723,18 @@ function AddProviderForm({
     onSaved();
   };
 
+  const modelQuery = modelSearchQuery.toLowerCase().trim();
+
+  const filteredModels = discoveredModels.filter((m) => {
+    if (!modelQuery) return true;
+    return (
+      (m.displayName && m.displayName.toLowerCase().includes(modelQuery)) ||
+      (m.id && m.id.toLowerCase().includes(modelQuery))
+    );
+  });
+
+  const hasQuery = modelQuery.length > 0;
+
   const needsApiKey =
     providerType !== "ollama";
 
@@ -1027,105 +1008,111 @@ function AddProviderForm({
             </p>
 
             {/* Search Bar & Quick Select */}
+
+
             {discoveredModels.length > 0 && (
-              <div className="flex flex-col gap-2">
+              <div className="flex flex-col gap-2.5">
+                {/* Search */}
                 <div className="relative flex items-center">
-                  <MagnifyingGlassIcon className="pointer-events-none absolute left-3 h-4 w-4 text-[#667085]" />
+                  <MagnifyingGlassIcon
+                    className="pointer-events-none absolute left-3 h-4 w-4 text-[#5E6A7E]"
+                  />
                   <input
                     type="text"
                     data-testid="provider-model-search"
                     value={modelSearchQuery}
                     onChange={(e) => setModelSearchQuery(e.target.value)}
                     placeholder="Search discovered models..."
+                    aria-label="Search discovered models"
                     className="
-                      w-full
-                      rounded-[7px]
-                      border
-                      border-[#1E2333]
-                      bg-[#0C0E14]
-                      py-2
-                      pr-8
-                      pl-9
-                      text-[12px]
-                      text-[#E5EAF1]
-                      placeholder-[#5F6979]
-                      transition-colors
-                      focus:border-[#6366F1]
-                      focus:outline-none
-                    "
+          h-10 w-full rounded-lg border border-white/[0.08] bg-[#0A0D13]
+          pl-9 pr-10 text-[13px] text-[#F1F5F9] outline-none
+          placeholder:text-[#5E6A7E] transition-colors duration-150
+          hover:border-white/[0.16]
+          focus:border-[#2F48A1] focus:ring-2 focus:ring-[#2F48A1]/30
+        "
                   />
                   {modelSearchQuery && (
                     <button
                       type="button"
                       data-testid="clear-provider-model-search"
                       onClick={() => setModelSearchQuery("")}
-                      className="absolute right-2.5 p-0.5 text-[#5F6979] hover:text-[#E5EAF1] rounded cursor-pointer"
                       title="Clear search"
+                      aria-label="Clear search"
+                      className="
+            absolute right-1.5 flex h-7 w-7 items-center justify-center
+            rounded-md border-0 bg-transparent text-[#6B778C]
+            transition-colors duration-150
+            hover:bg-white/[0.06] hover:text-[#F1F5F9]
+            focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2F48A1]/60
+          "
                     >
-                      <XMarkIcon className="h-3.5 w-3.5" />
+                      <XMarkIcon className="h-4 w-4" />
                     </button>
                   )}
                 </div>
 
-                <div className="flex items-center justify-between text-[11px] text-[#7D8798] px-0.5">
-                  <span>
-                    {modelSearchQuery.trim()
-                      ? `Showing ${discoveredModels.filter((m) => {
-                        const q = modelSearchQuery.toLowerCase().trim();
-                        return (
-                          (m.displayName && m.displayName.toLowerCase().includes(q)) ||
-                          (m.id && m.id.toLowerCase().includes(q))
-                        );
-                      }).length} of ${discoveredModels.length} models (${selectedIds.length} selected)`
-                      : `${discoveredModels.length} models found (${selectedIds.length} selected)`}
-                  </span>
-                  {discoveredModels.filter((m) => {
-                    const q = modelSearchQuery.toLowerCase().trim();
-                    return (
-                      (m.displayName && m.displayName.toLowerCase().includes(q)) ||
-                      (m.id && m.id.toLowerCase().includes(q))
-                    );
-                  }).length > 0 && (
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const q = modelSearchQuery.toLowerCase().trim();
-                            const matching = discoveredModels.filter((m) => {
-                              if (!q) return true;
-                              return (
-                                (m.displayName && m.displayName.toLowerCase().includes(q)) ||
-                                (m.id && m.id.toLowerCase().includes(q))
-                              );
-                            });
-                            const idsToAdd = matching.map((m) => m.id);
-                            setSelectedIds((prev) => Array.from(new Set([...prev, ...idsToAdd])));
-                          }}
-                          className="text-[#818CF8] hover:text-[#A5B4FC] cursor-pointer hover:underline"
-                        >
-                          Select all {modelSearchQuery.trim() ? "matching" : ""}
-                        </button>
-                        <span>•</span>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const q = modelSearchQuery.toLowerCase().trim();
-                            const matching = discoveredModels.filter((m) => {
-                              if (!q) return true;
-                              return (
-                                (m.displayName && m.displayName.toLowerCase().includes(q)) ||
-                                (m.id && m.id.toLowerCase().includes(q))
-                              );
-                            });
-                            const idsToRemove = new Set(matching.map((m) => m.id));
-                            setSelectedIds((prev) => prev.filter((id) => !idsToRemove.has(id)));
-                          }}
-                          className="text-[#7D8798] hover:text-[#94A3B8] cursor-pointer hover:underline"
-                        >
-                          Deselect all {modelSearchQuery.trim() ? "matching" : ""}
-                        </button>
-                      </div>
-                    )}
+                {/* Status + bulk actions */}
+                <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-0.5">
+                  <div className="flex flex-wrap items-center gap-2 text-[12px] text-[#8B96A9]">
+                    <span className="tabular-nums">
+                      {hasQuery
+                        ? `Showing ${filteredModels.length} of ${discoveredModels.length} models`
+                        : `${discoveredModels.length} models found`}
+                    </span>
+
+                    <span
+                      className="
+            rounded-full bg-[#2F48A1]/20 px-2 py-0.5
+            text-[11px] font-medium tabular-nums text-[#9DB0F0]
+            ring-1 ring-inset ring-[#2F48A1]/30
+          "
+                    >
+                      {selectedIds.length} selected
+                    </span>
+                  </div>
+
+                  {filteredModels.length > 0 && (
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const idsToAdd = filteredModels.map((m) => m.id);
+                          setSelectedIds((prev) =>
+                            Array.from(new Set([...prev, ...idsToAdd])),
+                          );
+                        }}
+                        className="
+              rounded-md border-0 bg-transparent px-2 py-1
+              text-[12px] font-medium text-[#8FA5F0]
+              transition-colors duration-150 cursor-pointer
+              hover:bg-[#2F48A1]/15 hover:text-[#B4C2F5]
+              focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2F48A1]/60
+            "
+                      >
+                        Select all{hasQuery ? " matching" : ""}
+                      </button>
+
+                      <span aria-hidden="true" className="h-3 w-px bg-white/[0.1]" />
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const idsToRemove = new Set(filteredModels.map((m) => m.id));
+                          setSelectedIds((prev) => prev.filter((id) => !idsToRemove.has(id)));
+                        }}
+                        className="
+              rounded-md border-0 bg-transparent px-2 py-1
+              text-[12px] font-medium text-[#8B96A9]
+              transition-colors duration-150 cursor-pointer
+              hover:bg-white/[0.06] hover:text-[#F1F5F9]
+              focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2F48A1]/60
+            "
+                      >
+                        Deselect all{hasQuery ? " matching" : ""}
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -1489,7 +1476,7 @@ export function ProvidersSettings() {
               Add a provider to make its models available in Kodra.
             </p>
 
-            <button
+            {/* <button
               id="add-provider-btn"
               type="button"
               onClick={() => {
@@ -1515,6 +1502,25 @@ export function ProvidersSettings() {
             group-hover:rotate-90
           "
               />
+              Add AI Provider
+            </button> */}
+            <button
+              id="add-provider-btn"
+              type="button"
+              onClick={() => {
+                setEditingProvider(null);
+                setShowAddForm(true);
+              }}
+              className="
+    inline-flex h-9 items-center justify-center gap-1.5
+    rounded-md border-0 bg-[#2F48A1] px-3.5
+    text-[13px] font-medium text-white
+    transition-colors duration-150
+    hover:bg-[#3A57C2] active:bg-[#283F8F]
+    focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2F48A1]/60
+  "
+            >
+              <PlusIcon className="h-4 w-4" />
               Add AI Provider
             </button>
           </div>

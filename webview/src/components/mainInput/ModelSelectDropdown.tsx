@@ -186,26 +186,38 @@ export function ModelSelectDropdown() {
       return newModels;
     });
   };
+  const getShortModelName = (name: string) => {
+    const i = name.lastIndexOf("/");
+    return i >= 0 && i < name.length - 1 ? name.slice(i + 1) : name;
+  };
 
   return (
     <Listbox value={selectedKey} onChange={handleSelect}>
-      <div className="inline-flex w-fit shrink-0">
+      {/* FIX: allow wrapper to shrink inside the toolbar */}
+      <div className="inline-flex min-w-0 max-w-full">
         <ListboxButton
           onClick={handleOpenDropdown}
           className="
-            group inline-flex w-fit shrink-0 items-center gap-1.5
-            rounded-lg border-none bg-transparent px-2 py-1
-            text-vsc-foreground shadow-none outline-none cursor-pointer
-            transition-colors duration-200 ease-out
-            hover:bg-white/10 data-[open]:bg-white/10
-          "
+    group inline-flex min-w-0 max-w-full items-center gap-1.5
+    rounded-lg border-none bg-transparent px-2 py-1
+    text-vsc-foreground shadow-none outline-none cursor-pointer
+    transition-colors duration-200 ease-out
+    hover:bg-white/10 data-[open]:bg-white/10
+  "
         >
           {selectedWorkspaceModel && (
-            <ProviderMiniIcon provider={selectedWorkspaceModel.provider} />
+            <span className="shrink-0">
+              <ProviderMiniIcon provider={selectedWorkspaceModel.provider} />
+            </span>
           )}
-          <span className="whitespace-nowrap text-xs font-medium">
-            {displayTitle}
+
+          <span
+            className="min-w-0 max-w-[160px] truncate text-xs font-medium"
+            title={displayTitle}
+          >
+            {getShortModelName(displayTitle)}
           </span>
+
           <ChevronDownIcon className="h-3 w-3 shrink-0 opacity-70 transition-transform duration-200 group-data-[open]:rotate-180" />
         </ListboxButton>
 
@@ -217,7 +229,9 @@ export function ModelSelectDropdown() {
             <span className="text-xs font-semibold">Workspace Models</span>
             {models.length > 0 && (
               <span className="text-[10px] text-gray-400">
-                {searchQuery.trim() ? `${filteredModels.length} of ${models.length}` : `${models.length}`}
+                {searchQuery.trim()
+                  ? `${filteredModels.length} of ${models.length}`
+                  : `${models.length}`}
               </span>
             )}
           </div>
@@ -225,7 +239,6 @@ export function ModelSelectDropdown() {
           {/* Search input bar */}
           <div className="px-2 py-1.5 border-b border-white/5 bg-black/20">
             <div className="group relative flex items-center">
-              {/* Search icon */}
               <MagnifyingGlassIcon className="h-3.5 w-3.5 absolute left-2 text-white/40 pointer-events-none transition-colors group-focus-within:text-vsc-focusBorder" />
 
               <input
@@ -240,25 +253,23 @@ export function ModelSelectDropdown() {
                 autoComplete="off"
                 spellCheck={false}
                 className="w-full h-7 rounded-none
-                 bg-white/[0.04] text-vsc-foreground text-xs
-                 pl-7 pr-7 border border-white/10
-                 placeholder:text-white/30
-                 transition-colors duration-150
-                 hover:bg-white/[0.07] hover:border-white/20
-                 focus:outline-none focus:bg-white/[0.08]
-                 focus:border-vsc-focusBorder"
+              bg-white/[0.04] text-vsc-foreground text-xs
+              pl-7 pr-7 border border-white/10
+              placeholder:text-white/30
+              transition-colors duration-150
+              hover:bg-white/[0.07] hover:border-white/20
+              focus:outline-none focus:bg-white/[0.08]
+              focus:border-vsc-focusBorder"
               />
 
-              {/* Shortcut hint (only when empty) */}
               {!searchQuery && (
                 <kbd className="absolute right-1.5 pointer-events-none select-none
-                      text-[10px] leading-none text-white/30
-                      border border-white/10 rounded-none px-1 py-0.5 bg-white/[0.03]">
+              text-[10px] leading-none text-white/30
+              border border-white/10 rounded-none px-1 py-0.5 bg-white/[0.03]">
                   /
                 </kbd>
               )}
 
-              {/* Clear button (only when typing) */}
               {searchQuery && (
                 <button
                   type="button"
@@ -269,10 +280,10 @@ export function ModelSelectDropdown() {
                     searchInputRef.current?.focus();
                   }}
                   className="absolute right-1 flex items-center justify-center h-5 w-5 p-0
-               rounded-none appearance-none border-0 outline-none
-               !bg-transparent text-white/60
-               hover:!bg-white/10 hover:text-white
-               transition-colors duration-150 cursor-pointer"
+                rounded-none appearance-none border-0 outline-none
+                !bg-transparent text-white/60
+                hover:!bg-white/10 hover:text-white
+                transition-colors duration-150 cursor-pointer"
                   title="Clear search"
                   aria-label="Clear search"
                 >
@@ -281,7 +292,6 @@ export function ModelSelectDropdown() {
               )}
             </div>
           </div>
-
 
           <div className="no-scrollbar max-h-[300px] overflow-y-auto">
             {isLoading && (
@@ -302,46 +312,61 @@ export function ModelSelectDropdown() {
               </div>
             )}
 
-            {!isLoading && filteredModels.map((model, idx) => {
-              const modelKey = getModelKey(model);
-              const isSelected = selectedWorkspaceModel
-                ? getModelKey(selectedWorkspaceModel) === modelKey
-                : (currentModel === model.id && currentProvider === model.provider);
+            {!isLoading &&
+              filteredModels.map((model, idx) => {
+                const modelKey = getModelKey(model);
+                const isSelected = selectedWorkspaceModel
+                  ? getModelKey(selectedWorkspaceModel) === modelKey
+                  : currentModel === model.id && currentProvider === model.provider;
 
-              return (
-                <ListboxOption
-                  key={`${model.providerConfigId || model.provider}_${model.id}_${idx}`}
-                  value={modelKey}
-                  className={`group cursor-pointer px-3 py-1.5 flex items-center gap-2 hover:bg-list-active hover:text-list-active-foreground ${isSelected ? "bg-list-active text-list-active-foreground" : ""}`}
-                >
-                  <ProviderMiniIcon provider={model.provider} />
-                  <div className="flex-1 flex flex-col overflow-hidden">
-                    <div className="flex items-center gap-1.5">
-                      <span className="truncate text-xs font-medium">{model.displayName}</span>
-                      <span className="text-[10px] text-gray-400 capitalize">({model.provider})</span>
-                    </div>
-                    <div className="flex gap-1 mt-0.5">
-                      {model.capabilities?.toolCalling && (
-                        <WrenchScrewdriverIcon className="h-3 w-3 text-blue-400" title="Supports tool calling" />
-                      )}
-                      {model.capabilities?.vision && (
-                        <PhotoIcon className="h-3 w-3 text-green-400" title="Supports vision" />
-                      )}
-                      {model.capabilities?.reasoning && (
-                        <LightBulbIcon className="h-3 w-3 text-yellow-400" title="Advanced reasoning" />
-                      )}
-                    </div>
-                  </div>
-                  <div
-                    className="opacity-0 group-hover:opacity-100 p-1 hover:bg-vsc-editor-background rounded transition-opacity"
-                    onClick={(e) => handleDeleteModel(e, model)}
-                    title="Remove from Workspace"
+                return (
+                  <ListboxOption
+                    key={`${model.providerConfigId || model.provider}_${model.id}_${idx}`}
+                    value={modelKey}
+                    className={`group cursor-pointer px-3 py-1.5 flex items-center gap-2 hover:bg-list-active hover:text-list-active-foreground ${isSelected ? "bg-list-active text-list-active-foreground" : ""
+                      }`}
                   >
-                    <TrashIcon className="h-3.5 w-3.5 text-red-400 hover:text-red-500" />
-                  </div>
-                </ListboxOption>
-              );
-            })}
+                    <span className="shrink-0">
+                      <ProviderMiniIcon provider={model.provider} />
+                    </span>
+
+                    {/* FIX: min-w-0 so long names can truncate inside the list too */}
+                    <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+                      <div className="flex min-w-0 items-center gap-1.5">
+                        <span
+                          className="min-w-0 truncate text-xs font-medium"
+                          title={model.displayName}
+                        >
+                          {model.displayName}
+                        </span>
+                        {/* FIX: provider label never shrinks */}
+                        <span className="shrink-0 text-[10px] text-gray-400 capitalize">
+                          ({model.provider})
+                        </span>
+                      </div>
+                      <div className="flex gap-1 mt-0.5">
+                        {model.capabilities?.toolCalling && (
+                          <WrenchScrewdriverIcon className="h-3 w-3 text-blue-400" title="Supports tool calling" />
+                        )}
+                        {model.capabilities?.vision && (
+                          <PhotoIcon className="h-3 w-3 text-green-400" title="Supports vision" />
+                        )}
+                        {model.capabilities?.reasoning && (
+                          <LightBulbIcon className="h-3 w-3 text-yellow-400" title="Advanced reasoning" />
+                        )}
+                      </div>
+                    </div>
+
+                    <div
+                      className="shrink-0 opacity-0 group-hover:opacity-100 p-1 hover:bg-vsc-editor-background rounded transition-opacity"
+                      onClick={(e) => handleDeleteModel(e, model)}
+                      title="Remove from Workspace"
+                    >
+                      <TrashIcon className="h-3.5 w-3.5 text-red-400 hover:text-red-500" />
+                    </div>
+                  </ListboxOption>
+                );
+              })}
           </div>
 
           <Divider className="my-1" />

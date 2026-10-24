@@ -29,19 +29,18 @@ export function CommandPolicyRow({
     <div
       data-testid={`policy-row-${policy.id}`}
       className={`
-        group relative flex flex-col sm:flex-row sm:items-center justify-between gap-4
-        rounded-xl border p-4 transition-all duration-150
-        ${
-          policy.enabled
-            ? "border-[#1E2333] bg-[#0E1118] hover:border-[#2D354A] hover:bg-[#121620]"
-            : "border-[#1A1F2C] bg-[#0A0C10] opacity-60 hover:opacity-80"
+    group relative flex flex-col justify-between gap-3
+    rounded-xl border p-3.5 transition-all duration-200 sm:flex-row sm:items-center sm:gap-4 sm:p-4
+    ${policy.enabled
+          ? "border-white/[0.06] bg-white/[0.02] hover:border-white/[0.12] hover:bg-white/[0.04]"
+          : "border-white/[0.04] bg-white/[0.01] hover:border-white/[0.08]"
         }
-      `}
+  `}
     >
-      {/* Left: Checkbox + Command info */}
-      <div className="flex items-start gap-3.5 min-w-0 flex-1">
-        {/* Enable / Disable Toggle Checkbox */}
-        <div className="pt-0.5">
+      {/* Left: Toggle + Command info */}
+      <div className="flex min-w-0 flex-1 items-start gap-3.5">
+        {/* Enable / Disable Switch (still a real checkbox underneath) */}
+        <label className="relative mt-0.5 inline-flex shrink-0 cursor-pointer items-center">
           <input
             type="checkbox"
             id={`toggle-policy-${policy.id}`}
@@ -53,18 +52,22 @@ export function CommandPolicyRow({
               focus:ring-1 focus:ring-[#6366F1] focus:ring-offset-0 cursor-pointer
             "
           />
-        </div>
+        </label>
 
-        {/* Command pattern & details */}
-        <div className="min-w-0 flex-1">
+        {/* Command pattern & details (dimmed when disabled) */}
+        <div
+          className={`min-w-0 flex-1 transition-opacity duration-200 ${policy.enabled ? "opacity-100" : "opacity-55 group-hover:opacity-80"
+            }`}
+        >
           <div className="flex flex-wrap items-center gap-2">
             <span
               title={policy.commandPattern}
               className="
-                font-mono text-[13px] font-medium text-[#F1F5F9]
-                bg-[#0A0C10] border border-[#1E2433] px-2.5 py-0.5 rounded-md
-                break-all sm:break-normal truncate max-w-full sm:max-w-[420px]
-              "
+            block max-w-full truncate rounded-md
+            border border-white/[0.08] bg-[#0A0D13] px-2.5 py-1
+            font-mono text-[12.5px] font-medium text-[#F1F5F9]
+            sm:max-w-[420px]
+          "
             >
               {policy.commandPattern}
             </span>
@@ -72,15 +75,15 @@ export function CommandPolicyRow({
             {/* Allowance Badge */}
             <span
               className={`
-                inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium
-                ${
-                  isDeny
-                    ? "bg-[#EF4444]/15 text-[#F87171] border border-[#EF4444]/30"
-                    : isGlobal
-                    ? "bg-[#6366F1]/15 text-[#818CF8] border border-[#6366F1]/30"
-                    : "bg-[#10B981]/15 text-[#34D399] border border-[#10B981]/30"
+            inline-flex items-center gap-1 rounded-full px-2 py-0.5
+            text-[11px] font-medium ring-1 ring-inset
+            ${isDeny
+                  ? "bg-red-500/10 text-red-300 ring-red-500/25"
+                  : isGlobal
+                    ? "bg-[#2F48A1]/20 text-[#9DB0F0] ring-[#2F48A1]/35"
+                    : "bg-emerald-500/10 text-emerald-300 ring-emerald-500/25"
                 }
-              `}
+          `}
             >
               {isDeny ? (
                 "Deny"
@@ -98,12 +101,25 @@ export function CommandPolicyRow({
             </span>
 
             {/* Rule Type Badge */}
-            <span className="inline-flex items-center rounded-md border border-[#1F2536] bg-[#141824] px-1.5 py-0.5 text-[10px] text-[#7A889B]">
+            <span
+              className="
+            inline-flex items-center rounded-md bg-white/[0.04]
+            px-1.5 py-0.5 text-[10.5px] font-medium
+            text-[#8B96A9] ring-1 ring-inset ring-white/[0.06]
+          "
+            >
               {policy.ruleType === "pattern" ? "Wildcard" : "Exact"}
             </span>
 
             {!policy.enabled && (
-              <span className="inline-flex items-center rounded-md border border-[#333] bg-[#1C1C1C] px-1.5 py-0.5 text-[10px] text-[#888]">
+              <span
+                className="
+              inline-flex items-center rounded-md bg-white/[0.06]
+              px-1.5 py-0.5 text-[10.5px] font-medium uppercase
+              tracking-[0.04em] text-[#9AA4B5]
+              ring-1 ring-inset ring-white/[0.08]
+            "
+              >
                 Disabled
               </span>
             )}
@@ -111,7 +127,10 @@ export function CommandPolicyRow({
 
           {/* Description */}
           {policy.description && (
-            <p className="mt-1.5 text-[11.5px] leading-relaxed text-[#7A889B] m-0 truncate">
+            <p
+              title={policy.description}
+              className="m-0 mt-1.5 truncate text-[12px] leading-5 text-[#8B96A9]"
+            >
               {policy.description}
             </p>
           )}
@@ -119,7 +138,7 @@ export function CommandPolicyRow({
       </div>
 
       {/* Right: Actions */}
-      <div className="flex items-center gap-1.5 self-end sm:self-center flex-shrink-0">
+      <div className="flex shrink-0 items-center gap-1 self-end sm:self-center">
         {/* Edit Button */}
         <button
           type="button"
@@ -128,10 +147,12 @@ export function CommandPolicyRow({
           aria-label={`Edit policy for ${policy.commandPattern}`}
           data-testid={`edit-policy-${policy.id}`}
           className="
-            flex h-8 w-8 items-center justify-center rounded-lg border border-transparent
-            text-[#7A889B] transition-colors hover:border-[#262D3E] hover:bg-[#161B26] hover:text-[#E2E8F0]
-            focus:outline-none focus:ring-1 focus:ring-[#6366F1]
-          "
+        flex h-9 w-9 items-center justify-center rounded-lg border-0
+        bg-transparent text-[#8B96A9] transition-colors duration-150
+        hover:bg-white/[0.06] hover:text-[#F1F5F9]
+        focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2F48A1]/60
+        sm:h-8 sm:w-8
+      "
         >
           <PencilSquareIcon className="h-4 w-4" />
         </button>
@@ -144,10 +165,12 @@ export function CommandPolicyRow({
           aria-label={`Delete policy for ${policy.commandPattern}`}
           data-testid={`delete-policy-${policy.id}`}
           className="
-            flex h-8 w-8 items-center justify-center rounded-lg border border-transparent
-            text-[#7A889B] transition-colors hover:border-[#EF4444]/30 hover:bg-[#EF4444]/10 hover:text-[#EF4444]
-            focus:outline-none focus:ring-1 focus:ring-[#EF4444]
-          "
+        flex h-9 w-9 items-center justify-center rounded-lg border-0
+        bg-transparent text-[#8B96A9] transition-colors duration-150
+        hover:bg-red-500/10 hover:text-red-300
+        focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/50
+        sm:h-8 sm:w-8
+      "
         >
           <TrashIcon className="h-4 w-4" />
         </button>
