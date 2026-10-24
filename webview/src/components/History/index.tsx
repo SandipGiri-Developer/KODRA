@@ -1,3 +1,4 @@
+// Conversation history view providing full-text search, filtering, and session management.
 import { BaseSessionMetadata } from "core";
 import MiniSearch from "minisearch";
 import React, {
@@ -28,6 +29,7 @@ import { Button } from "../ui";
 import { HistoryTableRow } from "./HistoryTableRow";
 import { groupSessionsByDate, parseDate } from "./util";
 
+// Renders the session history list, search input, workspace filter, and clear all action.
 export function History() {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();

@@ -192,6 +192,9 @@ export function validateWebviewMessage(data: unknown): WebviewToExtensionMessage
       if (!upd || typeof upd !== 'object') {
         return null;
       }
+      if (upd.scope !== undefined && upd.scope !== 'global' && upd.scope !== 'workspace') {
+        return null;
+      }
       if (upd.decision !== undefined && upd.decision !== 'allow' && upd.decision !== 'deny') {
         return null;
       }

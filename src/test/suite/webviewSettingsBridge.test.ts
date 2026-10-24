@@ -142,9 +142,86 @@ describe('WebviewSettingsBridge', () => {
 
   test('returns false for non-settings messages', async () => {
     const handled = await bridge.handleSettingsMessage(
-      { type: 'sendMessage', text: 'hello' },
+      { type: 'sendMessage', text: 'hello' } as any,
       poster,
     );
     expect(handled).toBe(false);
   });
+
+  test('handles policy/list, policy/create, policy/update, policy/enable, and policy/delete', async () => {
+    // 1. policy/list on empty
+    const listHandled = await bridge.handleSettingsMessage({ type: 'policy/list' }, poster);
+    expect(listHandled).toBe(true);
+    expect(postedMessages).toContainEqual(
+      expect.objectContaining({ type: 'policyList' }),
+    );
+
+    // 2. policy/create
+    postedMessages.length = 0;
+    const createHandled = await bridge.handleSettingsMessage(
+      {
+        type: 'policy/create',
+        policy: {
+          scope: 'global',
+          commandPattern: 'pytest -v',
+          ruleType: 'exact',
+          decision: 'allow',
+          description: 'Pytest suite',
+        },
+      },
+      poster,
+    );
+    expect(createHandled).toBe(true);
+    const updatedMsg = postedMessages.find((m) => m.type === 'policyUpdated') as any;
+    expect(updatedMsg).toBeDefined();
+    expect(updatedMsg.policy.commandPattern).toBe('pytest -v');
+    expect(updatedMsg.policy.scope).toBe('global');
+    const createdId = updatedMsg.policy.id;
+
+    // 3. policy/update (modify command pattern)
+    postedMessages.length = 0;
+    const updateHandled = await bridge.handleSettingsMessage(
+      {
+        type: 'policy/update',
+        id: createdId,
+        updates: {
+          commandPattern: 'pytest -v -s',
+        },
+      },
+      poster,
+    );
+    expect(updateHandled).toBe(true);
+    const afterUpdateMsg = postedMessages.find((m) => m.type === 'policyUpdated') as any;
+    expect(afterUpdateMsg.policy.commandPattern).toBe('pytest -v -s');
+
+    // 4. policy/enable
+    postedMessages.length = 0;
+    const enableHandled = await bridge.handleSettingsMessage(
+      {
+        type: 'policy/enable',
+        id: createdId,
+        enabled: false,
+      },
+      poster,
+    );
+    expect(enableHandled).toBe(true);
+    const afterDisableMsg = postedMessages.find((m) => m.type === 'policyUpdated') as any;
+    expect(afterDisableMsg.policy.enabled).toBe(false);
+
+    // 5. policy/delete
+    postedMessages.length = 0;
+    const deleteHandled = await bridge.handleSettingsMessage(
+      {
+        type: 'policy/delete',
+        id: createdId,
+      },
+      poster,
+    );
+    expect(deleteHandled).toBe(true);
+    expect(postedMessages).toContainEqual({
+      type: 'policyDeleted',
+      id: createdId,
+    });
+  });
 });
+

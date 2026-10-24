@@ -1,3 +1,4 @@
+// Styled reusable button component supporting multiple variants and sizes.
 import * as React from "react";
 import { cn } from "../../util/cn";
 
@@ -31,6 +32,7 @@ const iconButtonSizes = {
   lg: "h-5 w-5",
 };
 
+// Reusable button component styled according to variant (primary, secondary, ghost, outline).
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   ({ variant = "primary", size = "lg", className, ...props }, ref) => {
     const isIcon = variant === "icon";

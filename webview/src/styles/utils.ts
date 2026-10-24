@@ -1,3 +1,5 @@
+// Color parsing and hex conversion utilities for runtime style computations.
+// Parses a 3- or 6-digit hex color string into numeric RGB channel components.
 export function parseHexColor(hexColor?: string): {
   r: number;
   g: number;
@@ -31,6 +33,7 @@ export function parseHexColor(hexColor?: string): {
   return { r, g, b };
 }
 
+// Extracts the computed CSS property value and converts it into a standard hex color string.
 export function parseColorForHex(colorVar: string): string {
   const value = getComputedStyle(document.documentElement).getPropertyValue(
     colorVar,

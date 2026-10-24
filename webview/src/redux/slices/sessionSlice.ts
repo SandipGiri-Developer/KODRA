@@ -1,3 +1,4 @@
+// Redux slice managing chat sessions, message streaming, tool calls, editor history, and session metadata.
 import {
   ActionReducerMapBuilder,
   AsyncThunk,
@@ -26,9 +27,13 @@ import {
   ToolCallState,
 } from "core";
 const NEW_SESSION_TITLE = "New Session";
+// Converts chat message content to a string representation.
 const renderChatMessage = (message: ChatMessage) => typeof message.content === "string" ? message.content : JSON.stringify(message.content);
+// Merges two reasoning details objects into one.
 const mergeReasoningDetails = (a: any, b: any) => ({...a, ...b});
+// Extracts the basename from a file URI or path.
 const getUriPathBasename = (uri: string) => uri.split(/[/\\]/).pop() || uri;
+// Resolves relative path or basename for a given URI within workspace directories.
 const findUriInDirs = (uri: string, dirs: string[]) => ({ relativePathOrBasename: getUriPathBasename(uri) });
 
 import { findLastIndex } from "lodash";
@@ -244,10 +249,12 @@ export const INITIAL_SESSION_STATE: SessionState = {
   compactionLoading: {},
 };
 
+// Primary Redux slice governing chat conversation state, streaming responses, and tool calls.
 export const sessionSlice = createSlice({
   name: "session",
   initialState: INITIAL_SESSION_STATE,
   reducers: {
+    // Appends LLM prompt/completion logs to the most recent message in the active session.
     addPromptCompletionPair: (
       state,
       { payload }: PayloadAction<PromptLog[]>,
@@ -1109,6 +1116,7 @@ export const sessionSlice = createSlice({
     },
   },
   selectors: {
+    // Selects whether the latest conversation turn is currently resolving context items.
     selectIsGatheringContext: (state) => {
       const curHistoryItem = state.history.at(-1);
       return curHistoryItem?.isGatheringContext || false;
@@ -1119,6 +1127,7 @@ export const sessionSlice = createSlice({
   },
 });
 
+// Registers no-op action handlers for async thunks to ensure clean pipeline passthrough.
 function addPassthroughCases(
   builder: ActionReducerMapBuilder<SessionState>,
   thunks: AsyncThunk<any, any, any>[],
@@ -1131,6 +1140,7 @@ function addPassthroughCases(
   });
 }
 
+// Selects the code block apply state matching a specific stream ID.
 export const selectApplyStateByStreamId = createSelector(
   [
     (state: RootState) => state.session.codeBlockApplyStates.states,
@@ -1141,6 +1151,7 @@ export const selectApplyStateByStreamId = createSelector(
   },
 );
 
+// Selects the code block apply state matching a specific tool call ID.
 export const selectApplyStateByToolCallId = createSelector(
   [
     (state: RootState) => state.session.codeBlockApplyStates.states,

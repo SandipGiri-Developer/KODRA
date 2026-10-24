@@ -1,3 +1,4 @@
+// Top-level webview layout wrapper managing routing outlet, dialogs, and global IPC event listeners.
 const exitEdit = (a: any) => ({type: "dummy"}); const setCodeToEdit = (a: any) => ({type: "dummy"}); const enterEdit = (a: any) => ({type: "dummy"}); type OnboardingModes = any;
 
 import { useContext, useEffect } from "react";
@@ -36,6 +37,7 @@ const GridDiv = styled.div`
   overflow-x: visible;
 `;
 
+// Renders application shell providers, modal dialogs, and active route content.
 const Layout = () => {
   const navigate = useNavigate();
   const location = useLocation();

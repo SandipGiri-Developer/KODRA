@@ -1,9 +1,11 @@
+// Redux thunk extracting referenced file URIs from history and fetching code symbol definitions.
 import { createAsyncThunk } from "@reduxjs/toolkit";
 import { ChatHistoryItem, ContextItemWithId } from "core";
 import { CodeBlock } from "../../components/mainInput/TipTapEditor/extensions";
 import { updateFileSymbols } from "../slices/sessionSlice";
 import { ThunkApiType } from "../store";
 
+// Extracts all file-based context items embedded in chat history messages and editor state.
 export function getContextItemsFromHistory(
   historyItems: ChatHistoryItem[],
   priorToIndex?: number,
@@ -35,10 +37,7 @@ export function getContextItemsFromHistory(
   return [...pastNormalContextItems, ...pastToolbarContextItems];
 }
 
-/*
-    - Update file symbols for all context items in history
-    - That don't already have symbols
-*/
+// Queries code symbols for newly referenced files in chat history and updates the symbol cache.
 export const updateFileSymbolsFromHistory = createAsyncThunk<
   void,
   undefined,

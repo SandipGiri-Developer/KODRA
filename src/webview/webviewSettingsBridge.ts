@@ -10,6 +10,8 @@ import { ProviderRegistry } from '../providers/registry';
 import { SettingsManager } from '../utils/settingsManager';
 import { Logger } from '../utils/logger';
 import { ExtensionToWebviewMessage, WebviewToExtensionMessage } from './messageTypes';
+import { ApprovalPolicyService } from '../agent/terminal/approvalPolicyService';
+import { WorkspaceRegistry } from '../storage/workspaceRegistry';
 
 export interface IWebviewMessagePoster {
   postMessage(message: ExtensionToWebviewMessage): Thenable<boolean> | void;
@@ -65,10 +67,7 @@ export class WebviewSettingsBridge {
     }
   }
 
-  /**
-   * Processes a webview message if it is a settings or model-configuration message.
-   * Returns true if the message was handled, or false if it belongs to another domain.
-   */
+  // Processes webview settings, model configuration, and approval policy IPC messages.
   public async handleSettingsMessage(
     msg: WebviewToExtensionMessage,
     poster: IWebviewMessagePoster,
@@ -179,6 +178,69 @@ export class WebviewSettingsBridge {
           id: msg.id,
           apiKey: apiKey || '',
         });
+        return true;
+      }
+
+      case 'policy/list': {
+        const wsInfo = WorkspaceRegistry.getWorkspaceInfo();
+        const targetWorkspaceId = msg.scope === 'workspace' ? wsInfo.id : msg.workspaceId;
+        const policies = await ApprovalPolicyService.getInstance().listPolicies({
+          scope: msg.scope,
+          workspaceId: targetWorkspaceId,
+        });
+        poster.postMessage({ type: 'policyList', policies });
+        return true;
+      }
+
+      case 'policy/create': {
+        const wsInfo = WorkspaceRegistry.getWorkspaceInfo();
+        const safePolicy = {
+          ...msg.policy,
+          workspaceId: msg.policy.scope === 'workspace' ? wsInfo.id : undefined,
+        };
+        const policy = await ApprovalPolicyService.getInstance().createPolicy(safePolicy);
+        poster.postMessage({ type: 'policyUpdated', policy });
+        const policies = await ApprovalPolicyService.getInstance().listPolicies({
+          workspaceId: wsInfo.id,
+        });
+        poster.postMessage({ type: 'policyList', policies });
+        return true;
+      }
+
+      case 'policy/update': {
+        const wsInfo = WorkspaceRegistry.getWorkspaceInfo();
+        const updates = {
+          ...msg.updates,
+          workspaceId: msg.updates.scope === 'workspace' ? wsInfo.id : undefined,
+        };
+        const policy = await ApprovalPolicyService.getInstance().updatePolicy(msg.id, updates);
+        poster.postMessage({ type: 'policyUpdated', policy });
+        const policies = await ApprovalPolicyService.getInstance().listPolicies({
+          workspaceId: wsInfo.id,
+        });
+        poster.postMessage({ type: 'policyList', policies });
+        return true;
+      }
+
+      case 'policy/delete': {
+        await ApprovalPolicyService.getInstance().deletePolicy(msg.id);
+        poster.postMessage({ type: 'policyDeleted', id: msg.id });
+        const wsInfo = WorkspaceRegistry.getWorkspaceInfo();
+        const policies = await ApprovalPolicyService.getInstance().listPolicies({
+          workspaceId: wsInfo.id,
+        });
+        poster.postMessage({ type: 'policyList', policies });
+        return true;
+      }
+
+      case 'policy/enable': {
+        const policy = await ApprovalPolicyService.getInstance().enablePolicy(msg.id, msg.enabled);
+        poster.postMessage({ type: 'policyUpdated', policy });
+        const wsInfo = WorkspaceRegistry.getWorkspaceInfo();
+        const policies = await ApprovalPolicyService.getInstance().listPolicies({
+          workspaceId: wsInfo.id,
+        });
+        poster.postMessage({ type: 'policyList', policies });
         return true;
       }
 

@@ -1,5 +1,7 @@
+// Animated loading ellipsis indicator component.
 import styled, { keyframes } from "styled-components";
 
+// Defines the cycling width keyframes for animating ellipsis dots.
 const ellipsisAnimation = keyframes`
   0% { width: 0; }
   33% { width: 0.33em; }
@@ -7,6 +9,7 @@ const ellipsisAnimation = keyframes`
   100% { width: 1em; }
 `;
 
+// Renders an inline animated ellipsis for streaming or pending states.
 export const AnimatedEllipsis = styled.span`
   display: inline-block;
   width: 1em; /* Fixed width to match the maximum animation width */

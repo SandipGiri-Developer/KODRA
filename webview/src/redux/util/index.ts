@@ -1,3 +1,4 @@
+// Utility helper functions for searching and extracting tool call states from chat history arrays.
 import { ToolCallState, ToolStatus } from "core";
 import { ChatHistoryItemWithMessageId } from "../slices/sessionSlice";
 import { RootState } from "../store";
@@ -88,6 +89,7 @@ export function findToolCallById(
   return undefined;
 }
 
+// Locates the chat history item containing the tool execution result matching a toolCallId.
 export function findChatHistoryItemByToolCallId(
   chatHistory: RootState["session"]["history"],
   toolCallId: string,

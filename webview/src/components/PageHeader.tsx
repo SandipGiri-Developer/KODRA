@@ -1,3 +1,4 @@
+// Standard navigation header component displaying title and back button.
 import { ArrowLeftIcon } from "@heroicons/react/24/outline";
 
 export interface PageHeaderProps {
@@ -6,6 +7,7 @@ export interface PageHeaderProps {
   showBorder?: boolean;
 }
 
+// Renders a sticky top header with back navigation button and page title.
 export function PageHeader({
   onTitleClick,
   title,

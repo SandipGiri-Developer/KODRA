@@ -1,7 +1,9 @@
+// SVG icon component for the Google logo.
 interface CustomGoogleIconProps extends React.SVGProps<SVGSVGElement> {
   size?: number;
 }
 
+// Renders the Google brand SVG vector icon.
 export function GoogleIcon({
   size = 24,
   className,

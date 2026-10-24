@@ -1,3 +1,4 @@
+// Test suite for TipTap v3 migration, validating extensions, serialization, and input behavior.
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { Editor, JSONContent } from "@tiptap/core";
 import Document from "@tiptap/extension-document";

@@ -1,3 +1,4 @@
+// Application entry point for the KODRA webview; mounts the React root with Redux store and global error boundary.
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { Provider } from "react-redux";
@@ -6,6 +7,7 @@ import { RootErrorBoundary } from "./components/RootErrorBoundary";
 import "./index.css";
 import { store } from "./redux/store";
 
+// Mounts the root application tree or renders a graceful fallback if initialization fails.
 try {
   const container = document.getElementById("root");
   if (!container) {

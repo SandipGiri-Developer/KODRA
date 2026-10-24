@@ -1,3 +1,4 @@
+// Strongly typed local storage helper functions and keys for persisting UI preferences and input history.
 type OnboardingStatus = any;
 import { JSONContent } from "@tiptap/react";
 
@@ -24,6 +25,7 @@ export enum LocalStorageKey {
   HasDismissedExploreDialog = "hasDismissedExploreDialog",
 }
 
+// Retrieves and deserializes a typed value from browser local storage.
 export function getLocalStorage<T extends keyof LocalStorageTypes>(
   key: T,
 ): LocalStorageTypes[T] | undefined {
@@ -44,6 +46,7 @@ export function getLocalStorage<T extends keyof LocalStorageTypes>(
   }
 }
 
+// Serializes a value into local storage and dispatches a local event to notify active listeners.
 export function setLocalStorage<T extends keyof LocalStorageTypes>(
   key: T,
   value: LocalStorageTypes[T],

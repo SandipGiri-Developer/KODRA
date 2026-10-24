@@ -1,3 +1,4 @@
+// Background message dispatcher coordinating extension-to-webview IPC events with Redux state updates.
 import { useCallback, useContext, useEffect, useRef, useState } from "react";
 import { IdeMessengerContext } from "../context/IdeMessenger";
 
@@ -19,6 +20,7 @@ import {
 import { setTTSActive } from "../redux/slices/uiSlice";
 
 import { cancelStream } from "../redux/thunks/cancelStream";
+// Evaluates whether a given model configuration supports reasoning capabilities.
 const modelSupportsReasoning = (model: any) => true;
 import { loadSession, refreshSessionMetadata } from "../redux/thunks/session";
 import { updateFileSymbolsFromHistory } from "../redux/thunks/updateFileSymbols";
@@ -30,6 +32,7 @@ import { isJetBrains } from "../util";
 import { setLocalStorage } from "../util/localStorage";
 import { useWebviewListener } from "./useWebviewListener";
 
+// Headless listener component binding core IDE extension messages to Redux state actions.
 function ParallelListeners() {
   const dispatch = useAppDispatch();
   const ideMessenger = useContext(IdeMessengerContext);
@@ -48,6 +51,7 @@ function ParallelListeners() {
   const lastSessionId = useAppSelector((store) => store.session.lastSessionId);
   const [initialSessionId] = useState(sessionId || lastSessionId);
 
+  // Dispatches configuration updates and profile preferences to Redux stores upon receiving new config data.
   const handleConfigUpdate = useCallback(
     async (isInitial: boolean, result: any) => {
       const { result: configResult, profileId, profiles } = result;

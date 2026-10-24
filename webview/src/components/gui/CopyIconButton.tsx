@@ -1,3 +1,4 @@
+// Copy-to-clipboard button with animated tooltip and checkmark feedback state.
 import { CheckIcon, ClipboardIcon } from "@heroicons/react/24/outline";
 import HeaderButtonWithToolTip from "./HeaderButtonWithToolTip";
 import useCopy from "../../hooks/useCopy";
@@ -10,6 +11,7 @@ interface CopyIconButtonProps {
   tooltipPlacement?: "top" | "bottom";
 }
 
+// Renders an icon button that copies text to clipboard and toggles feedback icon.
 export function CopyIconButton({
   text,
   tabIndex,

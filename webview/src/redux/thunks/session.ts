@@ -1,6 +1,8 @@
+// Redux asynchronous thunks for session persistence, loading, title generation, and deletion.
 import { createAsyncThunk, unwrapResult } from "@reduxjs/toolkit";
 import { BaseSessionMetadata, ChatMessage, Session } from "core";
 const NEW_SESSION_TITLE = "New Session";
+// Serializes a chat message content value into a string representation.
 const renderChatMessage = (message: ChatMessage) => typeof message.content === "string" ? message.content : JSON.stringify(message.content);
 import { IIdeMessenger } from "../../context/IdeMessenger";
 import { selectSelectedChatModel } from "../slices/configSlice";
@@ -20,6 +22,7 @@ const MAX_TITLE_LENGTH = 100;
 // Async session functions live in thunks (because of IDE messaging mostly)
 // see sessionSlice for sync redux session functions
 
+// Loads complete session history from disk via the extension IDE messenger.
 export async function getSession(
   ideMessenger: IIdeMessenger,
   id: string,
@@ -31,6 +34,7 @@ export async function getSession(
   return result.content;
 }
 
+// Fetches the list of stored session summaries from the extension host.
 export const refreshSessionMetadata = createAsyncThunk<
   BaseSessionMetadata[],
   {
@@ -51,6 +55,7 @@ export const refreshSessionMetadata = createAsyncThunk<
   return result.content;
 });
 
+// Deletes a session from disk and clears it from session metadata state.
 export const deleteSession = createAsyncThunk<void, string, ThunkApiType>(
   "session/delete",
   async (id, { getState, dispatch, extra }) => {
@@ -76,6 +81,7 @@ export const deleteSession = createAsyncThunk<void, string, ThunkApiType>(
   },
 );
 
+// Persists updated session state to disk and refreshes session metadata list.
 export const updateSession = createAsyncThunk<void, Session, ThunkApiType>(
   "session/update",
   async (session, { extra, dispatch }) => {
@@ -90,9 +96,7 @@ export const updateSession = createAsyncThunk<void, Session, ThunkApiType>(
   },
 );
 
-/*
- this is only used for the custom focusKODRASessionId command at the moment
-*/
+// Loads a session by ID into active state, optionally saving the previous session.
 export const loadSession = createAsyncThunk<
   void,
   {
@@ -122,6 +126,7 @@ export const loadSession = createAsyncThunk<
   },
 );
 
+// Associates the selected chat model title with the active user profile.
 export const selectChatModelForProfile = createAsyncThunk<
   void,
   string,
@@ -138,6 +143,7 @@ export const selectChatModelForProfile = createAsyncThunk<
   },
 );
 
+// Restores the most recently active session on application startup.
 export const loadLastSession = createAsyncThunk<void, void, ThunkApiType>(
   "session/loadLast",
   async (_, { extra, dispatch, getState }) => {
@@ -170,6 +176,7 @@ export const loadLastSession = createAsyncThunk<void, void, ThunkApiType>(
   },
 );
 
+// Generates a fallback chat session title from the initial user prompt message.
 function getChatTitleFromMessage(message: ChatMessage) {
   const text =
     renderChatMessage(message)
@@ -184,6 +191,7 @@ function getChatTitleFromMessage(message: ChatMessage) {
   return text;
 }
 
+// Persists the current session to disk, generating an AI summary title when appropriate.
 export const saveCurrentSession = createAsyncThunk<
   void,
   { openNewSession: boolean; generateTitle: boolean },

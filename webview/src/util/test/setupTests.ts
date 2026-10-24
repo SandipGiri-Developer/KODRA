@@ -1,3 +1,4 @@
+// Global test environment setup for Vitest, suppressing non-critical ProseMirror DOM measurement rejections.
 window.addEventListener("unhandledrejection", (event) => {
   if (
     event.reason?.message?.includes("getClientRects") ||

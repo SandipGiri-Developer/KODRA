@@ -1,3 +1,4 @@
+// Thumbs up and thumbs down feedback buttons for assistant responses.
 import {
   HandThumbDownIcon,
   HandThumbUpIcon,
@@ -12,6 +13,7 @@ export interface FeedbackButtonsProps {
   item: ChatHistoryItem;
 }
 
+// Renders interactive thumbs up/down icons to capture user response feedback and telemetry.
 export function FeedbackButtons({ item }: FeedbackButtonsProps) {
   const [feedback, setFeedback] = useState<boolean | undefined>(undefined);
   const ideMessenger = useContext(IdeMessengerContext);

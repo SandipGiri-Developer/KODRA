@@ -1,3 +1,4 @@
+// Unit tests for webview time formatting utilities and session activity state transitions.
 import { describe, it, expect } from 'vitest';
 import { formatDuration } from '../util/time';
 import sessionReducer, {

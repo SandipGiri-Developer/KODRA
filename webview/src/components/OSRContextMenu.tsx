@@ -1,3 +1,4 @@
+// Off-screen rendering (OSR) custom context menu component for non-Mac platforms.
 import React, { useContext, useEffect, useRef, useState } from "react";
 import useIsOSREnabled from "../hooks/useIsOSREnabled";
 import { IdeMessengerContext } from "../context/IdeMessenger";
@@ -10,6 +11,7 @@ interface Position {
   right?: number;
 }
 
+// Renders a custom floating right-click context menu when OSR mode is active.
 const OSRContextMenu = () => {
   const ideMessenger = useContext(IdeMessengerContext);
   const isOSREnabled = useIsOSREnabled();

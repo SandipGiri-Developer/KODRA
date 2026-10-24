@@ -1,3 +1,4 @@
+// Renders status, generated context items, and collapsible payload for a single tool call.
 import { Tool, ToolCallState } from "core";
 import { ComponentType, useContext, useMemo, useState } from "react";
 import {
@@ -17,6 +18,7 @@ interface SimpleToolCallUIProps {
   historyIndex: number;
 }
 
+// Component displaying a single tool invocation with status message and toggleable context items.
 export function SimpleToolCallUI({
   icon: Icon,
   toolCallState,
@@ -36,6 +38,7 @@ export function SimpleToolCallUI({
   const shouldShowContent = isToggleable ? open : false;
   const isClickable = isToggleable || isSingleItem;
 
+  // Toggles expansion of multiple context items or opens a single context item.
   function handleClick() {
     if (isToggleable) {
       setOpen((prev) => !prev);

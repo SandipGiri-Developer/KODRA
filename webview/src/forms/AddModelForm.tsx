@@ -1,3 +1,4 @@
+// Form component for configuring and connecting AI provider credentials.
 import React, { useContext, useState } from "react";
 import { IdeMessengerContext } from "../context/IdeMessenger";
 import { Button, Input } from "../components";
@@ -16,12 +17,14 @@ const PROVIDERS = [
   { id: "nvidia", name: "NVIDIA NIM" }
 ];
 
+// Form component for selecting an AI provider, providing credentials, and discovering models.
 export function AddModelForm({ onDone }: AddModelFormProps) {
   const [provider, setProvider] = useState<string>("openai");
   const [apiKey, setApiKey] = useState<string>("");
 
   const needsApiKey = provider !== "ollama";
 
+  // Dispatches configuration messages to the IDE backend and initiates model discovery.
   const onSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!(window as any).vscode) return;

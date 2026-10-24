@@ -3,20 +3,6 @@
 @tailwind utilities;
 
 
-@font-face {
-  font-family: "Inter";
-  src: url("/fonts/Inter/InterDisplay-Light.woff2") format("woff2");
-  font-weight: 300;
-  font-style: normal;
-}
-
-@font-face {
-  font-family: "JetBrains Mono";
-  src: url("/fonts/JetBrainsMono/JetBrainsMono-Light.woff2") format("woff2");
-  font-weight: 300;
-  font-style: normal;
-}
-
 :root {
   --example-var: rgb(30, 30, 30);
 }

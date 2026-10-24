@@ -1,6 +1,8 @@
+// Hook for subscribing to typed extension window message events and auto-responding via correlation ID.
 import { useContext, useEffect } from 'react';
 import { IdeMessengerContext } from '../context/IdeMessenger';
 
+// Subscribes a message handler to incoming window events matching the specified message type.
 export function useWebviewListener(
   messageType: any,
   handler: any,

@@ -1,3 +1,4 @@
+// Catalog of supported AI models and their default configurations, parameter presets, and provider capabilities.
 import { ILLM } from "core";
 import { ModelProviderTags } from "../../../components/modelSelection/utils";
 import { InputDescriptor } from "./providers";
@@ -36,6 +37,7 @@ export interface ModelPackage {
   isOpenSource: boolean;
 }
 
+// Preconfigured registry of known AI model packages and their runtime options.
 export const models: { [key: string]: ModelPackage } = {
   hermes3Llama31_405b: {
     title: "Hermes 3 Llama 3.1 405B",

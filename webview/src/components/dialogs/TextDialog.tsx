@@ -1,3 +1,4 @@
+// Generic modal dialog component rendering custom React message content with transitions.
 import React from 'react';
 import { Dialog, Transition } from '@headlessui/react';
 import { Fragment } from 'react';
@@ -9,6 +10,7 @@ interface TextDialogProps {
   message: JSX.Element | undefined;
 }
 
+// Modal dialog wrapper presenting formatted message content with background backdrop.
 export const TextDialog: React.FC<TextDialogProps> = ({ showDialog, onClose, message }) => {
   return (
     <Transition show={showDialog} as={Fragment}>

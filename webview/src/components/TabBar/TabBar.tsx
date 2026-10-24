@@ -1,3 +1,4 @@
+// Multi-tab session bar supporting tab switching, creation, and session state persistence.
 const saveCurrentSession = (a: any) => ({type: "dummy"}); const loadSession = (a: any) => ({type: "dummy"});
 import { XMarkIcon } from "@heroicons/react/24/outline";
 import React, { useCallback, useEffect } from "react";

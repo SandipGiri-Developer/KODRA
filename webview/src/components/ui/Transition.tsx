@@ -1,7 +1,9 @@
+// Animated transition component wrapping Headless UI Transition primitive.
 import { Transition as HLTransition } from "@headlessui/react";
 import { cn } from "../../util/cn";
 
 type TransitionProps = React.ComponentProps<typeof HLTransition>;
+// Transition component applying fade and scale animations to entering/leaving content.
 function Transition(props: TransitionProps) {
   return (
     <HLTransition

@@ -96,10 +96,41 @@ describe("SettingsPage", () => {
     const nav = screen.getByRole("navigation");
     expect(nav).toBeDefined();
     expect(nav.textContent?.includes("AI Providers")).toBe(true);
+    expect(nav.textContent?.includes("Approval Gate")).toBe(true);
   });
 
   it("requests settings from extension on mount", () => {
     renderPage();
     expect(mockPostMessage).toHaveBeenCalledWith({ type: "getSettings" });
   });
+
+  it("renders Approval Gate nav item and switches tab on click", async () => {
+    renderPage();
+    const approvalTabBtn = screen.getByRole("button", { name: /approval gate/i });
+    expect(approvalTabBtn).toBeDefined();
+
+    fireEvent.click(approvalTabBtn);
+
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: "Approval Gate" })).toBeDefined();
+      expect(screen.getByText(/Manage terminal command approval policies/i)).toBeDefined();
+      expect(mockPostMessage).toHaveBeenCalledWith({ type: "policy/list" });
+    });
+  });
+
+  it("toggles sidebar collapsed state when hamburger button is clicked", () => {
+    renderPage();
+    const toggleBtn = screen.getByTitle("Collapse sidebar");
+    expect(toggleBtn).toBeDefined();
+
+    // Click to collapse
+    fireEvent.click(toggleBtn);
+    expect(screen.getByTitle("Expand sidebar")).toBeDefined();
+
+    // Click to expand again
+    fireEvent.click(screen.getByTitle("Expand sidebar"));
+    expect(screen.getByTitle("Collapse sidebar")).toBeDefined();
+    expect(screen.getByText("Settings")).toBeDefined();
+  });
 });
+

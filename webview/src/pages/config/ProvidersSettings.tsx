@@ -1,3 +1,4 @@
+// AI Provider settings panel for managing credentials, endpoints, and discovering models across providers.
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
   PlusIcon,
@@ -71,6 +72,7 @@ const DEFAULT_ENDPOINTS: Record<ProviderType, string> = {
 };
 
 
+// Renders a branded icon badge corresponding to a specific AI model provider.
 export function ProviderIcon({
   provider,
   size = 15,
@@ -174,6 +176,7 @@ export function ProviderIcon({
   );
 }
 
+// Renders pill badges representing model capabilities (tools, vision, reasoning).
 function CapabilityChips({
   capabilities,
 }: {
@@ -209,6 +212,7 @@ function CapabilityChips({
 /* Model Chip                                                                  */
 /* -------------------------------------------------------------------------- */
 
+// Renders an individual model badge with remove action in provider cards.
 function ModelChip({
   name,
   muted = false,
@@ -253,6 +257,7 @@ interface ProviderCardProps {
   onEdit: (provider: ProviderSettings) => void;
 }
 
+// Card component displaying configured provider details, connection status, and models.
 function ProviderCard({
   provider,
   models,
@@ -492,6 +497,7 @@ interface AddProviderFormProps {
   editingProvider?: ProviderSettings | null;
 }
 
+// Modal form for connecting a new AI provider, validating endpoints, and selecting models.
 function AddProviderForm({
   onCancel,
   onSaved,
@@ -1306,6 +1312,7 @@ function AddProviderForm({
   );
 }
 
+// Main settings tab for managing AI providers, configuring credentials, and syncing models.
 export function ProvidersSettings() {
   const [providers, setProviders] =
     useState<ProviderSettings[]>([]);
