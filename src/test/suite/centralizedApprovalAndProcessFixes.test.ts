@@ -363,6 +363,14 @@ describe('Centralized Approval Gate and Process Management Verification', () => 
       expect(record4.status).toBe('running');
       expect(customManager.getActiveProcessCount()).toBe(2);
 
+      // Explicitly stop all remaining active processes so this test
+      // leaves zero background processes or pipe handles behind.
+      const [res2, res4] = await Promise.all([
+        customManager.stopProcess(record2.processId, { force: true }),
+        customManager.stopProcess(record4.processId, { force: true }),
+      ]);
+      expect(res2.success).toBe(true);
+      expect(res4.success).toBe(true);
       customManager.dispose();
     });
   });
@@ -445,6 +453,121 @@ describe('Centralized Approval Gate and Process Management Verification', () => 
       expect(resStderr.content).toContain('--- STDERR ---');
       expect(resStderr.content).toContain('ERR_2');
       expect(resStderr.content).not.toContain('OUT_1');
+    });
+  });
+
+
+  describe('5. Regression coverage for timeout lifecycle and policy scoping', () => {
+    it('keeps the background process timeout armed after start_process returns', async () => {
+      const record = await processManager.startProcess({
+        command: `"${process.execPath}" -e "setInterval(()=>{}, 1000)"`,
+        cwd: tempDir,
+        timeoutMs: 250,
+      });
+
+      expect(record.status).toBe('running');
+      expect(record.closed).toBe(false);
+
+      const finished = await processManager.waitForProcessExit(record.processId, 2500);
+      expect(finished?.closed).toBe(true);
+      expect(finished?.status).toBe('timed_out');
+      expect(finished?.isTimedOut).toBe(true);
+      expect(processManager.getActiveProcessCount()).toBe(0);
+    });
+
+    it('keeps an unconfirmed timed-out process running and counted against capacity', async () => {
+      const limitedManager = new ProcessManager({ maxActiveProcesses: 1 });
+      const originalForceKill = (limitedManager as any).forceKillProcess.bind(limitedManager);
+      (limitedManager as any).forceKillProcess = () => {
+        // Simulate an OS/process that did not respond to the termination signal.
+      };
+
+      try {
+        const record = await limitedManager.runCommand({
+          command: `"${process.execPath}" -e "setInterval(()=>{}, 1000)"`,
+          cwd: tempDir,
+          timeoutMs: 100,
+        });
+
+        expect(record.isTimedOut).toBe(true);
+        expect(record.terminationRequested).toBe('timed_out');
+        expect(record.status).toBe('running');
+        expect(record.closed).toBe(false);
+        expect(limitedManager.getActiveProcessCount()).toBe(1);
+
+        // Restore real termination and stop the still-tracked process explicitly.
+        (limitedManager as any).forceKillProcess = originalForceKill;
+        const stopResult = await limitedManager.stopProcess(record.processId, { force: true });
+        expect(stopResult.success).toBe(true);
+        expect(record.closed).toBe(true);
+        expect(record.status).toBe('cancelled');
+        expect(limitedManager.getActiveProcessCount()).toBe(0);
+      } finally {
+        (limitedManager as any).forceKillProcess = originalForceKill;
+        limitedManager.dispose();
+      }
+    });
+
+    it('scopes persistent input approvals to both process and exact input payload', async () => {
+      const processId = 'proc_policy_scope';
+      const approvedTarget = `send_process_input ${processId} ${JSON.stringify('approved input')}`;
+      await policyService.createPolicy({
+        scope: 'workspace',
+        workspaceId: 'ws-proc-gate-test',
+        ruleType: 'exact',
+        commandPattern: approvedTarget,
+        decision: 'allow',
+      });
+      permissionManager.setApprovalHandler(async () => 'deny');
+      const evaluateSpy = jest.spyOn(policyService, 'evaluate');
+
+      const result = await approvalGate.evaluateAndAuthorize({
+        actionType: 'process_input',
+        processId,
+        input: 'different input',
+        workspaceId: 'ws-proc-gate-test',
+        mode: 'agent',
+        toolName: 'send_process_input',
+      });
+
+      expect(evaluateSpy).toHaveBeenCalledWith(
+        `send_process_input ${processId} ${JSON.stringify('different input')}`,
+        { workspaceId: 'ws-proc-gate-test' },
+      );
+      expect(result.authorized).toBe(false);
+      expect(result.decision).toBe('deny');
+      evaluateSpy.mockRestore();
+    });
+
+    it('keeps terminal cancel/close persistent policies separate and session-scoped', async () => {
+      await policyService.createPolicy({
+        scope: 'workspace',
+        workspaceId: 'ws-proc-gate-test',
+        ruleType: 'exact',
+        commandPattern: 'terminal cancel exec_123',
+        decision: 'allow',
+      });
+      permissionManager.setApprovalHandler(async () => 'deny');
+      const evaluateSpy = jest.spyOn(policyService, 'evaluate');
+
+      const result = await approvalGate.evaluateAndAuthorize({
+        actionType: 'terminal_change',
+        workspaceId: 'ws-proc-gate-test',
+        mode: 'agent',
+        toolName: 'terminal',
+        metadata: {
+          terminalAction: 'close',
+          terminalSessionId: 'session_456',
+        },
+      });
+
+      expect(evaluateSpy).toHaveBeenCalledWith(
+        'terminal close session_456',
+        { workspaceId: 'ws-proc-gate-test' },
+      );
+      expect(result.authorized).toBe(false);
+      expect(result.decision).toBe('deny');
+      evaluateSpy.mockRestore();
     });
   });
 });

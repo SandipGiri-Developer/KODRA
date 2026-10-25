@@ -380,6 +380,23 @@ export class ToolExecutor implements IToolExecutor {
             toolCallId: callId,
             description: permReq.description,
             toolName: tool.name,
+            metadata: {
+              force: parsedArgs.force === true,
+              terminalAction:
+                typeof parsedArgs.action === 'string'
+                  ? parsedArgs.action.trim()
+                  : tool.name === 'terminal'
+                    ? 'execute'
+                    : undefined,
+              terminalSessionId:
+                typeof parsedArgs.terminalSessionId === 'string'
+                  ? parsedArgs.terminalSessionId
+                  : undefined,
+              terminalExecutionId:
+                typeof parsedArgs.executionId === 'string'
+                  ? parsedArgs.executionId
+                  : undefined,
+            },
           },
           signal,
         );

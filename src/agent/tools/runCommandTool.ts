@@ -105,6 +105,14 @@ export class RunCommandTool implements ITool {
         } else {
           content += '\n(No output produced)';
         }
+      } else if (record.status === 'running' && record.terminationRequested) {
+        const requestedOutcome =
+          record.terminationRequested === 'timed_out' ? 'timed out' : 'was cancelled';
+        content = `Command ${requestedOutcome}, but process termination is not confirmed (processId: "${record.processId}"). The process remains tracked as running.\n`;
+        if (record.output.trim().length > 0) {
+          content += `\n--- PARTIAL OUTPUT ---\n${record.output.trim()}`;
+        }
+        if (record.error) content += `\nError: ${record.error}`;
       } else if (record.status === 'cancelled') {
         content = `Command cancelled: "${record.command}" (duration: ${durationMs}ms)\n`;
         if (record.output.trim().length > 0) {

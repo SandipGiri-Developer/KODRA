@@ -177,12 +177,23 @@ export class ProcessManager implements IProcessManager {
     list.push(timer);
   }
 
+  private unregisterTimer(processId: string, timer: NodeJS.Timeout): void {
+    const list = this.processTimers.get(processId);
+    if (!list) return;
+    const remaining = list.filter((registered) => registered !== timer);
+    if (remaining.length > 0) this.processTimers.set(processId, remaining);
+    else this.processTimers.delete(processId);
+  }
+
+  private clearTimer(processId: string, timer: NodeJS.Timeout): void {
+    clearTimeout(timer);
+    this.unregisterTimer(processId, timer);
+  }
+
   private clearTimers(processId: string): void {
     const list = this.processTimers.get(processId);
     if (list) {
-      for (const t of list) {
-        clearTimeout(t);
-      }
+      for (const timer of list) clearTimeout(timer);
       this.processTimers.delete(processId);
     }
   }
@@ -212,11 +223,11 @@ export class ProcessManager implements IProcessManager {
   }
 
   public async runCommand(options: LaunchProcessOptions): Promise<ProcessRecord> {
-    // 1. Enforce concurrent active process limit
     if (this.getActiveProcessCount() >= this.maxActiveProcesses) {
       const record = this.createRecord(options);
       const errorMsg = `Maximum concurrent active processes limit (${this.maxActiveProcesses}) reached. Stop an active process before starting a new one.`;
       record.status = 'failed';
+      record.closed = true;
       record.endTime = Date.now();
       record.durationMs = 0;
       record.error = errorMsg;
@@ -229,18 +240,13 @@ export class ProcessManager implements IProcessManager {
 
     const record = this.createRecord(options);
     this.processes.set(record.processId, record);
-
-    if (options.onChunk) {
-      this.addChunkListener(record.processId, options.onChunk);
-    }
-
-    if (options.onExit) {
-      this.exitListeners.set(record.processId, options.onExit);
-    }
+    if (options.onChunk) this.addChunkListener(record.processId, options.onChunk);
+    if (options.onExit) this.exitListeners.set(record.processId, options.onExit);
 
     return new Promise<ProcessRecord>((resolve) => {
       if (options.signal?.aborted) {
         record.status = 'cancelled';
+        record.closed = true;
         record.endTime = Date.now();
         record.durationMs = 0;
         record.output = 'Command cancelled before execution.';
@@ -261,6 +267,7 @@ export class ProcessManager implements IProcessManager {
         child = this.spawnChild(options.command, options.cwd, options.env);
       } catch (spawnErr: any) {
         record.status = 'failed';
+        record.closed = true;
         record.endTime = Date.now();
         record.durationMs = record.endTime - record.startTime;
         record.error = spawnErr.message;
@@ -274,83 +281,133 @@ export class ProcessManager implements IProcessManager {
 
       record.child = child;
       record.pid = child.pid;
-
       let isSettled = false;
+      let isFinalized = false;
+      let timeoutTimer: NodeJS.Timeout | undefined;
 
-      const safeResolve = () => {
+      const settlePromise = () => {
         if (!isSettled) {
           isSettled = true;
-          this.clearTimers(record.processId);
-          if (options.signal) {
-            options.signal.removeEventListener('abort', abortHandler);
-          }
-          record.durationMs = (record.endTime ?? Date.now()) - record.startTime;
-          this.cleanUpProcessResources(record);
-          this.pruneCompletedProcesses();
-          this.notifyExit(record);
           resolve(record);
         }
       };
 
+      const finalizeClosedProcess = (code: number | null) => {
+        if (isFinalized) return;
+        isFinalized = true;
+        record.closed = true;
+        record.exitCode = code;
+        record.endTime = Date.now();
+        if (record.terminationRequested) {
+          record.status = record.terminationRequested;
+        } else if (record.status === 'running') {
+          record.status = code === 0 ? 'completed' : 'failed';
+          if (code !== 0 && !record.error) {
+            record.error = `Process exited with code ${code}`;
+          }
+        }
+        record.durationMs = record.endTime - record.startTime;
+        this.clearTimers(record.processId);
+        if (options.signal) options.signal.removeEventListener('abort', abortHandler);
+        this.cleanUpProcessResources(record);
+        this.notifyExit(record);
+        if (record.cleanupAfterExit) {
+          this.removeProcessRecord(record);
+        } else {
+          this.pruneCompletedProcesses();
+        }
+        settlePromise();
+      };
+
       const abortHandler = async () => {
+        if (record.closed || record.status !== 'running' || record.terminationRequested) return;
+        record.terminationRequested = 'cancelled';
         this.appendChunk(record, '\n[Command cancelled by user]', 'stderr');
+        if (timeoutTimer) this.clearTimer(record.processId, timeoutTimer);
         this.gracefulKill(child);
-        const exited = await this.waitForExit(record, 1000);
+        let exited = await this.waitForExit(record, 1000);
         if (!exited) {
           this.forceKillProcess(child);
-          await this.waitForExit(record, 1000);
+          exited = await this.waitForExit(record, 1000);
+        }
+        if (!exited) {
+          record.error = 'Cancellation requested, but process termination has not yet been confirmed; the process remains tracked as running.';
+          if (options.signal) options.signal.removeEventListener('abort', abortHandler);
+          settlePromise();
+          return;
         }
         record.status = 'cancelled';
-        record.endTime = Date.now();
-        safeResolve();
+        record.closed = true;
+        record.endTime = record.endTime ?? Date.now();
+        record.durationMs = record.endTime - record.startTime;
+        this.cleanUpProcessResources(record);
+        this.pruneCompletedProcesses();
+        this.notifyExit(record);
+        settlePromise();
       };
 
       if (options.signal) {
         options.signal.addEventListener('abort', abortHandler, { once: true });
       }
 
-      const timeoutTimer = setTimeout(async () => {
+      this.attachOutputHandlers(record, child);
+      child.on('error', (err) => {
+        record.error = err.message;
+        this.appendChunk(record, `\nProcess error: ${err.message}`, 'stderr');
+        // A spawn error with no PID means no OS process was created. Otherwise wait
+        // for "close" before considering the process and its stdio fully closed.
+        if (child.pid === undefined) {
+          isFinalized = true;
+          record.status = record.terminationRequested ?? 'failed';
+          record.closed = true;
+          record.endTime = Date.now();
+          record.durationMs = record.endTime - record.startTime;
+          this.clearTimers(record.processId);
+          if (options.signal) options.signal.removeEventListener('abort', abortHandler);
+          this.cleanUpProcessResources(record);
+          this.notifyExit(record);
+          if (record.cleanupAfterExit) this.removeProcessRecord(record);
+          else this.pruneCompletedProcesses();
+          settlePromise();
+        }
+      });
+      child.on('close', (code) => finalizeClosedProcess(code));
+
+      timeoutTimer = setTimeout(async () => {
+        this.unregisterTimer(record.processId, timeoutTimer!);
+        if (record.closed || record.status !== 'running' || record.terminationRequested) return;
         record.isTimedOut = true;
+        record.terminationRequested = 'timed_out';
         record.error = `Command timed out after ${timeoutMs / 1000}s`;
         this.appendChunk(record, `\n[Command timed out after ${timeoutMs / 1000}s]`, 'stderr');
         this.forceKillProcess(child);
-        await this.waitForExit(record, 1000);
-        record.status = 'timed_out';
-        record.endTime = Date.now();
-        safeResolve();
+        const exited = await this.waitForExit(record, 1000);
+        if (!exited) {
+          record.error += ' Termination has not yet been confirmed; the process remains tracked as running.';
+          if (timeoutTimer) this.unregisterTimer(record.processId, timeoutTimer);
+          if (options.signal) options.signal.removeEventListener('abort', abortHandler);
+          settlePromise();
+        } else {
+          record.status = 'timed_out';
+          record.closed = true;
+          record.endTime = record.endTime ?? Date.now();
+          record.durationMs = record.endTime - record.startTime;
+          this.cleanUpProcessResources(record);
+          this.pruneCompletedProcesses();
+          this.notifyExit(record);
+          settlePromise();
+        }
       }, timeoutMs);
       this.registerTimer(record.processId, timeoutTimer);
-
-      this.attachOutputHandlers(record, child);
-
-      child.on('error', (err) => {
-        record.status = 'failed';
-        record.endTime = Date.now();
-        record.error = err.message;
-        this.appendChunk(record, `\nProcess error: ${err.message}`, 'stderr');
-        safeResolve();
-      });
-
-      child.on('close', (code) => {
-        record.exitCode = code;
-        record.endTime = Date.now();
-        if (record.status === 'running') {
-          record.status = code === 0 ? 'completed' : 'failed';
-          if (code !== 0 && !record.error) {
-            record.error = `Process exited with code ${code}`;
-          }
-        }
-        safeResolve();
-      });
     });
   }
 
   public async startProcess(options: LaunchProcessOptions): Promise<ProcessRecord> {
-    // 1. Enforce concurrent active process limit
     if (this.getActiveProcessCount() >= this.maxActiveProcesses) {
       const record = this.createRecord(options);
       const errorMsg = `Maximum concurrent active processes limit (${this.maxActiveProcesses}) reached. Stop an active process before starting a new one.`;
       record.status = 'failed';
+      record.closed = true;
       record.endTime = Date.now();
       record.durationMs = 0;
       record.error = errorMsg;
@@ -363,17 +420,12 @@ export class ProcessManager implements IProcessManager {
 
     const record = this.createRecord(options);
     this.processes.set(record.processId, record);
-
-    if (options.onChunk) {
-      this.addChunkListener(record.processId, options.onChunk);
-    }
-
-    if (options.onExit) {
-      this.exitListeners.set(record.processId, options.onExit);
-    }
+    if (options.onChunk) this.addChunkListener(record.processId, options.onChunk);
+    if (options.onExit) this.exitListeners.set(record.processId, options.onExit);
 
     if (options.signal?.aborted) {
       record.status = 'cancelled';
+      record.closed = true;
       record.endTime = Date.now();
       record.durationMs = 0;
       record.output = 'Process cancelled before startup.';
@@ -389,6 +441,7 @@ export class ProcessManager implements IProcessManager {
         child = this.spawnChild(options.command, options.cwd, options.env);
       } catch (spawnErr: any) {
         record.status = 'failed';
+        record.closed = true;
         record.endTime = Date.now();
         record.durationMs = record.endTime - record.startTime;
         record.error = spawnErr.message;
@@ -402,33 +455,116 @@ export class ProcessManager implements IProcessManager {
 
       record.child = child;
       record.pid = child.pid;
-
       let settled = false;
+      let isFinalized = false;
+      let timeoutTimer: NodeJS.Timeout | undefined;
 
-      const safeResolve = () => {
+      const settlePromise = () => {
         if (!settled) {
           settled = true;
-          this.clearTimers(record.processId);
           resolve(record);
         }
       };
 
+      const finalizeClosedProcess = (code: number | null) => {
+        if (isFinalized) return;
+        isFinalized = true;
+        record.closed = true;
+        record.exitCode = code;
+        record.endTime = Date.now();
+        if (record.terminationRequested) {
+          record.status = record.terminationRequested;
+        } else if (record.status === 'running') {
+          record.status = code === 0 ? 'completed' : 'failed';
+          if (code !== 0 && !record.error) {
+            record.error = `Process exited with code ${code}`;
+          }
+        }
+        record.durationMs = record.endTime - record.startTime;
+        this.clearTimers(record.processId);
+        if (options.signal) options.signal.removeEventListener('abort', abortHandler);
+        this.cleanUpProcessResources(record);
+        this.notifyExit(record);
+        if (record.cleanupAfterExit) this.removeProcessRecord(record);
+        else this.pruneCompletedProcesses();
+        settlePromise();
+      };
+
       const initialGraceTimer = setTimeout(() => {
-        safeResolve();
+        this.unregisterTimer(record.processId, initialGraceTimer);
+        // This only resolves the start call; it must not clear the process timeout.
+        settlePromise();
       }, 75);
       this.registerTimer(record.processId, initialGraceTimer);
 
+      const abortHandler = async () => {
+        if (record.closed || record.status !== 'running' || record.terminationRequested) return;
+        record.terminationRequested = 'cancelled';
+        this.appendChunk(record, '\n[Cancelled by user]', 'stderr');
+        if (timeoutTimer) this.clearTimer(record.processId, timeoutTimer);
+        this.gracefulKill(child);
+        let exited = await this.waitForExit(record, 1000);
+        if (!exited) {
+          this.forceKillProcess(child);
+          exited = await this.waitForExit(record, 1000);
+        }
+        if (!exited) {
+          record.error = 'Cancellation requested, but process termination has not yet been confirmed; it remains tracked as running.';
+          if (options.signal) options.signal.removeEventListener('abort', abortHandler);
+        } else {
+          record.status = 'cancelled';
+          record.closed = true;
+          record.endTime = record.endTime ?? Date.now();
+          record.durationMs = record.endTime - record.startTime;
+          this.cleanUpProcessResources(record);
+          this.pruneCompletedProcesses();
+          this.notifyExit(record);
+        }
+        settlePromise();
+      };
+
+      if (options.signal) {
+        options.signal.addEventListener('abort', abortHandler, { once: true });
+      }
+
+      this.attachOutputHandlers(record, child);
+      child.on('error', (err) => {
+        record.error = err.message;
+        this.appendChunk(record, `\nProcess error: ${err.message}`, 'stderr');
+        if (child.pid === undefined) {
+          record.status = record.terminationRequested ?? 'failed';
+          record.closed = true;
+          record.endTime = Date.now();
+          record.durationMs = record.endTime - record.startTime;
+          this.clearTimers(record.processId);
+          if (options.signal) options.signal.removeEventListener('abort', abortHandler);
+          this.cleanUpProcessResources(record);
+          this.notifyExit(record);
+          if (record.cleanupAfterExit) this.removeProcessRecord(record);
+          else this.pruneCompletedProcesses();
+          settlePromise();
+        }
+      });
+      child.on('close', (code) => finalizeClosedProcess(code));
+
       if (options.timeoutMs && options.timeoutMs > 0) {
         const timeoutMs = Math.min(options.timeoutMs, MAX_COMMAND_TIMEOUT_MS);
-        const timeoutTimer = setTimeout(async () => {
-          if (record.status === 'running') {
-            record.isTimedOut = true;
-            record.error = `Process exceeded maximum lifetime (${timeoutMs / 1000}s)`;
-            this.appendChunk(record, `\n[Process lifetime expired after ${timeoutMs / 1000}s]`, 'stderr');
-            this.forceKillProcess(child);
-            await this.waitForExit(record, 1000);
+        timeoutTimer = setTimeout(async () => {
+          this.unregisterTimer(record.processId, timeoutTimer!);
+          if (record.closed || record.status !== 'running' || record.terminationRequested) return;
+          record.isTimedOut = true;
+          record.terminationRequested = 'timed_out';
+          record.error = `Process exceeded maximum lifetime (${timeoutMs / 1000}s)`;
+          this.appendChunk(record, `\n[Process lifetime expired after ${timeoutMs / 1000}s]`, 'stderr');
+          this.forceKillProcess(child);
+          const exited = await this.waitForExit(record, 1000);
+          if (!exited) {
+            record.error += ' Termination has not yet been confirmed; it remains tracked as running.';
+            if (timeoutTimer) this.unregisterTimer(record.processId, timeoutTimer);
+          } else {
             record.status = 'timed_out';
-            record.endTime = Date.now();
+            record.closed = true;
+            record.endTime = record.endTime ?? Date.now();
             record.durationMs = record.endTime - record.startTime;
             this.cleanUpProcessResources(record);
             this.pruneCompletedProcesses();
@@ -437,66 +573,6 @@ export class ProcessManager implements IProcessManager {
         }, timeoutMs);
         this.registerTimer(record.processId, timeoutTimer);
       }
-
-      const abortHandler = async () => {
-        if (record.status === 'running') {
-          this.appendChunk(record, '\n[Cancelled by user]', 'stderr');
-          this.gracefulKill(child);
-          const exited = await this.waitForExit(record, 1000);
-          if (!exited) {
-            this.forceKillProcess(child);
-            await this.waitForExit(record, 1000);
-          }
-          record.status = 'cancelled';
-          record.endTime = Date.now();
-          record.durationMs = record.endTime - record.startTime;
-          this.cleanUpProcessResources(record);
-          this.pruneCompletedProcesses();
-          this.notifyExit(record);
-        }
-      };
-
-      if (options.signal) {
-        options.signal.addEventListener('abort', abortHandler, { once: true });
-      }
-
-      this.attachOutputHandlers(record, child);
-
-      child.on('error', (err) => {
-        record.status = 'failed';
-        record.endTime = Date.now();
-        record.durationMs = record.endTime - record.startTime;
-        record.error = err.message;
-        this.appendChunk(record, `\nProcess error: ${err.message}`, 'stderr');
-        this.clearTimers(record.processId);
-        if (options.signal) {
-          options.signal.removeEventListener('abort', abortHandler);
-        }
-        this.cleanUpProcessResources(record);
-        this.pruneCompletedProcesses();
-        this.notifyExit(record);
-        safeResolve();
-      });
-
-      child.on('close', (code) => {
-        record.exitCode = code;
-        record.endTime = Date.now();
-        record.durationMs = record.endTime - record.startTime;
-        if (record.status === 'running') {
-          record.status = code === 0 ? 'completed' : 'failed';
-          if (code !== 0 && !record.error) {
-            record.error = `Process exited with code ${code}`;
-          }
-        }
-        this.clearTimers(record.processId);
-        if (options.signal) {
-          options.signal.removeEventListener('abort', abortHandler);
-        }
-        this.cleanUpProcessResources(record);
-        this.pruneCompletedProcesses();
-        this.notifyExit(record);
-        safeResolve();
-      });
     });
   }
 
@@ -649,32 +725,28 @@ export class ProcessManager implements IProcessManager {
       };
     }
 
-    // Check if already exited or finished
-    if (
-      record.status !== 'running' ||
-      !record.child ||
-      record.child.exitCode !== null ||
-      record.child.signalCode !== null
-    ) {
-      if (record.status === 'running') {
-        record.status = record.child?.exitCode === 0 ? 'completed' : 'cancelled';
-        record.endTime = record.endTime ?? Date.now();
-        record.durationMs = record.endTime - record.startTime;
-      }
+    if (record.closed || record.status !== 'running') {
       return {
         success: true,
         status: record.status,
         alreadyExited: true,
-        message: `Process "${processId}" has already exited (status: ${record.status}, exit code: ${record.exitCode ?? record.child?.exitCode ?? 0}).`,
-        exitCode: record.exitCode ?? record.child?.exitCode ?? null,
+        message: `Process "${processId}" has already exited (status: ${record.status}, exit code: ${record.exitCode ?? 0}).`,
+        exitCode: record.exitCode,
         pid: record.pid,
       };
     }
 
-    // Handle concurrent repeated stop requests safely
-    if ((record as any)._stopPromise) {
-      return (record as any)._stopPromise;
+    if (!record.child) {
+      return {
+        success: false,
+        status: record.status,
+        alreadyExited: false,
+        message: `Process "${processId}" has no child handle; termination cannot be confirmed.`,
+        pid: record.pid,
+      };
     }
+
+    if ((record as any)._stopPromise) return (record as any)._stopPromise;
 
     const opts: StopProcessOptions =
       typeof options === 'string' ? { signal: options } : (options ?? {});
@@ -682,17 +754,18 @@ export class ProcessManager implements IProcessManager {
     const graceTimeoutMs = opts.graceTimeoutMs ?? 500;
 
     const stopPromise = (async (): Promise<StopProcessResult> => {
-      if (!force) {
-        // 1. Attempt graceful termination
-        this.gracefulKill(record.child!, opts.signal);
+      // A new explicit stop request supersedes an earlier timeout intent.
+      // The status itself remains "running" until the child's close event.
+      record.terminationRequested = 'cancelled';
+      this.appendChunk(record, '\n[Cancellation requested by user]', 'stderr');
 
-        // Wait for process to actually exit
-        const exited = await this.waitForExit(record, graceTimeoutMs);
-        if (exited) {
+      if (!force) {
+        this.gracefulKill(record.child!, opts.signal);
+        if (await this.waitForExit(record, graceTimeoutMs)) {
           record.status = 'cancelled';
-          record.endTime = Date.now();
+          record.closed = true;
+          record.endTime = record.endTime ?? Date.now();
           record.durationMs = record.endTime - record.startTime;
-          this.appendChunk(record, '\n[Cancelled by user]', 'stderr');
           this.cleanUpProcessResources(record);
           this.pruneCompletedProcesses();
           this.notifyExit(record);
@@ -707,7 +780,6 @@ export class ProcessManager implements IProcessManager {
         }
       }
 
-      // 2. Force termination if graceful didn't exit in time or force=true
       try {
         this.forceKillProcess(record.child!);
       } catch (err: any) {
@@ -723,27 +795,20 @@ export class ProcessManager implements IProcessManager {
 
       const forceExited = await this.waitForExit(record, 1000);
       if (!forceExited) {
-        const isDead =
-          record.status !== 'running' ||
-          !record.child ||
-          record.child.exitCode !== null ||
-          record.child.signalCode !== null;
-        if (!isDead) {
-          return {
-            success: false,
-            status: record.status,
-            alreadyExited: false,
-            message: `Failed to confirm termination of process "${processId}". Process may still be running.`,
-            pid: record.pid,
-            exitCode: record.exitCode,
-          };
-        }
+        return {
+          success: false,
+          status: record.status,
+          alreadyExited: false,
+          message: `Termination of process "${processId}" could not be confirmed. It remains tracked as running and will be finalized only after its close event.`,
+          pid: record.pid,
+          exitCode: record.exitCode,
+        };
       }
 
       record.status = 'cancelled';
-      record.endTime = Date.now();
+      record.closed = true;
+      record.endTime = record.endTime ?? Date.now();
       record.durationMs = record.endTime - record.startTime;
-      this.appendChunk(record, '\n[Cancelled by user]', 'stderr');
       this.cleanUpProcessResources(record);
       this.pruneCompletedProcesses();
       this.notifyExit(record);
@@ -785,42 +850,49 @@ export class ProcessManager implements IProcessManager {
 
   public cleanup(processId: string): boolean {
     const record = this.processes.get(processId);
-    if (!record) {
-      return false;
-    }
-    if (record.status === 'running' && record.child) {
+    if (!record) return false;
+
+    // Running processes stay registered, with listeners intact, until close is confirmed.
+    if (!record.closed && record.status === 'running' && record.child) {
+      record.cleanupAfterExit = true;
+      if (!record.terminationRequested) record.terminationRequested = 'cancelled';
+      if (!record.error) record.error = 'Cleanup requested; waiting for process termination to be confirmed.';
       this.forceKillProcess(record.child);
-      record.status = 'cancelled';
-      record.endTime = Date.now();
+      return true;
     }
-    for (const c of record.chunks) {
-      this.totalChunkBytes = Math.max(0, this.totalChunkBytes - Buffer.byteLength(c.text, 'utf8'));
-    }
-    record.chunks = [];
-    this.clearTimers(processId);
-    this.cleanUpProcessResources(record);
-    this.chunkListeners.delete(processId);
-    this.exitListeners.delete(processId);
-    return this.processes.delete(processId);
+
+    this.removeProcessRecord(record);
+    return true;
   }
 
   public dispose(): void {
-    for (const record of this.processes.values()) {
-      if (record.status === 'running' && record.child) {
-        this.forceKillProcess(record.child);
+    for (const record of Array.from(this.processes.values())) {
+      if (!record.closed && record.status === 'running' && record.child) {
         record.status = 'cancelled';
+        record.closed = true;
         record.endTime = Date.now();
         record.durationMs = record.endTime - record.startTime;
+        this.forceKillProcess(record.child);
       }
-      this.clearTimers(record.processId);
-      this.cleanUpProcessResources(record);
-      record.chunks = [];
+      this.removeProcessRecord(record);
     }
     this.chunkListeners.clear();
     this.exitListeners.clear();
     this.processes.clear();
     this.processTimers.clear();
     this.totalChunkBytes = 0;
+  }
+
+  private removeProcessRecord(record: ProcessRecord): void {
+    for (const chunk of record.chunks) {
+      this.totalChunkBytes = Math.max(0, this.totalChunkBytes - Buffer.byteLength(chunk.text, 'utf8'));
+    }
+    record.chunks = [];
+    this.clearTimers(record.processId);
+    this.cleanUpProcessResources(record);
+    this.chunkListeners.delete(record.processId);
+    this.exitListeners.delete(record.processId);
+    this.processes.delete(record.processId);
   }
 
   private cleanUpProcessResources(record: ProcessRecord): void {
@@ -892,6 +964,7 @@ export class ProcessManager implements IProcessManager {
       status: 'running',
       startTime: Date.now(),
       isTimedOut: false,
+      closed: false,
       output: '',
       stdout: '',
       stderr: '',
@@ -1048,72 +1121,36 @@ export class ProcessManager implements IProcessManager {
       completed.sort((a, b) => (a.endTime ?? a.startTime) - (b.endTime ?? b.startTime));
       const toRemove = completed.slice(0, completed.length - this.maxCompletedProcesses);
       for (const rec of toRemove) {
-        for (const c of rec.chunks) {
-          this.totalChunkBytes = Math.max(0, this.totalChunkBytes - Buffer.byteLength(c.text, 'utf8'));
-        }
-        rec.chunks = [];
-        this.clearTimers(rec.processId);
-        this.cleanUpProcessResources(rec);
-        this.chunkListeners.delete(rec.processId);
-        this.processes.delete(rec.processId);
+        this.removeProcessRecord(rec);
       }
     }
   }
 
   private waitForExit(record: ProcessRecord, timeoutMs: number): Promise<boolean> {
-    if (record.status !== 'running') {
-      return Promise.resolve(true);
-    }
-    if (!record.child) {
-      return Promise.resolve(true);
-    }
-    // Never treat child.killed as proof of actual termination.
-    // Check actual exitCode/signalCode or await exit/close events.
-    if (record.child.exitCode !== null || record.child.signalCode !== null) {
-      return Promise.resolve(true);
-    }
+    if (record.closed === true) return Promise.resolve(true);
+    const child = record.child;
+    if (!child) return Promise.resolve(false);
+    if (child.exitCode !== null || child.signalCode !== null) return Promise.resolve(true);
 
     return new Promise<boolean>((resolve) => {
-      let resolved = false;
-
-      const cleanupListeners = () => {
-        if (record.child) {
-          record.child.removeListener('close', onClose);
-          record.child.removeListener('exit', onClose);
-        }
+      let settled = false;
+      const finish = (closed: boolean) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        child.removeListener('close', onClose);
+        child.removeListener('exit', onClose);
+        resolve(closed || record.closed === true || child.exitCode !== null || child.signalCode !== null);
       };
-
-      const timer = setTimeout(() => {
-        if (!resolved) {
-          resolved = true;
-          cleanupListeners();
-          const dead =
-            record.status !== 'running' ||
-            !record.child ||
-            record.child.exitCode !== null ||
-            record.child.signalCode !== null;
-          resolve(dead);
-        }
-      }, timeoutMs);
-      if (typeof timer.unref === 'function') {
-        timer.unref();
-      }
-
-      const onClose = () => {
-        if (!resolved) {
-          resolved = true;
-          clearTimeout(timer);
-          cleanupListeners();
-          resolve(true);
-        }
-      };
-
-      if (record.child) {
-        record.child.once('close', onClose);
-        record.child.once('exit', onClose);
-      } else {
-        onClose();
-      }
+      const onClose = () => finish(true);
+      const timer = setTimeout(
+        () => finish(record.closed === true || child.exitCode !== null || child.signalCode !== null),
+        Math.max(0, timeoutMs),
+      );
+      if (typeof timer.unref === 'function') timer.unref();
+      child.once('close', onClose);
+      child.once('exit', onClose);
+      if (record.closed === true || child.exitCode !== null || child.signalCode !== null) finish(true);
     });
   }
 

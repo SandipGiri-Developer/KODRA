@@ -114,7 +114,9 @@ export class ApprovalGate implements IApprovalGate {
         };
       }
 
-      policyTarget = `send_process_input ${processId}`;
+      // Match persistent approval to the actual payload, not only a process ID.
+      // Otherwise "always allow" could authorize arbitrary future input to that process.
+      policyTarget = `send_process_input ${processId} ${JSON.stringify(request.input ?? '')}`;
     } else if (actionType === 'process_stop') {
       const processId = (request.processId || '').trim();
       if (!processId) {
@@ -125,9 +127,19 @@ export class ApprovalGate implements IApprovalGate {
         };
       }
 
-      policyTarget = `stop_process ${processId}`;
+      // Keep graceful and forceful termination permissions distinct.
+      policyTarget = `stop_process ${processId} ${request.metadata?.force === true ? 'force' : 'graceful'}`;
     } else if (actionType === 'terminal_change') {
-      policyTarget = `terminal ${request.command || request.description || 'change'}`;
+      // A persistent approval for cancel must not authorize close (or vice versa).
+      const terminalAction =
+        typeof request.metadata?.terminalAction === 'string'
+          ? request.metadata.terminalAction.trim()
+          : 'change';
+      const identifier =
+        terminalAction === 'close'
+          ? request.metadata?.terminalSessionId || request.metadata?.terminalExecutionId
+          : request.metadata?.terminalExecutionId || request.metadata?.terminalSessionId;
+      policyTarget = `terminal ${terminalAction || 'change'} ${identifier || '<missing-id>'}`;
     } else {
       policyTarget = request.command || actionType;
     }

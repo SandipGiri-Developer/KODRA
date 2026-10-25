@@ -28,6 +28,12 @@ export interface ProcessRecord {
   exitCode?: number | null;
   error?: string;
   isTimedOut: boolean;
+  /** True only after the child's close event confirms process and stdio closure. */
+  closed?: boolean;
+  /** Termination intent; status stays 'running' until closure is confirmed. */
+  terminationRequested?: 'cancelled' | 'timed_out';
+  /** Remove this record after termination is confirmed. */
+  cleanupAfterExit?: boolean;
   child?: ChildProcess;
   output: string;
   stdout: string;
@@ -118,4 +124,3 @@ export interface IProcessManager {
   cleanup(processId: string): boolean;
   dispose(): void;
 }
-

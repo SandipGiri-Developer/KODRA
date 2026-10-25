@@ -93,11 +93,20 @@ export class StartProcessTool implements ITool {
         signal,
       });
 
-      const isRunning = record.status === 'running';
+      const terminationPending = record.status === 'running' && Boolean(record.terminationRequested);
+      const isRunning = record.status === 'running' && !terminationPending;
       const success = isRunning || record.status === 'completed';
 
       let content = '';
-      if (isRunning) {
+      if (terminationPending) {
+        const requestedOutcome =
+          record.terminationRequested === 'timed_out' ? 'timed out' : 'was cancelled';
+        content = `Process ${requestedOutcome}, but termination is not confirmed (processId: "${record.processId}"). The process remains tracked as running.\n`;
+        if (record.error) content += `Error: ${record.error}\n`;
+        if (record.output.trim().length > 0) {
+          content += `\n--- PARTIAL OUTPUT ---\n${record.output.trim()}\n`;
+        }
+      } else if (isRunning) {
         content = `Background process started successfully (processId: "${record.processId}", PID: ${record.pid ?? 'unknown'}).\n` +
           `Command: "${record.command}"\nStatus: running\n`;
         if (record.output.trim().length > 0) {
