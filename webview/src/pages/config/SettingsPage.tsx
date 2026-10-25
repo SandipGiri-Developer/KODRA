@@ -7,7 +7,7 @@ import {
   CubeIcon,
   ShieldCheckIcon,
 } from "@heroicons/react/24/outline";
-import { ProvidersSettings } from "./ProvidersSettings";
+import { ProvidersSettings } from "./Providers";
 import { ApprovalGateSettings } from "./ApprovalGate";
 import { ROUTES } from "../../util/navigation";
 
