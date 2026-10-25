@@ -105,7 +105,7 @@ describe('Project Context & Six Tools Verification', () => {
       expect(names).toContain('list_directory');
       expect(names).toContain('edit_file');
       expect(names).toContain('create_file');
-      expect(names).toContain('terminal');
+      expect(names).toContain('run_command');
 
       const registry = new ToolRegistry(tools);
       expect(registry.hasTool('read_file')).toBe(true);
@@ -113,10 +113,14 @@ describe('Project Context & Six Tools Verification', () => {
       expect(registry.hasTool('list_directory')).toBe(true);
       expect(registry.hasTool('edit_file')).toBe(true);
       expect(registry.hasTool('create_file')).toBe(true);
-      expect(registry.hasTool('terminal')).toBe(true);
+      expect(registry.hasTool('run_command')).toBe(true);
+
+      // Verify legacy TerminalTool remains compatible in ToolRegistry
+      const legacyRegistry = new ToolRegistry([...tools, new TerminalTool('terminal', workspaceService)]);
+      expect(legacyRegistry.hasTool('terminal')).toBe(true);
 
       const definitions = registry.getToolDefinitions();
-      expect(definitions.length).toBeGreaterThanOrEqual(6);
+      expect(definitions.length).toBe(13);
     });
   });
 

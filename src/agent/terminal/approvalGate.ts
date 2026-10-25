@@ -20,6 +20,8 @@ import {
   IApprovalPolicyService,
 } from './types';
 
+import { ProcessManager } from '../process/processManager';
+
 export class ApprovalGate implements IApprovalGate {
   constructor(
     private readonly policyService: IApprovalPolicyService,
@@ -35,40 +37,15 @@ export class ApprovalGate implements IApprovalGate {
     request: GateAuthorizationRequest,
     signal?: AbortSignal,
   ): Promise<GateAuthorizationResult> {
-    const command = (request.command || '').trim();
-    if (!command) {
-      return {
-        authorized: false,
-        decision: 'deny',
-        reason: 'Command cannot be empty.',
-      };
-    }
-
-    // ─── 1. Command Safety Validation (AC10) ─────────────────────────────────
-    if (CommandMatcher.isCompoundCommand(command)) {
-      return {
-        authorized: false,
-        decision: 'deny',
-        reason: 'Chained or compound commands (&&, ;, ||, |, newlines) are prohibited for safety.',
-      };
-    }
-
-    if (CommandMatcher.hasUnbalancedQuotes(command)) {
-      return {
-        authorized: false,
-        decision: 'deny',
-        reason: 'Command has unbalanced quotes or dangling escape characters.',
-      };
-    }
-
+    const actionType = request.actionType ?? 'command';
     const mode = (request.mode || '').toLowerCase();
 
-    // ─── 2. Enforce Mode Restrictions (AC13) ─────────────────────────────────
+    // ─── 1. Enforce Mode Restrictions (AC13) ─────────────────────────────────
     if (mode === 'chat') {
       return {
         authorized: false,
         decision: 'deny',
-        reason: 'Autonomous command execution is not permitted in Chat mode. Switch to Agent mode to execute commands.',
+        reason: 'Autonomous execution is not permitted in Chat mode. Switch to Agent mode to execute actions.',
       };
     }
 
@@ -76,7 +53,7 @@ export class ApprovalGate implements IApprovalGate {
       return {
         authorized: false,
         decision: 'deny',
-        reason: 'Command execution is prohibited in Plan mode. Plan mode is restricted to read-only architecture and specification analysis.',
+        reason: 'Action execution is prohibited in Plan mode. Plan mode is restricted to read-only architecture and specification analysis.',
       };
     }
 
@@ -84,7 +61,7 @@ export class ApprovalGate implements IApprovalGate {
       return {
         authorized: false,
         decision: 'deny',
-        reason: `Command execution is not permitted in mode: "${request.mode}". Only Agent or Goal mode is permitted.`,
+        reason: `Execution is not permitted in mode: "${request.mode}". Only Agent or Goal mode is permitted.`,
       };
     }
 
@@ -96,10 +73,79 @@ export class ApprovalGate implements IApprovalGate {
       };
     }
 
-    // ─── 2. Evaluate Persistent Policies (AC6, AC7, AC11) ───────────────────
-    const evalResult = await this.policyService.evaluate(request.command, {
-      workspaceId: request.workspaceId,
-    });
+    // ─── 2. Action-Specific Validation & Policy Target ───────────────────────
+    let policyTarget = '';
+
+    if (actionType === 'command' || actionType === 'process_start') {
+      const command = (request.command || '').trim();
+      if (!command) {
+        return {
+          authorized: false,
+          decision: 'deny',
+          reason: 'Command cannot be empty.',
+        };
+      }
+
+      // Command Safety Validation (AC10)
+      if (CommandMatcher.isCompoundCommand(command)) {
+        return {
+          authorized: false,
+          decision: 'deny',
+          reason: 'Chained or compound commands (&&, ;, ||, |, newlines) are prohibited for safety.',
+        };
+      }
+
+      if (CommandMatcher.hasUnbalancedQuotes(command)) {
+        return {
+          authorized: false,
+          decision: 'deny',
+          reason: 'Command has unbalanced quotes or dangling escape characters.',
+        };
+      }
+
+      policyTarget = command;
+    } else if (actionType === 'process_input') {
+      const processId = (request.processId || '').trim();
+      if (!processId) {
+        return {
+          authorized: false,
+          decision: 'deny',
+          reason: 'Missing processId for send_process_input.',
+        };
+      }
+
+      policyTarget = `send_process_input ${processId}`;
+    } else if (actionType === 'process_stop') {
+      const processId = (request.processId || '').trim();
+      if (!processId) {
+        return {
+          authorized: false,
+          decision: 'deny',
+          reason: 'Missing processId for stop_process.',
+        };
+      }
+
+      policyTarget = `stop_process ${processId}`;
+    } else if (actionType === 'terminal_change') {
+      policyTarget = `terminal ${request.command || request.description || 'change'}`;
+    } else {
+      policyTarget = request.command || actionType;
+    }
+
+    // ─── 3. Evaluate Persistent Policies (AC6, AC7, AC11) ───────────────────
+    let evalResult;
+    try {
+      evalResult = await this.policyService.evaluate(policyTarget, {
+        workspaceId: request.workspaceId,
+      });
+    } catch (err: any) {
+      // Fail closed on evaluation error
+      return {
+        authorized: false,
+        decision: 'deny',
+        reason: `Policy evaluation failed: ${err.message}`,
+      };
+    }
 
     if (evalResult.decision === 'deny') {
       return {
@@ -111,6 +157,34 @@ export class ApprovalGate implements IApprovalGate {
     }
 
     if (evalResult.decision === 'allow') {
+      // If allowed by policy, still ensure process actions target KODRA-managed processes
+      if (actionType === 'process_input' && request.processId) {
+        const proc = ProcessManager.getInstance().getProcess(request.processId.trim());
+        if (!proc) {
+          return {
+            authorized: false,
+            decision: 'deny',
+            reason: `Process "${request.processId}" not found. Only active KODRA-managed processes can receive input.`,
+          };
+        }
+        if (proc.status !== 'running') {
+          return {
+            authorized: false,
+            decision: 'deny',
+            reason: `Process "${request.processId}" is not running (status: ${proc.status}).`,
+          };
+        }
+      } else if (actionType === 'process_stop' && request.processId) {
+        const proc = ProcessManager.getInstance().getProcess(request.processId.trim());
+        if (!proc) {
+          return {
+            authorized: false,
+            decision: 'deny',
+            reason: `Process "${request.processId}" not found. Only KODRA-managed processes can be terminated.`,
+          };
+        }
+      }
+
       return {
         authorized: true,
         decision: 'policy_allowed',
@@ -119,18 +193,18 @@ export class ApprovalGate implements IApprovalGate {
       };
     }
 
-    // ─── 3. Request User Approval Decision (AC4, AC5, AC8) ───────────────────
+    // ─── 4. Request User Approval Decision (AC4, AC5, AC8) ───────────────────
     const requestId = `gate_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
     const permReq: PermissionRequest = {
       requestId,
       executionId: request.executionId || `exec_${Date.now()}`,
       toolCallId: request.toolCallId || `tc_${Date.now()}`,
-      toolName: 'terminal',
-      command: request.command,
+      toolName: request.toolName || 'terminal',
+      command: request.command || policyTarget,
       cwd: request.cwd,
       workspaceId: request.workspaceId,
       mode: request.mode,
-      description: request.description || `Execute command: "${request.command}"`,
+      description: request.description || `Execute ${actionType}: "${policyTarget}"`,
     };
 
     const isAuto =
@@ -144,7 +218,7 @@ export class ApprovalGate implements IApprovalGate {
         type: 'tool.approval_required',
         executionId: permReq.executionId,
         toolCallId: permReq.toolCallId || '',
-        toolName: 'terminal',
+        toolName: permReq.toolName,
         description: permReq.description,
         command: permReq.command,
         requestId,
@@ -152,7 +226,16 @@ export class ApprovalGate implements IApprovalGate {
       });
     }
 
-    const userDecision = await this.permissionManager.requestDecision(permReq, signal);
+    let userDecision: ApprovalDecisionType;
+    try {
+      userDecision = await this.permissionManager.requestDecision(permReq, signal);
+    } catch (err: any) {
+      return {
+        authorized: false,
+        decision: 'deny',
+        reason: `Approval decision failed: ${err.message}`,
+      };
+    }
 
     if (signal?.aborted || userDecision === 'cancel') {
       return {
@@ -166,12 +249,40 @@ export class ApprovalGate implements IApprovalGate {
       return {
         authorized: false,
         decision: 'deny',
-        reason: 'User denied permission to execute the command.',
+        reason: `User denied permission to execute tool "${request.toolName || 'terminal'}".`,
       };
     }
 
+    // Process ownership verification after user decision
+    if (actionType === 'process_input' && request.processId) {
+      const proc = ProcessManager.getInstance().getProcess(request.processId.trim());
+      if (!proc) {
+        return {
+          authorized: false,
+          decision: 'deny',
+          reason: `Process "${request.processId}" not found. Only active KODRA-managed processes can receive input.`,
+        };
+      }
+      if (proc.status !== 'running') {
+        return {
+          authorized: false,
+          decision: 'deny',
+          reason: `Process "${request.processId}" is not running (status: ${proc.status}).`,
+        };
+      }
+    } else if (actionType === 'process_stop' && request.processId) {
+      const proc = ProcessManager.getInstance().getProcess(request.processId.trim());
+      if (!proc) {
+        return {
+          authorized: false,
+          decision: 'deny',
+          reason: `Process "${request.processId}" not found. Only KODRA-managed processes can be terminated.`,
+        };
+      }
+    }
+
     if (userDecision === 'allow_once') {
-      // AC5: Allow once executes the pending command WITHOUT creating a persistent policy
+      // Allow once executes without creating persistent policy
       return {
         authorized: true,
         decision: 'allow_once',
@@ -179,14 +290,14 @@ export class ApprovalGate implements IApprovalGate {
     }
 
     if (userDecision === 'always_allow_global') {
-      // AC6: Create persistent global allow policy
+      // Create persistent global allow policy
       try {
         const policy = await this.policyService.createPolicy({
           scope: 'global',
-          commandPattern: request.command,
+          commandPattern: policyTarget,
           ruleType: 'exact',
           decision: 'allow',
-          description: `Always allow globally: "${request.command}"`,
+          description: `Always allow globally: "${policyTarget}"`,
         });
         return {
           authorized: true,
@@ -194,7 +305,6 @@ export class ApprovalGate implements IApprovalGate {
           matchedPolicyId: policy.id,
         };
       } catch (err: any) {
-        // Fall back to allow_once if persistence fails, but allow execution
         return {
           authorized: true,
           decision: 'allow_once',
@@ -204,15 +314,15 @@ export class ApprovalGate implements IApprovalGate {
     }
 
     if (userDecision === 'always_allow_workspace') {
-      // AC7: Create persistent workspace-scoped allow policy
+      // Create persistent workspace-scoped allow policy
       try {
         const policy = await this.policyService.createPolicy({
           scope: 'workspace',
           workspaceId: request.workspaceId,
-          commandPattern: request.command,
+          commandPattern: policyTarget,
           ruleType: 'exact',
           decision: 'allow',
-          description: `Always allow in workspace: "${request.command}"`,
+          description: `Always allow in workspace: "${policyTarget}"`,
         });
         return {
           authorized: true,
@@ -228,7 +338,7 @@ export class ApprovalGate implements IApprovalGate {
       }
     }
 
-    // Default conservative fallback
+    // Default conservative fallback: fail closed
     return {
       authorized: false,
       decision: 'deny',

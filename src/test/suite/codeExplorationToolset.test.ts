@@ -141,14 +141,27 @@ describe('Code Exploration Toolset', () => {
       expect(GitCtx).toBeDefined();
     });
 
-    it('getAllTools returns 10 tools', () => {
+    it('getAllTools returns exactly 13 agent-facing tools', () => {
       const tools = getAllTools(workspaceService);
-      expect(tools.length).toBe(10);
+      expect(tools.length).toBe(13);
       const names = tools.map((t) => t.name);
-      expect(names).toContain('find_symbol');
-      expect(names).toContain('go_to_definition');
-      expect(names).toContain('find_references');
-      expect(names).toContain('git_context');
+      expect(names).toEqual([
+        'read_file',
+        'edit_file',
+        'create_file',
+        'list_directory',
+        'search_code',
+        'find_symbol',
+        'find_references',
+        'git_context',
+        'run_command',
+        'start_process',
+        'read_process_output',
+        'send_process_input',
+        'stop_process',
+      ]);
+      expect(names).not.toContain('terminal');
+      expect(names).not.toContain('go_to_definition');
     });
   });
 
@@ -156,13 +169,16 @@ describe('Code Exploration Toolset', () => {
   // Tool definition schemas
   // ---------------------------------------------------------------------------
   describe('Tool definition schemas', () => {
-    it('find_symbol has correct schema', () => {
+    it('find_symbol has correct schema supporting both query and definition navigation', () => {
       const tool = new FindSymbolTool(workspaceService);
       expect(tool.name).toBe('find_symbol');
       const def = tool.getDefinition();
       expect(def.type).toBe('function');
       expect(def.function.name).toBe('find_symbol');
-      expect(def.function.parameters.required).toContain('query');
+      const props = def.function.parameters.properties as Record<string, unknown>;
+      expect(props.query).toBeDefined();
+      expect(props.file).toBeDefined();
+      expect(props.line).toBeDefined();
     });
 
     it('go_to_definition has correct schema', () => {
@@ -602,9 +618,9 @@ describe('Code Exploration Toolset', () => {
     it('all exploration tools implement ITool correctly', () => {
       const tools = getAllTools(workspaceService);
       const explorationTools = tools.filter((t) =>
-        ['find_symbol', 'go_to_definition', 'find_references', 'git_context'].includes(t.name),
+        ['find_symbol', 'find_references', 'git_context'].includes(t.name),
       );
-      expect(explorationTools.length).toBe(4);
+      expect(explorationTools.length).toBe(3);
       for (const tool of explorationTools) {
         expect(typeof tool.name).toBe('string');
         expect(typeof tool.description).toBe('string');
@@ -1048,7 +1064,7 @@ describe('Code Exploration Toolset', () => {
   describe('Agent Tool Execution Path & Invocations', () => {
     it('executes each registered tool through execute() interface safely', async () => {
       const tools = getAllTools(workspaceService);
-      expect(tools.length).toBe(10);
+      expect(tools.length).toBe(13);
 
       // Verify each tool can be executed without crashing
       for (const tool of tools) {
@@ -1069,14 +1085,8 @@ describe('Code Exploration Toolset', () => {
           case 'create_file':
             res = await tool.execute({ path: 'src/test_out.ts' });
             break;
-          case 'terminal':
-            res = await tool.execute({ command: 'echo test' });
-            break;
           case 'find_symbol':
             res = await tool.execute({ query: 'UserService' });
-            break;
-          case 'go_to_definition':
-            res = await tool.execute({ file: 'src/server.ts', line: 1, column: 1, symbolName: 'UserService' });
             break;
           case 'find_references':
             res = await tool.execute({ file: 'src/index.ts', line: 1, column: 1, symbolName: 'UserService' });
@@ -1084,12 +1094,41 @@ describe('Code Exploration Toolset', () => {
           case 'git_context':
             res = await tool.execute({ operation: 'log' });
             break;
+          case 'run_command':
+            res = await tool.execute({ command: 'echo test' });
+            break;
+          case 'start_process':
+            res = await tool.execute({ command: 'echo test' });
+            break;
+          case 'read_process_output':
+            res = await tool.execute({ processId: 'nonexistent' });
+            break;
+          case 'send_process_input':
+            res = await tool.execute({ processId: 'nonexistent', input: 'test' });
+            break;
+          case 'stop_process':
+            res = await tool.execute({ processId: 'nonexistent' });
+            break;
         }
 
         expect(res).toBeDefined();
         expect(typeof res!.success).toBe('boolean');
         expect(typeof res!.content).toBe('string');
       }
+    });
+
+    it('find_symbol navigates to definition when given file and line', async () => {
+      const tool = new FindSymbolTool(workspaceService);
+      // Execute definition lookup through find_symbol
+      const res = await tool.execute({
+        file: 'src/server.ts',
+        line: 1,
+        column: 1,
+        symbolName: 'UserService',
+      });
+      expect(res).toBeDefined();
+      expect(typeof res.success).toBe('boolean');
+      expect(res.content).toBeDefined();
     });
   });
 });

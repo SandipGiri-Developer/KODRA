@@ -39,10 +39,13 @@ export interface ToolParameterSchema {
     properties: Record<string, ToolPropertySchema>;
     required?: string[];
 }
+export type ToolCapability = 'command_execution' | 'process_management' | 'process_input' | 'file_modification' | 'read_only';
 /** Tool metadata for capabilities, UI display, and permissions. */
 export interface ToolMetadata {
     /** Human-readable category (e.g., 'filesystem', 'terminal', 'search') */
     category?: string;
+    /** Explicit capability */
+    capability?: ToolCapability;
     /** Whether this tool modifies disk or state */
     isDestructive?: boolean;
     /** Whether this tool requires user approval before execution */
@@ -56,6 +59,8 @@ export interface ITool {
     readonly name: string;
     /** Human-readable description provided to the LLM */
     readonly description: string;
+    /** Explicit operational capability */
+    readonly capability?: ToolCapability;
     /** Parameter schema definition */
     readonly parameters?: ToolParameterSchema;
     /** Whether execution requires explicit approval from the user */

@@ -41,18 +41,28 @@ export interface IToolExecutor {
   setExecutionContext?(context: TrustedExecutionContext): void;
 }
 
-import { IApprovalGate } from './terminal/types';
+import { GateActionType, IApprovalGate } from './terminal/types';
+import { ApprovalGate } from './terminal/approvalGate';
+import { ApprovalPolicyService } from './terminal/approvalPolicyService';
 
 export class ToolExecutor implements IToolExecutor {
   private executionContext: TrustedExecutionContext = {};
+  private readonly approvalGate: IApprovalGate;
 
   constructor(
     private readonly toolRegistry: IToolRegistry,
     private readonly permissionManager: IPermissionManager,
     private readonly eventBus: IAgentEventBus,
-    private readonly approvalGate?: IApprovalGate,
+    approvalGate?: IApprovalGate,
     context?: TrustedExecutionContext,
   ) {
+    this.approvalGate =
+      approvalGate ??
+      new ApprovalGate(
+        ApprovalPolicyService.getInstance(),
+        this.permissionManager,
+        this.eventBus,
+      );
     if (context) {
       this.executionContext = { ...context };
     }
@@ -136,8 +146,15 @@ export class ToolExecutor implements IToolExecutor {
 
     // Distinguish overall agent run ID from individual command execution ID
     const agentRunId = executionId;
+    const isCommandTool =
+      tool.capability === 'command_execution' ||
+      tool.name === 'terminal' ||
+      tool.name === 'run_command' ||
+      tool.name === 'start_process';
+    const isProcessInput = tool.capability === 'process_input' || tool.name === 'send_process_input';
+    const isProcessManagement = tool.capability === 'process_management' || tool.name === 'stop_process';
     let commandExecutionId: string | undefined;
-    if (tool.name === 'terminal') {
+    if (isCommandTool) {
       if (typeof parsedArgs.executionId === 'string' && parsedArgs.executionId.trim()) {
         commandExecutionId = parsedArgs.executionId.trim();
       } else {
@@ -152,7 +169,12 @@ export class ToolExecutor implements IToolExecutor {
       ['status', 'wait', 'list_sessions'].includes(parsedArgs.action.trim());
 
     if (tool.requiresApproval && !isTerminalReadOnlyAction) {
-      const command = typeof parsedArgs.command === 'string' ? parsedArgs.command : undefined;
+      const command =
+        typeof parsedArgs.command === 'string'
+          ? parsedArgs.command
+          : typeof parsedArgs.input === 'string'
+          ? parsedArgs.input
+          : undefined;
       const filepath =
         typeof parsedArgs.file === 'string'
           ? parsedArgs.file
@@ -160,12 +182,19 @@ export class ToolExecutor implements IToolExecutor {
           ? parsedArgs.filePath
           : undefined;
 
+      let description = `Requesting user permission to execute tool "${tool.name}"`;
+      if (isProcessInput) {
+        description = `Requesting user permission to send input to process "${parsedArgs.processId}": ${JSON.stringify(parsedArgs.input ?? '')}`;
+      } else if (isProcessManagement) {
+        description = `Requesting user permission to terminate process "${parsedArgs.processId}"${parsedArgs.force ? ' (force)' : ''}`;
+      }
+
       const permReq: PermissionRequest = {
         requestId: `req_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
         executionId: commandExecutionId || agentRunId,
         toolCallId: callId,
         toolName: tool.name,
-        description: `Requesting user permission to execute tool "${tool.name}"`,
+        description,
         command,
         filepath,
       };
@@ -204,6 +233,44 @@ export class ToolExecutor implements IToolExecutor {
         };
       }
 
+      if (trustedMode === 'plan' && (isCommandTool || isProcessInput || isProcessManagement)) {
+        const planError = `Execution of "${tool.name}" is prohibited in Plan mode. Plan mode is restricted to read-only analysis.`;
+        this.eventBus.emit({
+          type: 'tool.failed',
+          executionId: agentRunId,
+          toolCallId: callId,
+          toolName: tool.name,
+          error: planError,
+          durationMs: 0,
+          timestamp: Date.now(),
+        });
+        return {
+          toolCallId: callId,
+          toolName: tool.name,
+          result: { content: planError, success: false },
+          durationMs: 0,
+        };
+      }
+
+      if (trustedMode === 'chat' && (isCommandTool || isProcessInput || isProcessManagement)) {
+        const chatError = `Autonomous execution of "${tool.name}" is not permitted in Chat mode. Switch to Agent mode.`;
+        this.eventBus.emit({
+          type: 'tool.failed',
+          executionId: agentRunId,
+          toolCallId: callId,
+          toolName: tool.name,
+          error: chatError,
+          durationMs: 0,
+          timestamp: Date.now(),
+        });
+        return {
+          toolCallId: callId,
+          toolName: tool.name,
+          result: { content: chatError, success: false },
+          durationMs: 0,
+        };
+      }
+
       // Working directory resolution and path containment check
       let trustedCwd = context?.cwd || this.executionContext.cwd;
       if (!trustedCwd) {
@@ -216,31 +283,103 @@ export class ToolExecutor implements IToolExecutor {
 
       if (typeof parsedArgs.cwd === 'string' && parsedArgs.cwd.trim()) {
         const candidate = path.resolve(trustedCwd || process.cwd(), parsedArgs.cwd.trim());
+        if (!fs.existsSync(candidate)) {
+          const cwdError = `Working directory does not exist: "${candidate}".`;
+          this.eventBus.emit({
+            type: 'tool.failed',
+            executionId: agentRunId,
+            toolCallId: callId,
+            toolName: tool.name,
+            error: cwdError,
+            durationMs: 0,
+            timestamp: Date.now(),
+          });
+          return {
+            toolCallId: callId,
+            toolName: tool.name,
+            result: { content: cwdError, success: false },
+            durationMs: 0,
+          };
+        }
+
+        let realCandidate = candidate;
+        try {
+          realCandidate = fs.realpathSync(candidate);
+        } catch {}
+
         const wsFolders = vscode.workspace?.workspaceFolders?.map((f: any) => f.uri?.fsPath || f.fsPath) || [trustedCwd];
         const isContained = wsFolders.some((root: string) => {
-          const rel = path.relative(root, candidate);
+          let realRoot = root;
+          try {
+            if (fs.existsSync(root)) {
+              realRoot = fs.realpathSync(root);
+            }
+          } catch {}
+
+          const rel = path.relative(realRoot, realCandidate);
           return !rel.startsWith('..') && !path.isAbsolute(rel);
         });
-        if (isContained && fs.existsSync(candidate)) {
-          trustedCwd = candidate;
+
+        if (!isContained) {
+          const cwdError = `Access denied: Working directory "${candidate}" is outside authorized workspace boundaries.`;
+          this.eventBus.emit({
+            type: 'tool.failed',
+            executionId: agentRunId,
+            toolCallId: callId,
+            toolName: tool.name,
+            error: cwdError,
+            durationMs: 0,
+            timestamp: Date.now(),
+          });
+          return {
+            toolCallId: callId,
+            toolName: tool.name,
+            result: { content: cwdError, success: false },
+            durationMs: 0,
+          };
         }
+        trustedCwd = candidate;
       }
       effectiveCwd = trustedCwd;
 
-      if (this.approvalGate && tool.name === 'terminal' && command) {
+      const isTerminalChange =
+        tool.name === 'terminal' &&
+        typeof parsedArgs.action === 'string' &&
+        ['cancel', 'close'].includes(parsedArgs.action.trim());
+      const isProtectedProcessOrTerminal =
+        isCommandTool || isProcessInput || isProcessManagement || isTerminalChange;
+
+      if (isProtectedProcessOrTerminal) {
         if ('setEventBus' in this.approvalGate && typeof (this.approvalGate as any).setEventBus === 'function') {
           (this.approvalGate as any).setEventBus(this.eventBus);
         }
 
+        let actionType: GateActionType = 'command';
+        if (tool.name === 'start_process') {
+          actionType = 'process_start';
+        } else if (isProcessInput) {
+          actionType = 'process_input';
+        } else if (isProcessManagement) {
+          actionType = 'process_stop';
+        } else if (isTerminalChange) {
+          actionType = 'terminal_change';
+        } else {
+          actionType = 'command';
+        }
+
         const auth = await this.approvalGate.evaluateAndAuthorize(
           {
-            command,
+            actionType,
+            command: typeof parsedArgs.command === 'string' ? parsedArgs.command : undefined,
+            processId: typeof parsedArgs.processId === 'string' ? parsedArgs.processId : undefined,
+            input: typeof parsedArgs.input === 'string' ? parsedArgs.input : undefined,
             cwd: trustedCwd,
             workspaceId: trustedWsId,
             mode: trustedMode,
             executionId: commandExecutionId,
             toolCallId: callId,
             description: permReq.description,
+            toolName: tool.name,
           },
           signal,
         );
@@ -327,7 +466,7 @@ export class ToolExecutor implements IToolExecutor {
         toolCallId: callId,
         agentRunId,
       };
-      if (tool.name === 'terminal' && effectiveCwd) {
+      if (isCommandTool && effectiveCwd) {
         execArgs.cwd = effectiveCwd;
       }
       result = await tool.execute(execArgs, signal);
