@@ -54,6 +54,7 @@ const getModelKey = (m: { id: string; provider?: string; providerConfigId?: stri
 export function ModelSelectDropdown() {
   const ideMessenger = useContext(IdeMessengerContext);
   const dispatch = useAppDispatch();
+  const config = useAppSelector((state) => state.config.config);
   
   // In the real system, config would be fetched, but we're mimicking it or reading from backend
   const [currentProvider, setCurrentProvider] = useState<string>("ollama");
