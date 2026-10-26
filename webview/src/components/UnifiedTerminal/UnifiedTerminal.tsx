@@ -5,7 +5,6 @@ import { ToolCallState } from "core";
 import { escapeCarriageReturn } from "escape-carriage";
 import { useMemo, useState } from "react";
 import styled, { keyframes } from "styled-components";
-import { useAppDispatch } from "../../redux/hooks";
 import { getFontSize } from "../../util";
 import { CopyButton } from "../StyledMarkdownPreview/StepContainerPreToolbar/CopyButton";
 import { RunInTerminalButton } from "../StyledMarkdownPreview/StepContainerPreToolbar/RunInTerminalButton";
@@ -346,7 +345,6 @@ export function UnifiedTerminalCommand({
   displayLines = 15,
   executionId,
 }: UnifiedTerminalCommandProps) {
-  const dispatch = useAppDispatch();
   const [isExpanded, setIsExpanded] = useState(true);
   const [outputExpanded, setOutputExpanded] = useState(false);
 

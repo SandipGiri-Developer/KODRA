@@ -1,12 +1,6 @@
-const modelSupportsImages = (a: any, b: any, c: any, d: any) => false;
 import { Editor, EditorContent, JSONContent } from "@tiptap/react";
-import {
-  PencilIcon,
-  WrenchScrewdriverIcon,
-  CubeIcon,
-  ChevronDownIcon
-} from "@heroicons/react/24/outline";
 import { ContextProviderDescription, InputModifiers } from "core";
+import { modelSupportsImages } from "../../../util";
 
 import {
   memo,

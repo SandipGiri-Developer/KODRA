@@ -20,15 +20,14 @@ import {
 import { setTTSActive } from "../redux/slices/uiSlice";
 
 import { cancelStream } from "../redux/thunks/cancelStream";
-// Evaluates whether a given model configuration supports reasoning capabilities.
-const modelSupportsReasoning = (model: any) => true;
+
 import { loadSession, refreshSessionMetadata } from "../redux/thunks/session";
 import { updateFileSymbolsFromHistory } from "../redux/thunks/updateFileSymbols";
 import {
   setDocumentStylesFromLocalStorage,
   setDocumentStylesFromTheme,
 } from "../styles/theme";
-import { isJetBrains } from "../util";
+import { isJetBrains, modelSupportsReasoning } from "../util";
 import { setLocalStorage } from "../util/localStorage";
 import { useWebviewListener } from "./useWebviewListener";
 

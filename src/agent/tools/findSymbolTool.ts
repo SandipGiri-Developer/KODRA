@@ -13,6 +13,7 @@ import * as vscode from 'vscode';
 import { ToolDefinition } from '../../providers/types';
 import { ITool, ToolParameterSchema, ToolResult } from '../types';
 import { IWorkspaceService, VSCodeWorkspaceService, isUriInWorkspace } from '../workspaceService';
+import { GoToDefinitionTool } from './goToDefinitionTool';
 
 /** Maps a VS Code SymbolKind integer to a human-readable string. */
 function symbolKindLabel(kind: vscode.SymbolKind): string {
@@ -52,10 +53,10 @@ const MAX_OUTPUT_CHARS = 8000;
 export class FindSymbolTool implements ITool {
   readonly name = 'find_symbol';
   readonly description =
-    'Search for a named symbol (function, class, interface, type, variable, constant, etc.) ' +
-    'anywhere in the workspace. Returns matching symbol names, kinds, file paths, and line numbers. ' +
-    'Use this to quickly locate a definition when you know the symbol name without manually scanning files. ' +
-    'Supports partial name matching.';
+    'Search for a named symbol (function, class, interface, type, variable, constant, etc.) anywhere in the workspace, ' +
+    'or navigate directly to where a symbol is defined given its file path and line position. ' +
+    'Provide "query" to locate definitions across files by symbol name, or provide "file" and "line" to go to the declaration ' +
+    'of a symbol at a specific code position.';
 
   readonly parameters: ToolParameterSchema = {
     type: 'object',
@@ -63,12 +64,28 @@ export class FindSymbolTool implements ITool {
       query: {
         type: 'string',
         description:
-          'The symbol name or partial name to search for (e.g., "MyClass", "handleRequest", "IConfig").',
+          'The symbol name or partial name to search for across the workspace (e.g., "MyClass", "handleRequest", "IConfig"). ' +
+          'Provide this to find definitions across files when you know the symbol name.',
+      },
+      file: {
+        type: 'string',
+        description:
+          'Workspace-relative (or absolute) path to the file containing a symbol usage to navigate to its definition.',
+      },
+      line: {
+        type: 'number',
+        description:
+          '1-based line number of the symbol in "file" to find where it is defined.',
+      },
+      column: {
+        type: 'number',
+        description:
+          'Optional 1-based column number in "file" (defaults to 1).',
       },
       kind: {
         type: 'string',
         description:
-          'Optional filter by symbol kind. Accepted values: "class", "function", "method", ' +
+          'Optional filter by symbol kind when searching by query. Accepted values: "class", "function", "method", ' +
           '"interface", "variable", "constant", "enum", "property", "constructor". ' +
           'If omitted, all kinds are returned.',
         enum: [
@@ -85,13 +102,16 @@ export class FindSymbolTool implements ITool {
       },
       maxResults: {
         type: 'number',
-        description: 'Maximum number of symbols to return. Defaults to 30.',
+        description: 'Maximum number of symbols to return when searching by query. Defaults to 30.',
       },
     },
-    required: ['query'],
   };
 
-  constructor(private readonly workspaceService: IWorkspaceService = new VSCodeWorkspaceService()) {}
+  private readonly goToDefTool: GoToDefinitionTool;
+
+  constructor(private readonly workspaceService: IWorkspaceService = new VSCodeWorkspaceService()) {
+    this.goToDefTool = new GoToDefinitionTool(this.workspaceService);
+  }
 
   getDefinition(): ToolDefinition {
     return {
@@ -109,6 +129,15 @@ export class FindSymbolTool implements ITool {
   }
 
   async execute(args: Record<string, unknown>): Promise<ToolResult> {
+    const rawFile =
+      typeof args.file === 'string'
+        ? args.file.trim()
+        : typeof args.filePath === 'string'
+        ? args.filePath.trim()
+        : typeof args.path === 'string'
+        ? args.path.trim()
+        : '';
+
     const query =
       typeof args.query === 'string'
         ? args.query.trim()
@@ -118,9 +147,21 @@ export class FindSymbolTool implements ITool {
         ? args.name.trim()
         : '';
 
+    // If file is specified (or file and line), route to definition navigation
+    if (rawFile) {
+      return await this.goToDefTool.execute({
+        file: rawFile,
+        line: args.line,
+        column: args.column,
+        symbolName: query || args.symbolName,
+      });
+    }
+
     if (!query) {
       return {
-        content: 'Error: Missing required argument "query". Provide a symbol name to search for.',
+        content:
+          'Error: Missing required argument. Provide "query" to search for a symbol by name, ' +
+          'or provide "file" and "line" to locate the definition of a symbol at a specific file position.',
         success: false,
       };
     }

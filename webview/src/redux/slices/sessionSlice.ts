@@ -31,10 +31,7 @@ const NEW_SESSION_TITLE = "New Session";
 const renderChatMessage = (message: ChatMessage) => typeof message.content === "string" ? message.content : JSON.stringify(message.content);
 // Merges two reasoning details objects into one.
 const mergeReasoningDetails = (a: any, b: any) => ({...a, ...b});
-// Extracts the basename from a file URI or path.
-const getUriPathBasename = (uri: string) => uri.split(/[/\\]/).pop() || uri;
-// Resolves relative path or basename for a given URI within workspace directories.
-const findUriInDirs = (uri: string, dirs: string[]) => ({ relativePathOrBasename: getUriPathBasename(uri) });
+import { findUriInDirs, getUriPathBasename } from "../../util";
 
 import { findLastIndex } from "lodash";
 import { v4 as uuidv4 } from "uuid";

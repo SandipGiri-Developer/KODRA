@@ -2,7 +2,7 @@
 import { SlashCommandDescWithSource } from "core";
 import { useState } from "react";
 import { useBookmarkedSlashCommands } from "../../hooks/useBookmarkedSlashCommands";
-import { useAppDispatch, useAppSelector } from "../../redux/hooks";
+import { useAppSelector } from "../../redux/hooks";
 import { useMainEditor } from "../mainInput/TipTapEditor";
 import { ConversationStarterCard } from "./ConversationStarterCard";
 
@@ -10,7 +10,6 @@ const NUM_CARDS_TO_RENDER = 5;
 
 // Displays a grid of conversation starter cards for bookmarked slash commands.
 export function ConversationStarterCards() {
-  const dispatch = useAppDispatch();
   const { mainEditor } = useMainEditor();
   const [showAll, setShowAll] = useState(false);
   const { isCommandBookmarked } = useBookmarkedSlashCommands();

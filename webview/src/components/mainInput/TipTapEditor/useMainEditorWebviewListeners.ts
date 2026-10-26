@@ -3,7 +3,7 @@ import { InputModifiers } from "core";
 import { MutableRefObject } from 'react';
 import { useWebviewListener } from '../../../hooks/useWebviewListener';
 import { useAppSelector } from '../../../redux/hooks';
-const clearCodeToEdit = () => ({ type: 'dummy' });
+import { clearCodeToEdit } from "../../../redux/slices/editState";
 import { setNewestToolbarPreviewForInput } from "../../../redux/slices/sessionSlice";
 import { AppDispatch } from "../../../redux/store";
 import { loadSession, saveCurrentSession } from "../../../redux/thunks/session";

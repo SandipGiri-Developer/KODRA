@@ -205,4 +205,16 @@ export function deactivate() {
   indexer?.dispose();
   providerRegistry?.dispose();
   logger?.dispose();
+  try {
+    const { TerminalExecutionManager } = require('./agent/terminal/terminalExecutionManager');
+    TerminalExecutionManager.resetInstance();
+  } catch {
+    // ignore
+  }
+  try {
+    const { ProcessManager } = require('./agent/process');
+    ProcessManager.resetInstance();
+  } catch {
+    // ignore
+  }
 }

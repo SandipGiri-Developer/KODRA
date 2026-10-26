@@ -12,11 +12,12 @@ import { ToolDefinition } from '../../providers/types';
 import { CommandMatcher } from '../terminal/commandMatcher';
 import { TerminalExecutionManager } from '../terminal/terminalExecutionManager';
 import { ITerminalExecutionManager, TerminalAction } from '../terminal/types';
-import { ITool, ToolParameterSchema, ToolResult } from '../types';
+import { ITool, ToolCapability, ToolParameterSchema, ToolResult } from '../types';
 import { IWorkspaceService, VSCodeWorkspaceService } from '../workspaceService';
 
 export class TerminalTool implements ITool {
   readonly name: string;
+  readonly capability: ToolCapability = 'command_execution';
   readonly description =
     'Execute shell commands in the workspace using a real VS Code integrated terminal with terminal reuse, ' +
     'or manage running tasks (status, wait, cancel, close, list_sessions). ' +

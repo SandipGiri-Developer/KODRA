@@ -17,6 +17,7 @@ import { Divider } from "../ui/Divider";
 import { useAppSelector, useAppDispatch } from "../../redux/hooks";
 import { IdeMessengerContext } from "../../context/IdeMessenger";
 import { setShowDialog, setDialogMessage } from "../../redux/slices/uiSlice";
+import { updateConfig } from "../../redux/slices/configSlice";
 import { AddModelForm } from "../../forms/AddModelForm";
 import { TextDialog } from "../dialogs/TextDialog";
 import { useWebviewListener } from "../../hooks/useWebviewListener";
@@ -53,7 +54,7 @@ const getModelKey = (m: { id: string; provider?: string; providerConfigId?: stri
 export function ModelSelectDropdown() {
   const ideMessenger = useContext(IdeMessengerContext);
   const dispatch = useAppDispatch();
-
+  
   // In the real system, config would be fetched, but we're mimicking it or reading from backend
   const [currentProvider, setCurrentProvider] = useState<string>("ollama");
   const [currentModel, setCurrentModel] = useState<string>("Select model");
@@ -112,6 +113,44 @@ export function ModelSelectDropdown() {
 
   const selectedKey = selectedWorkspaceModel ? getModelKey(selectedWorkspaceModel) : currentModel;
   const displayTitle = selectedWorkspaceModel ? selectedWorkspaceModel.displayName : currentModel;
+
+  useEffect(() => {
+    if (!selectedWorkspaceModel || !config) return;
+
+    const currentChat = config.selectedModelByRole?.chat;
+    if (
+      currentChat?.model === selectedWorkspaceModel.id &&
+      currentChat?.provider === selectedWorkspaceModel.provider &&
+      (currentChat as any)?.capabilities?.vision === Boolean(selectedWorkspaceModel.capabilities?.vision) &&
+      (currentChat as any)?.capabilities?.reasoning === Boolean(selectedWorkspaceModel.capabilities?.reasoning)
+    ) {
+      return;
+    }
+
+    dispatch(
+      updateConfig({
+        ...config,
+        selectedModelByRole: {
+          ...config.selectedModelByRole,
+          chat: {
+            title: selectedWorkspaceModel.displayName,
+            provider: selectedWorkspaceModel.provider,
+            model: selectedWorkspaceModel.id,
+            capabilities: {
+              uploadImage: Boolean(selectedWorkspaceModel.capabilities?.vision),
+              tools: Boolean(selectedWorkspaceModel.capabilities?.toolCalling),
+              toolCalling: Boolean(selectedWorkspaceModel.capabilities?.toolCalling),
+              vision: Boolean(selectedWorkspaceModel.capabilities?.vision),
+              reasoning: Boolean(selectedWorkspaceModel.capabilities?.reasoning),
+            } as any,
+            completionOptions: {
+              reasoning: Boolean(selectedWorkspaceModel.capabilities?.reasoning),
+            },
+          } as any,
+        },
+      })
+    );
+  }, [selectedWorkspaceModel, config, dispatch]);
 
   const filteredModels = models.filter((m) => {
     if (!searchQuery.trim()) return true;

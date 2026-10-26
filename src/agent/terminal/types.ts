@@ -82,14 +82,26 @@ export type ApprovalDecisionType =
   | 'deny'
   | 'cancel';
 
+export type GateActionType =
+  | 'command'
+  | 'process_start'
+  | 'process_input'
+  | 'process_stop'
+  | 'terminal_change';
+
 export interface GateAuthorizationRequest {
-  command: string;
-  cwd: string;
+  actionType?: GateActionType;
+  command?: string;
+  processId?: string;
+  input?: string;
+  cwd?: string;
   workspaceId: string;
   mode: string;
   executionId?: string;
   toolCallId?: string;
   description?: string;
+  toolName?: string;
+  metadata?: Record<string, unknown>;
 }
 
 export interface GateAuthorizationResult {

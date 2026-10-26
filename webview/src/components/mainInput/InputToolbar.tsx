@@ -34,10 +34,8 @@ import ContextStatus from "./ContextStatus";
 import HoverItem from "./InputToolbar/HoverItem";
 import { ModelSelectDropdown } from "./ModelSelectDropdown";
 
-const getModelByRole = () => undefined;
-const exitEdit = (a: any) => ({ type: "dummy" });
-const modelSupportsImages = (...args: any) => false;
-const modelSupportsReasoning = (arg: any) => false;
+import { exitEdit } from "../../redux/thunks/edit";
+import { modelSupportsImages, modelSupportsReasoning } from "../../util";
 
 interface ModeOption {
   value: MessageModes;

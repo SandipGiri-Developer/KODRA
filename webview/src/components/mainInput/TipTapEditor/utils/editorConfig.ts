@@ -9,7 +9,6 @@ import { Plugin } from "@tiptap/pm/state";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
 import { useEditor } from "@tiptap/react";
 import { InputModifiers } from "core";
-const modelSupportsImages = (a: any, b: any, c: any, d: any) => false;
 import { useRef } from "react";
 import { IIdeMessenger } from "../../../../context/IdeMessenger";
 const useSubmenuContextProviders = () => ({ getSubmenuContextItems: (() => []) as any });
@@ -19,8 +18,8 @@ import { useAppSelector } from "../../../../redux/hooks";
 import { selectUseActiveFile } from "../../../../redux/selectors";
 import { selectSelectedChatModel } from "../../../../redux/slices/configSlice";
 import { AppDispatch } from "../../../../redux/store";
-const exitEdit = (args: any): any => ({ type: 'dummy' });
-import { getFontSize, isJetBrains } from "../../../../util";
+import { exitEdit } from "../../../../redux/thunks/edit";
+import { getFontSize, isJetBrains, modelSupportsImages } from "../../../../util";
 import { CodeBlock, Mention, PromptBlock, SlashCommand } from "../extensions";
 import { TipTapEditorProps } from "../TipTapEditor";
 import {

@@ -1,5 +1,4 @@
 // History item row component with rename, share, delete, and session restore capabilities.
-const exitEdit = (a: any) => ({type: "dummy"}); const getUriPathBasename = (a: any) => a;
 import {
   ArrowDownOnSquareIcon,
   PencilSquareIcon,
@@ -19,9 +18,10 @@ import {
   loadSession,
   updateSession,
 } from "../../redux/thunks/session";
+import { exitEdit } from "../../redux/thunks/edit";
 import { setDialogMessage, setShowDialog } from "../../redux/slices/uiSlice";
 import { ConfirmationDialog } from "../dialogs/ConfirmationDialog";
-import { isShareSessionSupported } from "../../util";
+import { getUriPathBasename, isShareSessionSupported } from "../../util";
 import HeaderButtonWithToolTip from "../gui/HeaderButtonWithToolTip";
 import { ToolTip } from "../gui/Tooltip";
 
@@ -174,17 +174,6 @@ export function HistoryTableRow({
           <span className="line-clamp-1 break-all text-xs">
             {getUriPathBasename(sessionMetadata.workspaceDirectory || "")}
           </span>
-          {/* Uncomment to show the date */}
-          {/* <span className="inline-block ml-auto">
-                {date.toLocaleString("en-US", {
-                  year: "2-digit",
-                  month: "2-digit",
-                  day: "2-digit",
-                  hour: "numeric",
-                  minute: "2-digit",
-                  hour12: true,
-                })}
-              </span> */}
         </div>
       </td>
 

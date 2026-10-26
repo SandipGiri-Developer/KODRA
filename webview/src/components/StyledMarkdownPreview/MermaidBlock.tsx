@@ -4,7 +4,6 @@ import {
   MagnifyingGlassPlusIcon,
 } from "@heroicons/react/24/outline";
 import { useEffect, useRef, useState } from "react";
-import { useEffect as useDebouncedEffect } from "react";
 import { ToolTip } from "../gui/Tooltip";
 
 const MINIMUM_ZOOM_STEP = 0.05;
@@ -91,7 +90,7 @@ export default function MermaidDiagram({ code }: { code: string }) {
     setIsLoading(true);
   }, [code]);
 
-  useDebouncedEffect(
+  useEffect(
     () => {
       if (mermaidRenderContainerRef.current) {
         mermaidRenderContainerRef.current.innerHTML = "";

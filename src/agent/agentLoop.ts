@@ -85,7 +85,7 @@ export class AgentLoop {
   ) {
     this.workspaceService = workspaceService ?? new VSCodeWorkspaceService();
     this.contextEngine = contextEngine ?? ContextEngine.createForWorkspace(this.workspaceService);
-    const toolsToRegister = initialTools ?? getAllTools(this.workspaceService);
+    const toolsToRegister = initialTools ?? getAllTools(this.workspaceService, { includeProcessTools: true });
     this.registry = new ToolRegistry(toolsToRegister);
     this.permissionManager = new PermissionManager(!this.requireApproval);
     this.eventBus = new AgentEventBus();

@@ -33,6 +33,13 @@ describe('PHASE 4 VERIFICATION: Clean Installation Scenario', () => {
     );
   });
 
+  beforeEach(() => {
+    const vscode = require('vscode');
+    vscode.workspace.workspaceFolders = [
+      { uri: { fsPath: cleanWorkspace }, name: 'clean-ws', index: 0 },
+    ];
+  });
+
   afterAll(async () => {
     await fs.rm(cleanCacheDir, { recursive: true, force: true });
     await fs.rm(cleanStorageDir, { recursive: true, force: true });

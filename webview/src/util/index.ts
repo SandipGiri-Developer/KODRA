@@ -99,3 +99,17 @@ export function isPrerelease() {
 export function isLocalProfile(_profile: ProfileDescription): boolean {
   return true;
 }
+
+export {
+  ctxItemToRifWithContents,
+  findUriInDirs,
+  getContextItemsFromHistory,
+  getFileExtensionFromBasename,
+  getUriDescription,
+  getUriPathBasename,
+} from "./contextItems";
+
+export {
+  modelSupportsImages,
+  modelSupportsReasoning,
+} from "./modelCapabilities";

@@ -11,11 +11,14 @@
  * - Safe handling of externally closed terminals and resource disposal.
  */
 
-import { ChildProcess, spawn } from 'child_process';
+import { ChildProcess, spawn, spawnSync } from 'child_process';
 import * as crypto from 'crypto';
 import * as fs from 'fs';
+import * as path from 'path';
 import * as vscode from 'vscode';
 import { Logger } from '../../utils/logger';
+import { ProcessManager } from '../process/processManager';
+import { ProcessRecord } from '../process/types';
 import {
   ExecuteCommandOptions,
   ITerminalExecutionManager,
@@ -81,7 +84,7 @@ export class TerminalExecutionManager implements ITerminalExecutionManager {
   }
 
   /**
-   * Find a compatible, idle terminal session in the given workspace.
+   * Find a compatible, idle terminal session in the given workspace and working directory.
    */
   public findIdleSession(workspaceId?: string, cwd?: string): TerminalSession | undefined {
     for (const session of this.sessions.values()) {
@@ -90,6 +93,17 @@ export class TerminalExecutionManager implements ITerminalExecutionManager {
       }
       if (workspaceId && session.workspaceId && session.workspaceId !== workspaceId) {
         continue;
+      }
+      if (cwd && session.cwd) {
+        const isWin = process.platform === 'win32';
+        const normTarget = path.resolve(cwd);
+        const normSession = path.resolve(session.cwd);
+        const matches = isWin
+          ? normTarget.toLowerCase() === normSession.toLowerCase()
+          : normTarget === normSession;
+        if (!matches) {
+          continue;
+        }
       }
       return session;
     }
@@ -280,7 +294,11 @@ export class TerminalExecutionManager implements ITerminalExecutionManager {
     };
     this.executions.set(executionId, record);
 
-    return new Promise<TerminalExecutionRecord>((resolve) => {
+    const pm = ProcessManager.getInstance();
+    const timeoutMs = options.timeoutMs ?? 120_000;
+    const waitMs = options.waitMs ?? 10_000;
+
+    return new Promise<TerminalExecutionRecord>(async (resolve) => {
       if (options.signal?.aborted) {
         record.status = 'cancelled';
         record.endTime = Date.now();
@@ -291,24 +309,7 @@ export class TerminalExecutionManager implements ITerminalExecutionManager {
         return;
       }
 
-      let killed = false;
       let hasResolved = false;
-      const timeoutMs = options.timeoutMs ?? 120_000;
-      const waitMs = options.waitMs ?? 3000;
-
-      // Echo command start in the real VS Code terminal view
-      session.writeEmitter?.fire(`\r\n\x1b[1m\x1b[36m> ${command}\x1b[0m\r\n`);
-
-      // Spawn child process — authoritative source of truth for execution
-      const child = spawn(command, {
-        cwd,
-        shell: true,
-        env: { ...process.env, FORCE_COLOR: '0' },
-      });
-
-      session.activeChild = child;
-      this.activeProcesses.set(executionId, child);
-
       const safeResolve = (rec: TerminalExecutionRecord) => {
         this.notifyExecutionResolvers(executionId, rec);
         if (!hasResolved) {
@@ -317,152 +318,87 @@ export class TerminalExecutionManager implements ITerminalExecutionManager {
         }
       };
 
-      // Non-blocking timer: if waitMs elapses, return running record while command keeps running
-      let waitTimer: NodeJS.Timeout | null = null;
-      if (waitMs > 0) {
-        waitTimer = setTimeout(() => {
-          if (record.status === 'running') {
-            safeResolve(record);
-          }
-        }, waitMs);
-      } else if (waitMs === 0) {
-        // Immediate background launch
-        safeResolve(record);
-      }
+      // Echo command start in the real VS Code terminal view
+      session.writeEmitter?.fire(`\r\n\x1b[1m\x1b[36m> ${command}\x1b[0m\r\n`);
 
-      let timeoutTimer: NodeJS.Timeout | null = null;
-      if (timeoutMs > 0) {
-        timeoutTimer = setTimeout(() => {
-          killed = true;
-          if (waitTimer) {
-            clearTimeout(waitTimer);
-          }
-          this.activeProcesses.delete(executionId);
-          session.activeChild = undefined;
-          this.killProcess(child);
-          session.writeEmitter?.fire(`\r\n\x1b[31m[Command timed out after ${timeoutMs / 1000}s]\x1b[0m\r\n`);
-
+      const procRecord = await pm.startProcess({
+        command,
+        cwd,
+        executionId,
+        processId: executionId,
+        terminalSessionId: session.sessionId,
+        terminalId: session.terminalId,
+        terminalName: session.terminalName,
+        workspaceId,
+        toolCallId: options.toolCallId,
+        agentRunId: options.agentRunId,
+        timeoutMs,
+        signal: options.signal,
+        onChunk: (chunk: string) => {
+          this.appendOutput(record, chunk);
+          session.writeEmitter?.fire(chunk.replace(/\r?\n/g, '\r\n'));
+        },
+        onExit: (rec: ProcessRecord) => {
           session.isBusy = false;
           session.activeExecutionId = undefined;
+          session.activeChild = undefined;
+          this.activeProcesses.delete(executionId);
+          session.completedExecutionsCount++;
 
-          record.status = 'timed_out';
-          record.endTime = Date.now();
-          record.error = `Command timed out after ${timeoutMs / 1000}s.`;
-          this.appendOutput(record, `\n[Timed out after ${timeoutMs / 1000}s]`);
+          const exitCode = rec.exitCode ?? 0;
+          record.status = rec.status as any;
+          record.exitCode = rec.exitCode ?? undefined;
+          record.endTime = rec.endTime;
+          record.error = rec.error;
+          record.output = rec.output;
+          record.isTruncated = rec.isTruncated;
+
+          if (rec.status === 'timed_out') {
+            session.writeEmitter?.fire(`\r\n\x1b[31m[Command timed out after ${timeoutMs / 1000}s]\x1b[0m\r\n`);
+          } else if (rec.status === 'cancelled') {
+            session.writeEmitter?.fire('\r\n\x1b[33m[Cancelled by user]\x1b[0m\r\n');
+          } else {
+            session.writeEmitter?.fire(`\r\n\x1b[${exitCode === 0 ? '32m' : '31m'}[Process exited with code ${exitCode}]\x1b[0m\r\n`);
+          }
 
           if (options.preserveTerminal === false) {
             this.closeSession(session.sessionId);
           }
           safeResolve(record);
-        }, timeoutMs);
+        },
+      });
+
+      session.activeChild = procRecord.child;
+      if (procRecord.child) {
+        this.activeProcesses.set(executionId, procRecord.child);
       }
 
-      const abortHandler = () => {
-        killed = true;
-        if (waitTimer) {
-          clearTimeout(waitTimer);
-        }
-        if (timeoutTimer) {
-          clearTimeout(timeoutTimer);
-        }
-        this.activeProcesses.delete(executionId);
-        session.activeChild = undefined;
-        this.killProcess(child);
-        session.writeEmitter?.fire('\r\n\x1b[33m[Cancelled by user]\x1b[0m\r\n');
+      // Synchronize initial record status
+      record.status = procRecord.status as any;
+      record.exitCode = procRecord.exitCode ?? undefined;
+      record.endTime = procRecord.endTime;
+      record.error = procRecord.error;
+      record.output = procRecord.output;
 
-        session.isBusy = false;
-        session.activeExecutionId = undefined;
+      if (procRecord.status !== 'running') {
+        safeResolve(record);
+        return;
+      }
 
-        record.status = 'cancelled';
-        record.endTime = Date.now();
-        this.appendOutput(record, '\n[Cancelled by user]');
-
-        if (options.preserveTerminal === false) {
-          this.closeSession(session.sessionId);
+      if (waitMs > 0) {
+        const waited = await pm.waitForProcessExit(executionId, waitMs);
+        if (waited) {
+          record.status = waited.status as any;
+          record.exitCode = waited.exitCode ?? undefined;
+          record.endTime = waited.endTime;
+          record.error = waited.error;
+          record.output = waited.output;
+          record.isTruncated = waited.isTruncated;
         }
         safeResolve(record);
-      };
-
-      options.signal?.addEventListener('abort', abortHandler, { once: true });
-
-      child.stdout?.on('data', (chunk) => {
-        const text = chunk.toString();
-        this.appendOutput(record, text);
-        session.writeEmitter?.fire(text.replace(/\r?\n/g, '\r\n'));
-      });
-
-      child.stderr?.on('data', (chunk) => {
-        const text = chunk.toString();
-        this.appendOutput(record, text);
-        session.writeEmitter?.fire(text.replace(/\r?\n/g, '\r\n'));
-      });
-
-      child.on('error', (err) => {
-        if (waitTimer) {
-          clearTimeout(waitTimer);
-        }
-        if (timeoutTimer) {
-          clearTimeout(timeoutTimer);
-        }
-        options.signal?.removeEventListener('abort', abortHandler);
-        this.activeProcesses.delete(executionId);
-        session.activeChild = undefined;
-        if (killed) {
-          return;
-        }
-
-        session.isBusy = false;
-        session.activeExecutionId = undefined;
-
-        record.status = 'failed';
-        record.endTime = Date.now();
-        record.error = err.message;
-        this.appendOutput(record, `\nFailed to start process: ${err.message}`);
-        session.writeEmitter?.fire(`\r\n\x1b[31mFailed to start process: ${err.message}\x1b[0m\r\n`);
-
-        if (options.preserveTerminal === false) {
-          this.closeSession(session.sessionId);
-        }
+      } else if (waitMs === 0) {
         safeResolve(record);
-      });
-
-      child.on('close', (code) => {
-        if (waitTimer) {
-          clearTimeout(waitTimer);
-        }
-        if (timeoutTimer) {
-          clearTimeout(timeoutTimer);
-        }
-        options.signal?.removeEventListener('abort', abortHandler);
-        this.activeProcesses.delete(executionId);
-        session.activeChild = undefined;
-        if (killed) {
-          return;
-        }
-
-        session.isBusy = false;
-        session.activeExecutionId = undefined;
-        session.completedExecutionsCount++;
-
-        const exitCode = code ?? 0;
-        record.exitCode = exitCode;
-        record.endTime = Date.now();
-        record.status = exitCode === 0 ? 'completed' : 'failed';
-
-        if (exitCode !== 0) {
-          record.error = `Process exited with code ${exitCode}`;
-        }
-
-        session.writeEmitter?.fire(`\r\n\x1b[${exitCode === 0 ? '32m' : '31m'}[Process exited with code ${exitCode}]\x1b[0m\r\n`);
-
-        // If the caller explicitly decided NOT to preserve the terminal, close it.
-        // Otherwise, DO NOT close the pty! Keep the terminal interactive and reusable.
-        if (options.preserveTerminal === false) {
-          this.closeSession(session.sessionId);
-        }
-
-        safeResolve(record);
-      });
+      }
     });
   }
 
@@ -666,7 +602,7 @@ export class TerminalExecutionManager implements ITerminalExecutionManager {
    * Get an existing execution record.
    */
   public getExecution(executionId: string): TerminalExecutionRecord | undefined {
-    return this.executions.get(executionId);
+    return this.executions.get(executionId) || (ProcessManager.getInstance().getProcess(executionId) as any);
   }
 
   /**
@@ -676,6 +612,9 @@ export class TerminalExecutionManager implements ITerminalExecutionManager {
     const child = this.activeProcesses.get(executionId);
     const sessionId = this.executionToSession.get(executionId);
     const session = sessionId ? this.sessions.get(sessionId) : undefined;
+    const pm = ProcessManager.getInstance();
+
+    pm.stopProcess(executionId, { force: true }).catch(() => {});
 
     if (child) {
       this.activeProcesses.delete(executionId);
@@ -688,7 +627,7 @@ export class TerminalExecutionManager implements ITerminalExecutionManager {
         session.writeEmitter?.fire('\r\n\x1b[33m[Cancelled by user]\x1b[0m\r\n');
       }
 
-      const record = this.executions.get(executionId);
+      const record = this.executions.get(executionId) || (pm.getProcess(executionId) as any);
       if (record) {
         record.status = 'cancelled';
         record.endTime = Date.now();
@@ -698,7 +637,7 @@ export class TerminalExecutionManager implements ITerminalExecutionManager {
       return true;
     }
 
-    const record = this.executions.get(executionId);
+    const record = this.executions.get(executionId) || (pm.getProcess(executionId) as any);
     if (record && record.status === 'running') {
       record.status = 'cancelled';
       record.endTime = Date.now();
@@ -798,7 +737,14 @@ export class TerminalExecutionManager implements ITerminalExecutionManager {
    * List all tracked executions.
    */
   public listExecutions(): TerminalExecutionRecord[] {
-    return Array.from(this.executions.values());
+    const map = new Map<string, TerminalExecutionRecord>();
+    for (const p of ProcessManager.getInstance().listProcesses()) {
+      map.set(p.processId, p as any);
+    }
+    for (const e of this.executions.values()) {
+      map.set(e.executionId, e);
+    }
+    return Array.from(map.values());
   }
 
   /**
@@ -816,7 +762,7 @@ export class TerminalExecutionManager implements ITerminalExecutionManager {
 
     if (process.platform === 'win32') {
       try {
-        spawn('taskkill', ['/pid', child.pid.toString(), '/T', '/F'], {
+        spawnSync('taskkill', ['/pid', child.pid.toString(), '/T', '/F'], {
           windowsHide: true,
           stdio: 'ignore',
         });
@@ -909,6 +855,12 @@ export class TerminalExecutionManager implements ITerminalExecutionManager {
       }
     }
     this.activeProcesses.clear();
+
+    try {
+      ProcessManager.getInstance().dispose();
+    } catch {
+      // ignore
+    }
 
     for (const session of this.sessions.values()) {
       try {

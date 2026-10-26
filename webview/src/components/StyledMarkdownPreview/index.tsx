@@ -1,5 +1,3 @@
-const getContextItemsFromHistory = (a: any, b: any) => [];
-const ctxItemToRifWithContents = (item: any, x: any) => ({} as any);
 import { memo, useEffect, useMemo, useRef, lazy, Suspense } from "react";
 import { useRemark } from "react-remark";
 import rehypeKatex from "rehype-katex";
@@ -17,7 +15,11 @@ import useUpdatingRef from "../../hooks/useUpdatingRef";
 import { useAppSelector } from "../../redux/hooks";
 import { selectUIConfig } from "../../redux/slices/configSlice";
 
-import { getFontSize } from "../../util";
+import {
+  ctxItemToRifWithContents,
+  getContextItemsFromHistory,
+  getFontSize,
+} from "../../util";
 import { ToolTip } from "../gui/Tooltip";
 import FilenameLink from "./FilenameLink";
 import "./katex.css";

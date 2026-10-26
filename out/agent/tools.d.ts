@@ -1,23 +1,29 @@
 /**
  * Default agent tool factory for KODRA.
  *
- * Active Tools:
- *   Filesystem & Search:
- *     - read_file        — incremental file reading (120 lines per call)
- *     - list_directory   — workspace directory exploration
- *     - search_code      — regex/text search across workspace files
- *     - edit_file        — write / patch existing files
- *     - create_file      — create new files
- *     - terminal         — run shell commands (requires approval)
+ * Active Agent Tools (Exactly 13):
+ *   File operations:
+ *     - read_file          — incremental file reading with line range slicing
+ *     - edit_file          — exact match text replacement in existing files
+ *     - create_file        — create new files with full content
+ *     - list_directory     — workspace directory exploration and traversal
  *
- *   Code Exploration (Phase 2):
- *     - find_symbol      — workspace-wide symbol search (with language server + text fallback)
- *     - go_to_definition — navigate to a symbol definition by file position
- *     - find_references  — find all usages of a symbol across the workspace
- *     - git_context      — read-only git log / blame / diff / status
+ *   Code navigation and Git:
+ *     - search_code        — text and regex search across workspace files
+ *     - find_symbol        — symbol search by name + definition navigation by file/line
+ *     - find_references    — find all usages of a symbol across the workspace
+ *     - git_context        — read-only git log / blame / diff / status
  *
- * Architecture note: all tool implementations live in src/agent/tools/.
- * Adding a new tool only requires importing it here and adding it to getAllTools().
+ *   Process management:
+ *     - run_command        — run discrete command synchronously with timeout
+ *     - start_process      — start background process and return processId
+ *     - read_process_output— read captured stdout/stderr output incrementally
+ *     - send_process_input — write input data to process stdin
+ *     - stop_process       — gracefully or forcefully stop a KODRA-managed process
+ *
+ * Legacy Compatibility:
+ *   TerminalTool and GoToDefinitionTool are retained for internal VS Code terminal
+ *   and language server compatibility, but are not exposed directly to the model.
  */
 import { ITool } from './types';
 import { IWorkspaceService } from './workspaceService';
@@ -31,9 +37,19 @@ export { FindSymbolTool } from './tools/findSymbolTool';
 export { GoToDefinitionTool } from './tools/goToDefinitionTool';
 export { FindReferencesTool } from './tools/findReferencesTool';
 export { GitContextTool } from './tools/gitContextTool';
+export { RunCommandTool } from './tools/runCommandTool';
+export { StartProcessTool } from './tools/startProcessTool';
+export { ReadProcessOutputTool } from './tools/readProcessOutputTool';
+export { SendProcessInputTool } from './tools/sendProcessInputTool';
+export { StopProcessTool } from './tools/stopProcessTool';
+export interface GetAllToolsOptions {
+    includeProcessTools?: boolean;
+}
+export declare function getProcessTools(workspaceService?: IWorkspaceService): ITool[];
 /**
  * Returns the full active tool set for the Agent Runtime.
- * All ten tools are registered and available to the agent.
+ * Exactly 13 agent-facing tools covering file operations, code navigation,
+ * Git context, and process management.
  */
-export declare function getAllTools(workspaceService?: IWorkspaceService): ITool[];
+export declare function getAllTools(workspaceService?: IWorkspaceService, _options?: GetAllToolsOptions): ITool[];
 //# sourceMappingURL=tools.d.ts.map

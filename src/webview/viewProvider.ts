@@ -764,7 +764,7 @@ export class KodraViewProvider implements vscode.WebviewViewProvider, IWebviewMe
       }
 
       const requireApproval = vscode.workspace.getConfiguration('KODRA').get<boolean>('agent.requireApproval', true);
-      const maxIterations = vscode.workspace.getConfiguration('KODRA').get<number>('agent.maxIterations', 15);
+      const maxIterations = vscode.workspace.getConfiguration('KODRA').get<number>('agent.maxIterations', 100);
 
       if (!this.contextEngine) {
         this.contextEngine = ContextEngine.createForWorkspace();
