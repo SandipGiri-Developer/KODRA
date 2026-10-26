@@ -180,6 +180,7 @@ export class TerminalTool implements ITool {
         content: content.trim(),
         success,
         metadata: {
+          command: record.command,
           executionId: record.executionId,
           terminalSessionId: record.terminalSessionId,
           terminalId: record.terminalId,
@@ -188,6 +189,7 @@ export class TerminalTool implements ITool {
           exitCode: record.exitCode,
           isTruncated: record.isTruncated,
           outputLength: record.output.length,
+          output: record.output,
         },
       };
     } catch (err: any) {

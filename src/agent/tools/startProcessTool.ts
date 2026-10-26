@@ -142,6 +142,7 @@ export class StartProcessTool implements ITool {
           startTime: record.startTime,
           isTruncated: record.isTruncated,
           outputLength: record.output.length,
+          output: record.output,
         },
       };
     } catch (err: any) {

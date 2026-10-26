@@ -137,10 +137,13 @@ export class RunCommandTool implements ITool {
           processId: record.processId,
           pid: record.pid,
           status: record.status,
+          command: record.command,
+          cwd: record.cwd,
           exitCode: record.exitCode,
           durationMs,
           isTruncated: record.isTruncated,
           outputLength: record.output.length,
+          output: record.output,
         },
       };
     } catch (err: any) {

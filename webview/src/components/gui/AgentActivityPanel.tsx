@@ -14,6 +14,10 @@ import {
   SparklesIcon,
   ExclamationCircleIcon,
   StopIcon,
+  CommandLineIcon,
+  ClipboardDocumentIcon,
+  CheckIcon,
+  ArrowTopRightOnSquareIcon,
 } from "@heroicons/react/24/outline";
 import { formatDuration } from "../../util/time";
 
@@ -62,58 +66,100 @@ interface ActivityGroup {
 
 // ─── Helper functions ────────────────────────────────────────────────────────
 
-function extractTarget(args?: Record<string, unknown>): { target: string; fullPath: string } {
+function extractCommand(args?: Record<string, unknown>): string {
+  if (!args) return "";
+  const cmd = (args.command ?? args.CommandLine ?? args.cmd ?? args.input ?? "") as string;
+  return typeof cmd === "string" ? cmd.trim() : "";
+}
+
+function isCommandTool(toolName: string): boolean {
+  const name = (toolName || "").toLowerCase();
+  return (
+    name === "run_command" ||
+    name === "terminal" ||
+    name === "start_process" ||
+    name === "terminal_run" ||
+    name === "execute_command" ||
+    name === "send_process_input" ||
+    name === "bash" ||
+    name === "shell"
+  );
+}
+
+function extractTarget(args?: Record<string, unknown>, toolName?: string): { target: string; fullPath: string; command?: string } {
+  if (toolName && isCommandTool(toolName)) {
+    const cmd = extractCommand(args);
+    return {
+      target: cmd ? (cmd.length > 35 ? `${cmd.slice(0, 32)}...` : cmd) : "command",
+      fullPath: "",
+      command: cmd,
+    };
+  }
   const fp = (args?.filepath ?? args?.file ?? args?.path ?? args?.targetFile ?? args?.directory ?? args?.DirectoryPath ?? args?.AbsolutePath ?? args?.TargetFile ?? args?.SearchPath ?? "") as string;
   let target = fp;
   if (fp) {
     const parts = fp.split(/[/\\]/).filter(Boolean);
     target = parts.length > 2 ? parts.slice(-2).join("/") : (parts.pop() || fp);
   }
-  return { target: target || "", fullPath: fp };
+  return { target: target || "", fullPath: fp, command: extractCommand(args) };
 }
 
-function getGroupLabel(toolName: string, args?: Record<string, unknown>): string {
-  const { target } = extractTarget(args);
+interface ToolLabelInfo {
+  title: string;
+  command?: string;
+}
+
+function getGroupLabel(toolName: string, args?: Record<string, unknown>): ToolLabelInfo {
+  if (isCommandTool(toolName)) {
+    const cmd = extractCommand(args);
+    if (cmd) {
+      return { title: "Ran command", command: cmd };
+    }
+    return { title: "Ran command" };
+  }
+  const { target } = extractTarget(args, toolName);
   if (toolName === "list_directory" || toolName === "list_dir") {
     let t = target || "directory";
     if (t !== "directory" && !t.endsWith("/")) t += "/";
-    return `Explored ${t}`;
+    return { title: `Explored ${t}` };
   }
   if (toolName === "read_file" || toolName === "view_file" || toolName === "grep_search") {
-    return `Explored ${target || "file"}`;
+    return { title: `Explored ${target || "file"}` };
   }
   if (toolName === "edit_file" || toolName === "create_file" || toolName === "write_to_file" || toolName === "replace_file_content" || toolName === "multi_replace_file_content") {
-    return `Edited ${target || "file"}`;
-  }
-  if (toolName === "run_command" || toolName === "terminal") {
-    return `Ran command`;
+    return { title: `Edited ${target || "file"}` };
   }
   if (toolName === "search_web") {
-    return `Searched web`;
+    return { title: `Searched web` };
   }
-  return `Used ${toolName}`;
+  return { title: `Used ${toolName}` };
 }
 
-function getInnerLabel(tool: ToolActivity): string {
-  const { target } = extractTarget(tool.args);
+function getInnerLabel(tool: ToolActivity): ToolLabelInfo {
+  if (isCommandTool(tool.toolName)) {
+    const cmd = extractCommand(tool.args);
+    const verb = tool.status === "running" ? "Running command" : "Ran command";
+    if (cmd) {
+      return { title: verb, command: cmd };
+    }
+    return { title: verb };
+  }
+  const { target } = extractTarget(tool.args, tool.toolName);
   if (tool.toolName === "read_file" || tool.toolName === "view_file" || tool.toolName === "grep_search") {
     const start = (tool.metadata?.startLine ?? tool.args?.startLine ?? tool.args?.StartLine) as number | undefined;
     const end = (tool.metadata?.endLine ?? tool.args?.endLine ?? tool.args?.EndLine) as number | undefined;
     const range = start && end ? `#L${start}-${end}` : (start ? `#L${start}-` : "");
-    return `Analyzed ${target || "file"}${range}`;
+    return { title: `Analyzed ${target || "file"}${range}` };
   }
   if (tool.toolName === "list_directory" || tool.toolName === "list_dir") {
     let t = target || "directory";
     if (t !== "directory" && !t.endsWith("/")) t += "/";
-    return `Explored ${t}`;
+    return { title: `Explored ${t}` };
   }
   if (tool.toolName === "edit_file" || tool.toolName === "create_file" || tool.toolName === "write_to_file" || tool.toolName === "replace_file_content" || tool.toolName === "multi_replace_file_content") {
-    return `Edited ${target || "file"}`;
+    return { title: `Edited ${target || "file"}` };
   }
-  if (tool.toolName === "run_command" || tool.toolName === "terminal") {
-    return `Ran command`;
-  }
-  return `Ran ${tool.toolName}`;
+  return { title: `Ran ${tool.toolName}` };
 }
 
 // ─── Icons ───────────────────────────────────────────────────────────────────
@@ -151,12 +197,196 @@ function Chevron({ open }: { open: boolean }) {
   );
 }
 
+// ─── Command Card ────────────────────────────────────────────────────────────
+
+function CommandCard({ tool }: { tool: ToolActivity }) {
+  const [copied, setCopied] = useState(false);
+  const command = extractCommand(tool.args);
+  const cwd = (tool.args?.cwd ?? tool.args?.Cwd ?? "") as string;
+  const execId = (tool.metadata?.executionId as string) || (tool.args?.executionId as string) || "";
+  const exitCode = tool.metadata?.exitCode as number | undefined;
+  const output = (tool.metadata?.output ?? tool.metadata?.stdout ?? "") as string;
+
+  const handleCopy = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!command) return;
+    navigator.clipboard?.writeText(command);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleRevealTerminal = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    (window as any).vscode?.postMessage({
+      type: "revealTerminal",
+      executionId: execId,
+    });
+  };
+
+  return (
+    <div
+      style={{
+        marginTop: 4,
+        marginBottom: 6,
+        padding: "8px 10px",
+        borderRadius: 6,
+        backgroundColor: "var(--vscode-terminal-background, #141820)",
+        border: "1px solid var(--vscode-widget-border, rgba(255, 255, 255, 0.08))",
+        fontSize: 11,
+        fontFamily: "var(--vscode-editor-font-family, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace)",
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 4 }}>
+        <span
+          style={{
+            fontSize: 10,
+            textTransform: "uppercase",
+            letterSpacing: "0.06em",
+            color: "var(--vscode-descriptionForeground, #8b949e)",
+            fontWeight: 600,
+          }}
+        >
+          Terminal Command
+        </span>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          {exitCode !== undefined && (
+            <span
+              style={{
+                fontSize: 10,
+                padding: "1px 5px",
+                borderRadius: 4,
+                backgroundColor: exitCode === 0 ? "rgba(78, 201, 176, 0.15)" : "rgba(241, 76, 76, 0.15)",
+                color: exitCode === 0 ? "var(--vscode-terminal-ansiGreen, #4ec9b0)" : "var(--vscode-editorError-foreground, #f14c4c)",
+                fontWeight: 600,
+              }}
+            >
+              exit {exitCode}
+            </span>
+          )}
+          <button
+            type="button"
+            onClick={handleCopy}
+            title={copied ? "Copied!" : "Copy command"}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 3,
+              background: "transparent",
+              border: "none",
+              color: copied ? "var(--vscode-terminal-ansiGreen, #4ec9b0)" : "var(--vscode-descriptionForeground, #9d9d9d)",
+              cursor: "pointer",
+              padding: "1px 4px",
+              borderRadius: 3,
+              fontSize: 10,
+            }}
+          >
+            {copied ? (
+              <>
+                <CheckIcon style={{ width: 11, height: 11 }} />
+                <span>Copied</span>
+              </>
+            ) : (
+              <>
+                <ClipboardDocumentIcon style={{ width: 11, height: 11 }} />
+                <span>Copy</span>
+              </>
+            )}
+          </button>
+          {(tool.toolName === "terminal" || execId) && (
+            <button
+              type="button"
+              onClick={handleRevealTerminal}
+              title="Open terminal in VS Code"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 3,
+                background: "transparent",
+                border: "none",
+                color: "var(--vscode-textLink-foreground, #40a9ff)",
+                cursor: "pointer",
+                padding: "1px 4px",
+                borderRadius: 3,
+                fontSize: 10,
+              }}
+            >
+              <ArrowTopRightOnSquareIcon style={{ width: 11, height: 11 }} />
+              <span>Terminal</span>
+            </button>
+          )}
+        </div>
+      </div>
+
+      <div
+        style={{
+          display: "flex",
+          alignItems: "flex-start",
+          gap: 6,
+          color: "var(--vscode-terminal-foreground, #e2e8f0)",
+          wordBreak: "break-all",
+          whiteSpace: "pre-wrap",
+          lineHeight: 1.45,
+          userSelect: "all",
+        }}
+      >
+        <span
+          style={{
+            color: "var(--vscode-terminal-ansiGreen, #4ec9b0)",
+            fontWeight: "bold",
+            userSelect: "none",
+            flexShrink: 0,
+          }}
+        >
+          $
+        </span>
+        <span style={{ fontWeight: 500 }}>{command || "(No command specified)"}</span>
+      </div>
+
+      {cwd && (
+        <div
+          style={{
+            marginTop: 4,
+            fontSize: 10,
+            color: "var(--vscode-descriptionForeground, #8b949e)",
+            userSelect: "none",
+          }}
+        >
+          Directory: <span style={{ color: "var(--vscode-editor-foreground, #cccccc)" }}>{cwd}</span>
+        </div>
+      )}
+
+      {output && (
+        <div
+          style={{
+            marginTop: 6,
+            paddingTop: 4,
+            borderTop: "1px dashed var(--vscode-widget-border, rgba(255, 255, 255, 0.08))",
+            maxHeight: 120,
+            overflowY: "auto",
+            fontSize: 10,
+            color: "var(--vscode-descriptionForeground, #9d9d9d)",
+            whiteSpace: "pre-wrap",
+          }}
+        >
+          {output.slice(0, 500)}
+          {output.length > 500 && `\n... (${output.length - 500} more characters)`}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── InnerToolRow ────────────────────────────────────────────────────────────
 
 function InnerToolRow({ tool, now, hideLabel }: { tool: ToolActivity; now: number; hideLabel?: boolean }) {
   const endTime = tool.status === "running" ? now : tool.endTime;
   const durationSec = endTime ? ((endTime - tool.startTime) / 1000).toFixed(1) : null;
-  const label = getInnerLabel(tool);
+  const labelInfo = getInnerLabel(tool);
+  const isCmd = isCommandTool(tool.toolName) || Boolean(extractCommand(tool.args));
+
+  if (isCmd) {
+    return <CommandCard tool={tool} />;
+  }
 
   return (
     <div style={{ marginBottom: 2 }}>
@@ -178,7 +408,7 @@ function InnerToolRow({ tool, now, hideLabel }: { tool: ToolActivity; now: numbe
                 (window as any).vscode?.postMessage({ type: "revealTerminal", executionId: execId });
                 return;
               }
-              const { fullPath } = extractTarget(tool.args);
+              const { fullPath } = extractTarget(tool.args, tool.toolName);
               if (fullPath && tool.toolName !== 'list_directory' && tool.toolName !== 'list_dir') {
                 (window as any).vscode?.postMessage({ type: "openFile", filepath: fullPath });
               }
@@ -189,12 +419,12 @@ function InnerToolRow({ tool, now, hideLabel }: { tool: ToolActivity; now: numbe
               overflow: "hidden",
               textOverflow: "ellipsis",
               whiteSpace: "nowrap",
-              cursor: (tool.toolName === 'terminal' || (extractTarget(tool.args).fullPath && tool.toolName !== 'list_directory' && tool.toolName !== 'list_dir')) ? "pointer" : "default",
+              cursor: (tool.toolName === 'terminal' || (extractTarget(tool.args, tool.toolName).fullPath && tool.toolName !== 'list_directory' && tool.toolName !== 'list_dir')) ? "pointer" : "default",
             }}
-            className={(tool.toolName === 'terminal' || (extractTarget(tool.args).fullPath && tool.toolName !== 'list_directory' && tool.toolName !== 'list_dir')) ? "hover:underline hover:text-[var(--vscode-foreground,#cccccc)] transition-colors" : ""}
+            className={(tool.toolName === 'terminal' || (extractTarget(tool.args, tool.toolName).fullPath && tool.toolName !== 'list_directory' && tool.toolName !== 'list_dir')) ? "hover:underline hover:text-[var(--vscode-foreground,#cccccc)] transition-colors" : ""}
             title={tool.toolName === 'terminal' ? "Click to reveal terminal in VS Code" : undefined}
           >
-            {label}
+            {labelInfo.title}
           </span>
           <div style={{ flex: 1 }} />
           {durationSec && (
@@ -232,7 +462,9 @@ function InnerToolRow({ tool, now, hideLabel }: { tool: ToolActivity; now: numbe
 // ─── GroupRow ────────────────────────────────────────────────────────────────
 
 function GroupRow({ group, now }: { group: ActivityGroup; now: number }) {
-  const [open, setOpen] = useState(false);
+  const firstTool = group.items.find((i) => i.type === "tool") as { type: "tool"; tool: ToolActivity } | undefined;
+  const isCmdGroup = firstTool ? (isCommandTool(firstTool.tool.toolName) || Boolean(extractCommand(firstTool.tool.args))) : false;
+  const [open, setOpen] = useState(() => isCmdGroup);
   const [hover, setHover] = useState(false);
 
   const statusColor =
@@ -242,11 +474,16 @@ function GroupRow({ group, now }: { group: ActivityGroup; now: number }) {
       ? "var(--vscode-editorError-foreground, #f14c4c)"
       : "var(--vscode-progressBar-background, #0e70c0)";
 
-  // Label based on the first tool in the group (or just fallback to Explored)
-  const firstTool = group.items.find((i) => i.type === "tool") as { type: "tool"; tool: ToolActivity } | undefined;
-  const label = firstTool ? getGroupLabel(firstTool.tool.toolName, firstTool.tool.args) : `Explored ${group.target}`;
+  const labelInfo = firstTool
+    ? getGroupLabel(firstTool.tool.toolName, firstTool.tool.args)
+    : { title: `Explored ${group.target}` };
 
-  const statusIcon = group.status === "completed" ? <ToolIcon /> : group.status === "failed" ? <ErrorIcon /> : <RunningIcon />;
+  const statusIcon =
+    group.status === "completed"
+      ? (isCmdGroup ? <CommandLineIcon style={{ width: 12, height: 12, flexShrink: 0 }} /> : <ToolIcon />)
+      : group.status === "failed"
+      ? <ErrorIcon />
+      : <RunningIcon />;
 
   const endTime = group.status === "running" ? now : group.endTime;
   const durationSec = endTime ? ((endTime - group.startTime) / 1000).toFixed(1) : null;
@@ -285,14 +522,14 @@ function GroupRow({ group, now }: { group: ActivityGroup; now: number }) {
                 (window as any).vscode?.postMessage({ type: "revealTerminal", executionId: execId });
                 return;
               }
-              const { fullPath } = extractTarget(firstItem.tool.args);
+              const { fullPath } = extractTarget(firstItem.tool.args, toolName);
               if (fullPath && toolName !== 'list_directory' && toolName !== 'list_dir') {
                 e.stopPropagation();
                 (window as any).vscode?.postMessage({ type: "openFile", filepath: fullPath });
               }
             }
           }}
-          className={(group.items.some(i => i.type === 'tool' && (i.tool.toolName === 'terminal' || i.tool.toolName === 'run_command' || (extractTarget(i.tool.args).fullPath && i.tool.toolName !== 'list_directory' && i.tool.toolName !== 'list_dir')))) ? "hover:underline cursor-pointer" : ""}
+          className={(group.items.some(i => i.type === 'tool' && (i.tool.toolName === 'terminal' || i.tool.toolName === 'run_command' || (extractTarget(i.tool.args, i.tool.toolName).fullPath && i.tool.toolName !== 'list_directory' && i.tool.toolName !== 'list_dir')))) ? "hover:underline cursor-pointer" : ""}
           title={(group.items.some(i => i.type === 'tool' && (i.tool.toolName === 'terminal' || i.tool.toolName === 'run_command'))) ? "Click to reveal terminal in VS Code" : undefined}
           style={{
             fontSize: 11,
@@ -301,9 +538,34 @@ function GroupRow({ group, now }: { group: ActivityGroup; now: number }) {
             overflow: "hidden",
             textOverflow: "ellipsis",
             whiteSpace: "nowrap",
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 5,
+            flex: 1,
+            minWidth: 0,
           }}
         >
-          {label}
+          <span>{labelInfo.title}</span>
+          {labelInfo.command && (
+            <code
+              style={{
+                fontFamily: "var(--vscode-editor-font-family, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace)",
+                fontSize: 10.5,
+                padding: "1px 6px",
+                borderRadius: 4,
+                backgroundColor: "var(--vscode-badge-background, rgba(255, 255, 255, 0.08))",
+                color: "var(--vscode-terminal-ansiGreen, #4ec9b0)",
+                border: "1px solid var(--vscode-widget-border, rgba(255, 255, 255, 0.1))",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+                maxWidth: "70%",
+              }}
+              title={labelInfo.command}
+            >
+              $ {labelInfo.command}
+            </code>
+          )}
         </span>
         <span style={{ color: "var(--vscode-descriptionForeground, #9d9d9d)", opacity: hover ? 0.8 : 0.5, display: "inline-flex", alignItems: "center", transition: "opacity 0.1s ease" }}>
           <Chevron open={open} />
@@ -339,9 +601,10 @@ function GroupRow({ group, now }: { group: ActivityGroup; now: number }) {
                 </div>
               );
             } else {
-              // Avoid redundant inner label if it's the only item and perfectly matches the parent
-              const innerLabel = getInnerLabel(item.tool);
-              const hideLabel = group.items.length === 1 && innerLabel === label;
+              const innerLabelInfo = getInnerLabel(item.tool);
+              const isCmdItem = isCommandTool(item.tool.toolName) || Boolean(extractCommand(item.tool.args));
+              // Avoid redundant inner label if it's the only non-command item and perfectly matches the parent
+              const hideLabel = group.items.length === 1 && innerLabelInfo.title === labelInfo.title && !isCmdItem;
               if (hideLabel && !item.tool.error && !item.tool.metadata?.entries) return null;
               return <InnerToolRow key={item.tool.toolCallId} tool={item.tool} now={now} hideLabel={hideLabel} />;
             }
@@ -451,7 +714,7 @@ export function AgentActivityPanel({ activities, isStreaming = false }: AgentAct
     let target = "";
 
     if (entry.type === "tool") {
-      target = extractTarget(entry.tool.args).target;
+      target = extractTarget(entry.tool.args, entry.tool.toolName).target;
     } else {
       // Find next tool to adopt its target context
       let nextTool: ToolActivity | null = null;
@@ -462,7 +725,7 @@ export function AgentActivityPanel({ activities, isStreaming = false }: AgentAct
         }
       }
       if (nextTool) {
-        target = extractTarget(nextTool.args).target;
+        target = extractTarget(nextTool.args, nextTool.toolName).target;
       } else if (currentGroup) {
         target = currentGroup.target;
       }
