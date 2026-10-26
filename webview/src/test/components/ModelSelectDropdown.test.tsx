@@ -5,6 +5,7 @@ import { ModelSelectDropdown } from '../../components/mainInput/ModelSelectDropd
 import { Provider } from 'react-redux';
 import { configureStore } from '@reduxjs/toolkit';
 import uiReducer from '../../redux/slices/uiSlice';
+import configReducer from '../../redux/slices/configSlice';
 import React from 'react';
 
 const mockPostMessage = vi.fn();
@@ -28,6 +29,7 @@ describe('ModelSelectDropdown', () => {
     store = configureStore({
       reducer: {
         ui: uiReducer,
+        config: configReducer,
       },
     });
   });
@@ -280,6 +282,37 @@ describe('ModelSelectDropdown', () => {
       expect(screen.getByText('No models found matching "nonexistent-model"')).toBeDefined();
       expect(screen.queryByText('GPT-4o')).toBeNull();
     });
+  });
+
+  it('updates config.selectedModelByRole.chat with capabilities when model is selected', async () => {
+    renderComponent();
+
+    window.dispatchEvent(new MessageEvent('message', {
+      data: {
+        type: 'settingsData',
+        workspaceModels: [
+          {
+            id: 'deepseek-r1',
+            displayName: 'DeepSeek R1',
+            provider: 'deepseek',
+            providerConfigId: 'deepseek-1',
+            capabilities: { toolCalling: true, vision: false, reasoning: true }
+          }
+        ]
+      }
+    }));
+
+    fireEvent.click(screen.getByText('Select model'));
+    await waitFor(() => expect(screen.getByText('DeepSeek R1')).toBeDefined());
+
+    fireEvent.click(screen.getAllByText('DeepSeek R1')[0]);
+
+    const state = store.getState();
+    const chatModel = state.config.config.selectedModelByRole.chat;
+    expect(chatModel).toBeDefined();
+    expect(chatModel?.title).toBe('DeepSeek R1');
+    expect(chatModel?.capabilities?.reasoning).toBe(true);
+    expect(chatModel?.capabilities?.toolCalling).toBe(true);
   });
 });
 

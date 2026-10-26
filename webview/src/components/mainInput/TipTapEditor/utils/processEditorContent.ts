@@ -11,8 +11,7 @@ import {
 import { CodeBlock, Mention, PromptBlock } from "../extensions";
 import { GetContextRequest } from "./types";
 
-const ctxItemToRifWithContents = (item: any, x: any) => ({} as any);
-const getUriDescription = (a: any, b: any) => ({ extension: "ts", relativePathOrBasename: "file.ts" });
+import { ctxItemToRifWithContents, getUriDescription } from "../../../../util";
 
 interface MentionAttrs {
   label: string;

@@ -1,5 +1,5 @@
 // Top-level webview layout wrapper managing routing outlet, dialogs, and global IPC event listeners.
-const exitEdit = (a: any) => ({type: "dummy"}); const setCodeToEdit = (a: any) => ({type: "dummy"}); const enterEdit = (a: any) => ({type: "dummy"}); type OnboardingModes = any;
+import { enterEdit, exitEdit, setCodeToEdit } from "../redux/thunks/edit";
 
 import { useContext, useEffect } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
@@ -20,7 +20,6 @@ import { FatalErrorIndicator } from "./config/FatalErrorNotice";
 import { TextDialog } from "./dialogs/TextDialog";
 import { useMainEditor } from "./mainInput/TipTapEditor";
 const isNewUserOnboarding = () => false;
-const OnboardingCard = () => <></>;
 const useOnboardingCard = () => ({ open: (s?: any) => {} });
 import OSRContextMenu from "./OSRContextMenu";
 

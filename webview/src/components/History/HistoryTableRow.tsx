@@ -1,5 +1,4 @@
 // History item row component with rename, share, delete, and session restore capabilities.
-const exitEdit = (a: any) => ({type: "dummy"}); const getUriPathBasename = (a: any) => a;
 import {
   ArrowDownOnSquareIcon,
   PencilSquareIcon,
@@ -19,9 +18,10 @@ import {
   loadSession,
   updateSession,
 } from "../../redux/thunks/session";
+import { exitEdit } from "../../redux/thunks/edit";
 import { setDialogMessage, setShowDialog } from "../../redux/slices/uiSlice";
 import { ConfirmationDialog } from "../dialogs/ConfirmationDialog";
-import { isShareSessionSupported } from "../../util";
+import { getUriPathBasename, isShareSessionSupported } from "../../util";
 import HeaderButtonWithToolTip from "../gui/HeaderButtonWithToolTip";
 import { ToolTip } from "../gui/Tooltip";
 

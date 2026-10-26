@@ -1,7 +1,6 @@
-const findUriInDirs = (a: any, b: any) => a; const getUriPathBasename = (a: any) => a;
 import { RangeInFile } from "core";
-
 import { useContext } from "react";
+import { findUriInDirs, getUriPathBasename } from "../../util";
 import { IdeMessengerContext } from "../../context/IdeMessenger";
 import FileIcon from "../FileIcon";
 import { ToolTip } from "../gui/Tooltip";

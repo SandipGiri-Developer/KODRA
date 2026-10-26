@@ -552,10 +552,12 @@ describe('Phase 1: Process Management & Process Tools', () => {
       expect(sendRes.success).toBe(true);
       expect(sendRes.metadata?.bytesWritten).toBeGreaterThan(0);
 
-      // Wait briefly for node to process stdin and write to stdout
-      await new Promise((r) => setTimeout(r, 200));
-
-      const outputRes = processManager.getOutput(record.processId);
+      // Wait for node to process stdin and write to stdout
+      let outputRes = processManager.getOutput(record.processId);
+      for (let i = 0; i < 30 && !outputRes?.output.includes('ECHO:PingFromKodra'); i++) {
+        await new Promise((r) => setTimeout(r, 50));
+        outputRes = processManager.getOutput(record.processId);
+      }
       expect(outputRes?.output).toContain('ECHO:PingFromKodra');
 
       await processManager.stopProcess(record.processId);
@@ -703,10 +705,12 @@ describe('Phase 1: Process Management & Process Tools', () => {
       const sendRes = await sendIn.execute({ processId: pid, input: 'HelloUnified' });
       expect(sendRes.success).toBe(true);
 
-      await new Promise((r) => setTimeout(r, 200));
-
       // 2. read output using readOut tool
-      const readRes = await readOut.execute({ processId: pid });
+      let readRes = await readOut.execute({ processId: pid });
+      for (let i = 0; i < 30 && !readRes.content.includes('UNIFIED:HelloUnified'); i++) {
+        await new Promise((r) => setTimeout(r, 50));
+        readRes = await readOut.execute({ processId: pid });
+      }
       expect(readRes.success).toBe(true);
       expect(readRes.content).toContain('UNIFIED:HelloUnified');
 

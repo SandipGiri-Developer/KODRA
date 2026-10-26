@@ -63,7 +63,6 @@ export function remarkTables() {
       }
 
       let match: RegExpExecArray | null;
-      let lastIndex = 0;
       const newNodes = [];
       let failed = false;
 
@@ -176,8 +175,6 @@ export function remarkTables() {
             value: fullTableString,
           });
         }
-
-        lastIndex = tableRegex.lastIndex;
       }
 
       if (failed) {

@@ -1,5 +1,5 @@
 // Multi-tab session bar supporting tab switching, creation, and session state persistence.
-const saveCurrentSession = (a: any) => ({type: "dummy"}); const loadSession = (a: any) => ({type: "dummy"});
+import { loadSession, saveCurrentSession } from "../../redux/thunks/session";
 import { XMarkIcon } from "@heroicons/react/24/outline";
 import React, { useCallback, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
@@ -259,11 +259,7 @@ export const TabBar = React.forwardRef<HTMLDivElement>((_, ref) => {
           </CloseButton>
         </Tab>
       ))}
-      <TabBarSpace>
-        {/* <NewTabButton onClick={handleNewTab}>
-          <PlusIcon width={16} height={16} />
-        </NewTabButton> */}
-      </TabBarSpace>
+      <TabBarSpace />
     </TabBarContainer>
   );
 });

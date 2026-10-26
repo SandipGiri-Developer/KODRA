@@ -2,6 +2,7 @@ import { ChatHistoryItem } from "core";
 import { useEffect, useState } from "react";
 import { useAppSelector } from "../../redux/hooks";
 import { selectSelectedChatModel } from "../../redux/slices/configSlice";
+import { modelSupportsReasoning } from "../../util";
 
 interface ThinkingIndicatorProps {
   historyItem: ChatHistoryItem;
@@ -24,14 +25,15 @@ const ThinkingIndicator = ({ historyItem }: ThinkingIndicatorProps) => {
 
   const selectedModel = useAppSelector(selectSelectedChatModel);
   const isStreaming = useAppSelector((state) => state.session.isStreaming);
+  const hasReasoningEnabled = useAppSelector((state) => state.session.hasReasoningEnabled);
 
   const hasContent = Array.isArray(historyItem.message.content)
     ? !!historyItem.message.content.length
     : !!historyItem.message.content;
-  const isO1 = selectedModel?.model.startsWith("o1");
+  const isReasoning = modelSupportsReasoning(selectedModel) || hasReasoningEnabled;
   const isThinking =
     isStreaming && !historyItem.isGatheringContext && !hasContent;
-  if (!isThinking || !isO1) {
+  if (!isThinking || !isReasoning) {
     return null;
   }
 

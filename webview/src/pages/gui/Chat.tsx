@@ -1,5 +1,6 @@
 // Primary chat view rendering message history, streamed responses, tool calls, and user input editor.
-const useOnboardingCard = () => ({show: false}); const cancelStream = () => ({type: "dummy"});
+const useOnboardingCard = () => ({show: false});
+import { cancelStream } from "../../redux/thunks/cancelStream";
 import {
   ArrowLeftIcon,
   ChatBubbleOvalLeftIcon,
@@ -26,7 +27,6 @@ import styled from "styled-components";
 import { Button, lightGray, vscBackground } from "../../components";
 const useFindWidget = (s?: any, t?: any, u?: any) => ({ widget: <></>, highlights: <></> });
 import TimelineItem from "../../components/gui/TimelineItem";
-import { NewSessionButton } from "../../components/mainInput/belowMainInput/NewSessionButton";
 import ThinkingBlockPeek from "../../components/mainInput/belowMainInput/ThinkingBlockPeek";
 import KODRAInputBox from "../../components/mainInput/KODRAInputBox";
 

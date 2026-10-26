@@ -20,7 +20,6 @@ const OSRContextMenu = () => {
   const [position, setPosition] = useState<Position | null>(null);
   const [canCopy, setCanCopy] = useState(false);
   const [canCut, setCanCut] = useState(false);
-  const [canPaste, setCanPaste] = useState(false);
 
   const menuRef = React.useRef<HTMLDivElement>(null);
   const selectedTextRef = useRef<string | null>(null);
@@ -104,12 +103,6 @@ const OSRContextMenu = () => {
           !!(isEditable && selectedTextRef.current && isClickWithinSelection),
         );
 
-        // TODO only can paste if there is text in clipboard?
-        setCanPaste(isEditable);
-        //   navigator.clipboard.readText().then((text) => {
-        //     setCanPaste(text || null);
-        //   });
-
         // Open towards inside of window from click
         const toRight = event.clientX > window.innerWidth / 2;
         const toBottom = event.clientY > window.innerHeight / 2;
@@ -189,25 +182,6 @@ const OSRContextMenu = () => {
           Cut
         </div>
       )}
-      {/* PASTING is currently broken, can't get the clipboard text */}
-      {/* {canPaste && (
-        <div
-          className="cursor-pointer hover:opacity-90"
-          onClick={async (e) => {
-            onMenuItemClick(e);
-            const clipboardText = await navigator.clipboard.readText();
-            // const out = await navigator.clipboard.read();
-            if (clipboardText) {
-              selectedRangeRef.current?.deleteContents();
-              selectedRangeRef.current?.insertNode(
-                document.createTextNode(clipboardText),
-              );
-            }
-          }}
-        >
-          Paste
-        </div>
-      )} */}
       <div
         className="cursor-pointer hover:opacity-90"
         onClick={(e) => {

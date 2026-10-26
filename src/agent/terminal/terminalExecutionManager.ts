@@ -296,7 +296,7 @@ export class TerminalExecutionManager implements ITerminalExecutionManager {
 
     const pm = ProcessManager.getInstance();
     const timeoutMs = options.timeoutMs ?? 120_000;
-    const waitMs = options.waitMs ?? 5000;
+    const waitMs = options.waitMs ?? 10_000;
 
     return new Promise<TerminalExecutionRecord>(async (resolve) => {
       if (options.signal?.aborted) {
