@@ -174,17 +174,6 @@ export function HistoryTableRow({
           <span className="line-clamp-1 break-all text-xs">
             {getUriPathBasename(sessionMetadata.workspaceDirectory || "")}
           </span>
-          {/* Uncomment to show the date */}
-          {/* <span className="inline-block ml-auto">
-                {date.toLocaleString("en-US", {
-                  year: "2-digit",
-                  month: "2-digit",
-                  day: "2-digit",
-                  hour: "numeric",
-                  minute: "2-digit",
-                  hour12: true,
-                })}
-              </span> */}
         </div>
       </td>
 

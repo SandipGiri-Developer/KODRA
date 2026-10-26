@@ -10,7 +10,6 @@ interface HeaderButtonWithToolTipProps {
   children: React.ReactNode;
   disabled?: boolean;
   inverted?: boolean;
-  active?: boolean;
   className?: string;
   onKeyDown?: (e: any) => void;
   tabIndex?: number;

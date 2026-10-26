@@ -1,6 +1,5 @@
 // Keyboard shortcut formatter rendering platform-aware modifier keys and badges.
 import React from "react";
-import "../../../src/index.css";
 import {
   getAltKeyLabel,
   getFontSize,

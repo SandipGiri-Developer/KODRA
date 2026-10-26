@@ -4,7 +4,6 @@ import {
 } from "@heroicons/react/24/outline";
 import { ChatHistoryItem } from "core";
 const renderChatMessage = (message: any) => typeof message.content === "string" ? message.content : JSON.stringify(message.content);
-import { useAppSelector } from "../../redux/hooks";
 import { FeedbackButtons } from "../FeedbackButtons";
 import { CopyIconButton } from "../gui/CopyIconButton";
 import HeaderButtonWithToolTip from "../gui/HeaderButtonWithToolTip";
