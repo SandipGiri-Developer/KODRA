@@ -70,6 +70,38 @@ export function AddProviderForm({
 
   const [modelSearchQuery, setModelSearchQuery] = useState("");
 
+  // Fetch stored API key when editing an existing provider
+  useEffect(() => {
+    if (editingProvider) {
+      if ((window as any).vscode) {
+        (window as any).vscode.postMessage({
+          type: "getProviderApiKey",
+          id: editingProvider.id,
+        });
+      }
+    }
+  }, [editingProvider]);
+
+  useEffect(() => {
+    const handler = (event: MessageEvent) => {
+      const data = event.data;
+      if (
+        data &&
+        data.type === "providerApiKey" &&
+        data.id === editingProvider?.id
+      ) {
+        if (typeof data.apiKey === "string") {
+          setApiKey(data.apiKey);
+        }
+      }
+    };
+
+    window.addEventListener("message", handler);
+    return () => {
+      window.removeEventListener("message", handler);
+    };
+  }, [editingProvider]);
+
   useEffect(() => {
     const handler = (event: MessageEvent) => {
       const data = event.data;
@@ -486,11 +518,7 @@ export function AddProviderForm({
                 onChange={(event) =>
                   setApiKey(event.target.value)
                 }
-                placeholder={
-                  isEditing
-                    ? "Leave blank to keep existing key"
-                    : "Enter API key"
-                }
+                placeholder="Enter API key"
                 className="
                   h-10
                   w-full
